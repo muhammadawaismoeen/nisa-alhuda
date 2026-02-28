@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Accessing the environment variables you added to Vercel
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
