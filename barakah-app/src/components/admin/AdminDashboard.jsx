@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// CORRECT PATH: Go up from 'admin', then up from 'components' to reach 'src'
 import { supabase } from '../../supabaseClient'; 
 import { 
   Rocket, 
@@ -23,7 +24,6 @@ const AdminDashboard = () => {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
   
   // --- FORM STATE ---
   const [title, setTitle] = useState('');
@@ -44,7 +44,7 @@ const AdminDashboard = () => {
     
     // Real-time subscription to sync UI across all devices
     const channel = supabase
-      .channel('admin_sync_v4')
+      .channel('admin_sync_v5')
       .on(
         'postgres_changes', 
         { event: '*', schema: 'public', table: 'challenges' }, 
@@ -343,7 +343,6 @@ const AdminDashboard = () => {
                         </div>
                       </div>
 
-                      {/* DETAILED PARTICIPANT LOG */}
                       <div className="bg-white border-2 border-slate-50 rounded-[32px] p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-5 border-b border-slate-50 pb-4">
                            <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-2">
