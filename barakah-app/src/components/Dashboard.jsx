@@ -1,3 +1,6 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient'; 
+
 export default function Dashboard({ 
     user, 
     prayerTimes, 
@@ -20,10 +23,88 @@ export default function Dashboard({
     // Safety check for sunnah advice
     const sunnah = getSunnahAdvice ? getSunnahAdvice() : { icon: "✨", text: "Keep a smile, it's Sunnah" };
 
+    // --- Challenge Hub Logic ---
+    const [activeChallenges, setActiveChallenges] = useState([]);
+    const [completedIds, setCompletedIds] = useState([]);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            fetchChallenges();
+        }
+    }, [user]);
+
+    async function fetchChallenges() {
+        try {
+            // 1. Fetch all challenges that haven't expired yet
+            const { data: challenges, error: chError } = await supabase
+                .from('challenges')
+                .select('*')
+                .gt('expires_at', new Date().toISOString())
+                .order('created_at', { ascending: false });
+
+            if (chError) throw chError;
+
+            // 2. Fetch what this specific user has already completed
+            const { data: completions, error: compError } = await supabase
+                .from('challenge_completions')
+                .select('challenge_id')
+                .eq('user_id', user.id);
+
+            if (compError) throw compError;
+
+            setCompletedIds(completions.map(c => c.challenge_id));
+            setActiveChallenges(challenges || []);
+        } catch (err) {
+            console.error("Error loading challenges:", err.message);
+        }
+    }
+
+    async function handleCompleteChallenge(challenge) {
+        if (isProcessing) return;
+        setIsProcessing(true);
+
+        try {
+            // 1. Record the completion
+            const { error: compError } = await supabase
+                .from('challenge_completions')
+                .insert([{
+                    challenge_id: challenge.id,
+                    user_id: user.id,
+                    username: user.username,
+                    points_awarded: challenge.points
+                }]);
+
+            if (compError) throw compError;
+
+            // 2. Update user's total points in the profile
+            const newTotal = (totalPoints || 0) + challenge.points;
+            const { error: userError } = await supabase
+                .from('profiles')
+                .update({ points: newTotal })
+                .eq('id', user.id);
+
+            if (userError) throw userError;
+
+            // 3. Update local state
+            setCompletedIds([...completedIds, challenge.id]);
+            alert(`MashaAllah! You earned ${challenge.points} Hasanat!`);
+            
+            // Refresh parent state if needed
+            if (setUser) {
+                setUser({ ...user, points: newTotal });
+            }
+        } catch (err) {
+            alert("Completion error: " + err.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    }
+
     return (
         <div className="pb-28 animate-in slide-in-from-bottom-4 h-full overflow-y-auto no-scrollbar">
             
-            {/* Daily Inspiration Float Card - Positioned at the top of the white area */}
+            {/* Daily Inspiration Float Card */}
             <div className="bg-rose-50 p-6 rounded-[2.5rem] border border-rose-100 mb-8">
                 <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Daily Inspiration</p>
                 <p className="text-gray-700 text-sm italic font-semibold leading-relaxed">
@@ -87,6 +168,64 @@ export default function Dashboard({
                     <p className="text-[9px] font-black opacity-60 uppercase">
                         — {dailyDua.source}
                     </p>
+                </div>
+            </div>
+
+            {/* NEW REQUIREMENT: CHALLENGE HUB (ACTIVE CHALLENGES) */}
+            <div className="mb-8">
+                <div className="flex justify-between items-center mb-4 px-2">
+                    <h3 className="text-lg font-black text-gray-800">Community Challenges</h3>
+                    <span className="text-[9px] font-black text-rose-400 uppercase bg-rose-50 px-2 py-1 rounded-md">
+                        {activeChallenges.length} Active
+                    </span>
+                </div>
+
+                <div className="space-y-4">
+                    {activeChallenges.length === 0 ? (
+                        <div className="bg-gray-50 rounded-[2rem] p-8 text-center border border-dashed border-gray-200">
+                            <p className="text-xs font-bold text-gray-400">No active challenges right now. Check back later!</p>
+                        </div>
+                    ) : (
+                        activeChallenges.map((ch) => {
+                            const isCompleted = completedIds.includes(ch.id);
+                            return (
+                                <div key={ch.id} className={`p-6 rounded-[2.5rem] border transition-all ${isCompleted ? 'bg-gray-50 border-gray-100 opacity-60' : 'bg-white border-rose-100 shadow-sm'}`}>
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <h4 className="font-black text-gray-800">{ch.title}</h4>
+                                                {isCompleted && <span className="text-[8px] font-black bg-emerald-500 text-white px-2 py-0.5 rounded-full uppercase">Completed</span>}
+                                            </div>
+                                            <p className="text-xs text-gray-500 font-medium leading-relaxed mb-4">{ch.description}</p>
+                                            
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-xs">💎</span>
+                                                    <span className="text-[10px] font-black text-rose-600 uppercase">{ch.points} Hasanat</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-xs">⏳</span>
+                                                    <span className="text-[10px] font-black text-gray-400 uppercase">
+                                                        {new Date(ch.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} Left
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {!isCompleted && (
+                                            <button 
+                                                onClick={() => handleCompleteChallenge(ch)}
+                                                disabled={isProcessing}
+                                                className="bg-rose-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase shadow-md active:scale-95 transition-transform"
+                                            >
+                                                Done
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
             </div>
 
