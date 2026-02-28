@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient'; 
+import TrialTimer from './TrialTimer'; // Importing the timer component
 
 export default function Dashboard({ 
     user, 
@@ -104,6 +105,9 @@ export default function Dashboard({
     return (
         <div className="pb-28 animate-in slide-in-from-bottom-4 h-full overflow-y-auto no-scrollbar">
             
+            {/* Trial Timer Component Integration */}
+            <TrialTimer profile={user} />
+
             {/* Daily Inspiration Float Card */}
             <div className="bg-rose-50 p-6 rounded-[2.5rem] border border-rose-100 mb-8">
                 <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">Daily Inspiration</p>
