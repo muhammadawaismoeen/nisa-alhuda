@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; 
+// FIXED: Path changed to ../../ to correctly resolve from src/components/admin/
+import { supabase } from '../../supabaseClient'; 
 
 export default function AdminDashboard({ onClose }) {
     const [stats, setStats] = useState({ users: 0, activeToday: 0, totalHasanat: '0', avgStreak: 0 });
@@ -61,7 +62,6 @@ export default function AdminDashboard({ onClose }) {
         }
     }
 
-    // REQUIREMENT: IMPLEMENT PAST CHALLENGES AND PARTICIPANT LIST
     async function fetchChallengeHistory() {
         try {
             const { data, error } = await supabase
@@ -124,7 +124,6 @@ export default function AdminDashboard({ onClose }) {
 
             addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
             setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
-            // Refresh history immediately after adding
             await fetchChallengeHistory();
             alert("Success! Challenge created and history updated.");
         } catch (err) {
@@ -244,7 +243,6 @@ export default function AdminDashboard({ onClose }) {
                             </header>
 
                             <div className="flex flex-row gap-8 items-start">
-                                
                                 {/* LEFT: Creation Form */}
                                 <div className="w-1/2 flex-shrink-0 bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
                                     <h3 className="text-xl font-black mb-6 flex items-center gap-3">
@@ -276,7 +274,7 @@ export default function AdminDashboard({ onClose }) {
                                     </form>
                                 </div>
 
-                                {/* RIGHT: REQUIREMENT - HISTORY & PARTICIPANTS LIST */}
+                                {/* RIGHT: HISTORY & PARTICIPANTS LIST */}
                                 <div className="w-1/2 flex-shrink-0 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
                                     <div className="flex items-center justify-between mb-6">
                                         <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
@@ -299,7 +297,6 @@ export default function AdminDashboard({ onClose }) {
                                                         <button onClick={() => deleteChallenge(ch.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 text-xs transition-opacity bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm border border-slate-100">🗑️</button>
                                                     </div>
                                                     
-                                                    {/* Participant List Section */}
                                                     <div className="mt-4 pt-4 border-t border-slate-200">
                                                         <div className="flex justify-between items-center mb-2">
                                                             <p className="text-[9px] font-black text-indigo-600 uppercase tracking-wider">Completed By ({ch.challenge_completions?.length || 0})</p>
@@ -325,7 +322,6 @@ export default function AdminDashboard({ onClose }) {
                                         )}
                                     </div>
                                 </div>
-                                
                             </div>
                         </div>
                     )}
