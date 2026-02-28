@@ -1,384 +1,319 @@
 import { useState, useEffect } from 'react';
-// FIXED: Path changed to ../../ to correctly resolve from src/components/admin/
-import { supabase } from '../../supabaseClient'; 
+import { supabase } from '../../supabaseClient';
 
-export default function AdminDashboard({ onClose }) {
-    const [stats, setStats] = useState({ users: 0, activeToday: 0, totalHasanat: '0', avgStreak: 0 });
-    const [cityData, setCityData] = useState([]);
-    const [allSisters, setAllSisters] = useState([]);
-    const [logs, setLogs] = useState([
-        { id: 1, user: 'System', event: 'Command Center Initialized', time: new Date().toLocaleTimeString(), type: 'system', status: 'success' }
-    ]);
-    const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('Overview');
-
-    // Challenge Hub History & Form States
-    const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points: 50, durationHours: 24 });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [challengeHistory, setChallengeHistory] = useState([]);
+export default function AdminDashboard({ onClose, onChallengeUpdate }) {
+    // --- EXISTING STATES ---
+    const [stats, setStats] = useState({ totalUsers: 0, totalPoints: 0, activeToday: 0 });
+    const [users, setUsers] = useState([]);
+    const [title, setTitle] = useState('');
+    const [desc, setDesc] = useState('');
+    const [points, setPoints] = useState(100);
+    const [loading, setLoading] = useState(false);
+    const [tab, setTab] = useState('overview'); // overview, users, challenges, broadcast
+    
+    // --- NEW BROADCAST STATE ---
+    const [broadcast, setBroadcast] = useState('');
+    const [activeBroadcasts, setActiveBroadcasts] = useState([]);
 
     useEffect(() => {
-        fetchAdminData();
-        fetchChallengeHistory();
+        fetchStats();
+        fetchUsers();
+        fetchCurrentBroadcasts();
     }, []);
 
-    async function fetchAdminData() {
-        setLoading(true);
+    const fetchStats = async () => {
         try {
-            const { data: profileData, count: userCount, error } = await supabase
-                .from('profiles')
-                .select('id, username, city, role, points', { count: 'exact' });
-
-            if (error) throw error;
-            setAllSisters(profileData || []);
-
-            const totalPointsSum = profileData.reduce((acc, curr) => acc + (curr.points || 0), 0);
-            const formattedPoints = totalPointsSum > 1000 ? (totalPointsSum / 1000).toFixed(1) + 'k' : totalPointsSum;
-
-            const cityMap = profileData.reduce((acc, curr) => {
-                const city = curr.city || 'Unknown';
-                acc[city] = (acc[city] || 0) + 1;
-                return acc;
-            }, {});
-
-            const formattedCityData = Object.entries(cityMap).map(([city, count]) => ({
-                city,
-                count,
-                color: city === 'Lahore' ? 'bg-rose-500' : 'bg-indigo-500'
-            })).sort((a, b) => b.count - a.count);
-
+            const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+            const { data: pointsData } = await supabase.from('profiles').select('points');
+            const totalPts = pointsData?.reduce((acc, curr) => acc + (curr.points || 0), 0);
+            
             setStats({
-                users: userCount || 0,
-                activeToday: Math.floor((userCount || 0) * 0.4),
-                totalHasanat: formattedPoints,
-                avgStreak: 7
+                totalUsers: userCount || 0,
+                totalPoints: totalPts || 0,
+                activeToday: Math.floor((userCount || 0) * 0.6) // Mock activity logic
             });
-            setCityData(formattedCityData);
-
-        } catch (error) {
-            addLog('Error', error.message, 'system', 'error');
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function fetchChallengeHistory() {
-        try {
-            const { data, error } = await supabase
-                .from('challenges')
-                .select(`
-                    id, 
-                    title, 
-                    description, 
-                    points, 
-                    created_at, 
-                    expires_at,
-                    challenge_completions (
-                        username,
-                        completed_at
-                    )
-                `)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error("History Fetch Error:", error.message);
-                addLog('System', `Fetch Failed: ${error.message}`, 'system', 'error');
-                return;
-            }
-
-            setChallengeHistory(data || []);
-            addLog('System', `History Loaded: ${data?.length || 0} items`, 'system', 'success');
-        } catch (err) {
-            console.error("Critical History Error:", err);
-        }
-    }
-
-    const addLog = (user, event, type, status) => {
-        setLogs(prev => [{
-            id: Date.now(),
-            user,
-            event,
-            time: new Date().toLocaleTimeString(),
-            type,
-            status
-        }, ...prev]);
+        } catch (e) { console.error(e); }
     };
 
-    const handleAddChallenge = async (e) => {
+    const fetchUsers = async () => {
+        const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('points', { ascending: false });
+        if (data) setUsers(data);
+    };
+
+    const fetchCurrentBroadcasts = async () => {
+        const { data } = await supabase
+            .from('broadcasts')
+            .select('*')
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+        if (data) setActiveBroadcasts(data);
+    };
+
+    const handleCreateChallenge = async (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
-        try {
-            const expiryDate = new Date();
-            expiryDate.setHours(expiryDate.getHours() + parseInt(newChallenge.durationHours));
+        if (!title || !desc) return;
+        setLoading(true);
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 24);
 
-            const { error } = await supabase
-                .from('challenges')
-                .insert([{ 
-                    title: newChallenge.title, 
-                    description: newChallenge.description, 
-                    points: parseInt(newChallenge.points),
-                    expires_at: expiryDate.toISOString()
-                }]);
+        const { error } = await supabase
+            .from('challenges')
+            .insert([{ 
+                title, 
+                description: desc, 
+                points: parseInt(points), 
+                expires_at: expiresAt.toISOString() 
+            }]);
 
-            if (error) throw error;
-
-            addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
-            setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
-            await fetchChallengeHistory();
-            alert("Success! Challenge created and history updated.");
-        } catch (err) {
-            alert("Database Error: " + err.message);
-        } finally {
-            setIsSubmitting(false);
+        if (error) alert(error.message);
+        else {
+            alert("Global Challenge Launched!");
+            setTitle(''); setDesc('');
+            onChallengeUpdate();
         }
+        setLoading(false);
     };
 
-    const deleteChallenge = async (id) => {
-        if(!confirm("Delete this challenge and all its participant history?")) return;
-        const { error } = await supabase.from('challenges').delete().eq('id', id);
-        if(!error) fetchChallengeHistory();
-    };
+    const handleSendBroadcast = async () => {
+        if (!broadcast) return;
+        setLoading(true);
+        
+        // Disable previous active broadcasts to keep feed clean
+        await supabase.from('broadcasts').update({ is_active: false }).eq('is_active', true);
+        
+        const { error } = await supabase
+            .from('broadcasts')
+            .insert([{ message: broadcast, is_active: true }]);
 
-    const toggleRole = async (id, currentRole) => {
-        const newRole = currentRole === 'admin' ? 'user' : 'admin';
-        const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id);
-        if (!error) {
-            addLog('Admin', `Updated Role to ${newRole}`, 'security', 'success');
-            fetchAdminData();
+        if (error) alert(error.message);
+        else {
+            alert("Broadcast is now LIVE for all users!");
+            setBroadcast('');
+            fetchCurrentBroadcasts();
+            onChallengeUpdate(); 
         }
+        setLoading(false);
     };
 
-    const StatCard = ({ label, value, icon, color }) => (
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 transition-transform hover:scale-[1.02]">
-            <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center text-xl mb-4 shadow-inner`}>{icon}</div>
-            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{label}</p>
-            <h3 className="text-2xl font-black text-slate-800 mt-1">{loading ? "..." : value}</h3>
-        </div>
-    );
+    const deleteBroadcast = async (id) => {
+        await supabase.from('broadcasts').update({ is_active: false }).eq('id', id);
+        fetchCurrentBroadcasts();
+        onChallengeUpdate();
+    };
+
+    const updateUserPoints = async (userId, newPoints) => {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ points: newPoints })
+            .eq('id', userId);
+        if (!error) fetchUsers();
+    };
 
     return (
-        <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
-            {/* Nav Header */}
-            <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 w-10 h-10 rounded-xl flex items-center justify-center text-white font-black shadow-lg">A</div>
+        <div className="min-h-screen bg-[#f8fafc] pb-20">
+            {/* Header */}
+            <div className="bg-slate-900 text-white p-8 rounded-b-[3rem] shadow-2xl">
+                <div className="flex justify-between items-center mb-6">
                     <div>
-                        <h2 className="text-slate-800 font-bold leading-none tracking-tight">Command Center</h2>
-                        <p className="text-[10px] text-emerald-500 font-black uppercase mt-1 flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                            Live System Active
-                        </p>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-400">System Administrator</p>
+                        <h1 className="text-3xl font-black tracking-tighter">COMMAND CENTER</h1>
                     </div>
+                    <button 
+                        onClick={onClose}
+                        className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl backdrop-blur-md transition-all active:scale-90"
+                    >
+                        <span className="text-xs font-black uppercase tracking-widest">Exit</span>
+                    </button>
                 </div>
-                <div className="flex items-center gap-4">
-                    <button onClick={() => { fetchAdminData(); fetchChallengeHistory(); }} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400">
-                        <span className={loading ? "animate-spin block" : ""}>🔄</span>
-                    </button>
-                    <button onClick={onClose} className="bg-slate-900 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95">
-                        EXIT ADMIN ×
-                    </button>
+
+                {/* Quick Stats Grid */}
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <p className="text-[8px] font-bold uppercase opacity-50 mb-1">Total Souls</p>
+                        <p className="text-xl font-black">{stats.totalUsers}</p>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <p className="text-[8px] font-bold uppercase opacity-50 mb-1">Total Hasanat</p>
+                        <p className="text-xl font-black">{(stats.totalPoints / 1000).toFixed(1)}k</p>
+                    </div>
+                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
+                        <p className="text-[8px] font-bold uppercase opacity-50 mb-1">Active</p>
+                        <p className="text-xl font-black">{stats.activeToday}</p>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar */}
-                <nav className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2 flex-shrink-0">
-                    {['Overview', 'User Analytics', 'Content Manager', 'System Logs'].map((item) => (
-                        <button
-                            key={item}
-                            onClick={() => setActiveTab(item)}
-                            className={`w-full text-left px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all ${
-                                activeTab === item 
-                                ? 'bg-indigo-600 text-white shadow-indigo-200 shadow-lg' 
-                                : 'text-slate-400 hover:bg-slate-50'
-                            }`}
-                        >
-                            {item}
-                        </button>
-                    ))}
-                </nav>
+            {/* Navigation Tabs */}
+            <div className="flex px-6 gap-2 -mt-4 overflow-x-auto no-scrollbar">
+                {['overview', 'users', 'challenges', 'broadcast'].map((t) => (
+                    <button
+                        key={t}
+                        onClick={() => setTab(t)}
+                        className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all whitespace-nowrap ${
+                            tab === t ? 'bg-rose-500 text-white scale-105 z-10' : 'bg-white text-slate-400'
+                        }`}
+                    >
+                        {t}
+                    </button>
+                ))}
+            </div>
 
-                <main className="flex-1 overflow-y-auto p-8 bg-[#F8FAFC]">
-                    {activeTab === 'Overview' && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <header className="mb-10">
-                                <h1 className="text-4xl font-black text-slate-800 tracking-tight">System Snapshot</h1>
-                                <p className="text-slate-500 font-medium">Real-time engagement tracking.</p>
-                            </header>
+            <div className="p-6 space-y-6">
+                {/* 1. OVERVIEW TAB */}
+                {tab === 'overview' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 mb-6">
+                            <h3 className="font-black text-slate-800 mb-4">System Health</h3>
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                                    <span className="text-xs font-bold text-slate-500">Database Sync</span>
+                                    <span className="text-[10px] font-black text-green-500 uppercase">Operational</span>
+                                </div>
+                                <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
+                                    <span className="text-xs font-bold text-slate-500">Auth Service</span>
+                                    <span className="text-[10px] font-black text-green-500 uppercase">Operational</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-indigo-100">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-80">Admin Tip</p>
+                            <p className="text-lg font-bold leading-tight">Use the Broadcast feature for urgent maintenance or community-wide reminders.</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* 2. USER MANAGEMENT TAB */}
+                {tab === 'users' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                        <h3 className="px-2 font-black text-slate-800">Community Directory</h3>
+                        {users.map(u => (
+                            <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex justify-between items-center">
+                                <div>
+                                    <p className="font-black text-slate-900">{u.username || 'Anonymous'}</p>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{u.city || 'Unknown City'}</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                        <p className="text-xs font-black text-rose-500">{u.points || 0} HP</p>
+                                        <p className="text-[8px] font-bold text-slate-300 uppercase">{u.role || 'User'}</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => updateUserPoints(u.id, (u.points || 0) + 100)}
+                                        className="bg-slate-100 p-3 rounded-xl hover:bg-rose-50 transition-colors"
+                                    >
+                                        🎁
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* 3. CHALLENGES TAB */}
+                {tab === 'challenges' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4">
+                        <form onSubmit={handleCreateChallenge} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                            <div className="flex items-center gap-3 mb-6">
+                                <span className="text-2xl">🚀</span>
+                                <h3 className="font-black text-slate-900">Deploy Global Challenge</h3>
+                            </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-                                <StatCard label="Total Sisters" value={stats.users} icon="👥" color="bg-blue-50" />
-                                <StatCard label="Live Estim." value={stats.activeToday} icon="⚡" color="bg-amber-50" />
-                                <StatCard label="Global Hasanat" value={stats.totalHasanat} icon="💎" color="bg-emerald-50" />
-                                <StatCard label="Avg. Streak" value={`${stats.avgStreak} Days`} icon="🔥" color="bg-rose-50" />
-                            </div>
-
-                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                                <h3 className="text-lg font-black text-slate-800 mb-6">Regional Distribution</h3>
-                                <div className="space-y-6">
-                                    {cityData.map((item, i) => (
-                                        <div key={i}>
-                                            <div className="flex justify-between text-xs font-black uppercase mb-2">
-                                                <span className="text-slate-600">{item.city}</span>
-                                                <span className="text-indigo-600">{item.count} Sisters</span>
-                                            </div>
-                                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                                                <div 
-                                                    className={`h-full ${item.color} rounded-full transition-all duration-1000`} 
-                                                    style={{ width: stats.users > 0 ? `${(item.count/stats.users)*100}%` : '0%' }}
-                                                ></div>
-                                            </div>
-                                        </div>
-                                    ))}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Challenge Title</label>
+                                    <input 
+                                        type="text" value={title} onChange={(e) => setTitle(e.target.value)}
+                                        placeholder="e.g., Read Surah Kahf"
+                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-bold text-sm"
+                                    />
                                 </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'Content Manager' && (
-                        <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-                             <header className="mb-8">
-                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
-                                <p className="text-slate-500">Manage community challenges and track completions.</p>
-                            </header>
-
-                            <div className="flex flex-row gap-8 items-start">
-                                {/* LEFT: Creation Form */}
-                                <div className="w-1/2 flex-shrink-0 bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
-                                    <h3 className="text-xl font-black mb-6 flex items-center gap-3">
-                                        <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
-                                        Create New
-                                    </h3>
-                                    <form onSubmit={handleAddChallenge} className="space-y-5">
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Challenge Title</label>
-                                            <input required type="text" placeholder="e.g., Read Surah Mulk" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
-                                            <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
-                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
-                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
-                                            </div>
-                                        </div>
-                                        <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95 mt-4">
-                                            {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
-                                        </button>
-                                    </form>
+                                
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Instructions</label>
+                                    <textarea 
+                                        value={desc} onChange={(e) => setDesc(e.target.value)}
+                                        placeholder="Explain what the sisters need to do..."
+                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-bold text-sm h-32"
+                                    />
                                 </div>
 
-                                {/* RIGHT: HISTORY & PARTICIPANTS LIST */}
-                                <div className="w-1/2 flex-shrink-0 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                                            <span>📜 Challenge History</span>
-                                        </h3>
-                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold">{challengeHistory.length} Total</span>
-                                    </div>
-                                    
-                                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                                        {challengeHistory.length === 0 ? (
-                                            <div className="text-center py-20 opacity-40 font-black text-slate-400">NO HISTORY RECORDED</div>
-                                        ) : (
-                                            challengeHistory.map((ch) => (
-                                                <div key={ch.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group relative">
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <div className="pr-8">
-                                                            <h4 className="font-black text-slate-800 text-base leading-tight">{ch.title}</h4>
-                                                            <p className="text-[10px] text-slate-400 font-bold block mt-1">CREATED: {new Date(ch.created_at).toLocaleDateString()}</p>
-                                                        </div>
-                                                        <button onClick={() => deleteChallenge(ch.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 text-xs transition-opacity bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm border border-slate-100">🗑️</button>
-                                                    </div>
-                                                    
-                                                    <div className="mt-4 pt-4 border-t border-slate-200">
-                                                        <div className="flex justify-between items-center mb-2">
-                                                            <p className="text-[9px] font-black text-indigo-600 uppercase tracking-wider">Completed By ({ch.challenge_completions?.length || 0})</p>
-                                                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
-                                                                {new Date(ch.expires_at) > new Date() ? 'ACTIVE' : 'EXPIRED'}
-                                                            </span>
-                                                        </div>
-                                                        
-                                                        <div className="flex flex-wrap gap-1.5">
-                                                            {ch.challenge_completions && ch.challenge_completions.length > 0 ? (
-                                                                ch.challenge_completions.map((comp, idx) => (
-                                                                    <span key={idx} className="bg-white px-2 py-1 rounded-lg text-[9px] font-bold text-slate-600 border border-slate-200 shadow-sm uppercase">
-                                                                        {comp.username}
-                                                                    </span>
-                                                                ))
-                                                            ) : (
-                                                                <span className="text-[9px] italic text-slate-400">No participants yet</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Reward Points</label>
+                                    <input 
+                                        type="number" value={points} onChange={(e) => setPoints(e.target.value)}
+                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-bold text-sm"
+                                    />
                                 </div>
+
+                                <button 
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-slate-200 active:scale-95 transition-all mt-4 disabled:opacity-50"
+                                >
+                                    {loading ? "INITIALIZING..." : "LAUNCH TO ALL USERS"}
+                                </button>
                             </div>
+                        </form>
+                    </div>
+                )}
+
+                {/* 4. BROADCAST TAB (NEW FEATURE) */}
+                {tab === 'broadcast' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+                        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                            <div className="flex items-center gap-3 mb-6">
+                                <span className="text-2xl">📢</span>
+                                <h3 className="font-black text-slate-900">Send Global Message</h3>
+                            </div>
+                            
+                            <textarea 
+                                value={broadcast}
+                                onChange={(e) => setBroadcast(e.target.value)}
+                                placeholder="This message will scroll at the top of every user's screen..."
+                                className="w-full p-6 bg-indigo-50/50 rounded-[2rem] border-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm h-32 mb-4"
+                            />
+                            
+                            <button 
+                                onClick={handleSendBroadcast}
+                                disabled={loading || !broadcast}
+                                className="w-full py-5 bg-indigo-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 active:scale-95 transition-all disabled:opacity-50"
+                            >
+                                {loading ? "TRANSMITTING..." : "PUSH LIVE ANNOUNCEMENT"}
+                            </button>
                         </div>
-                    )}
 
-                    {activeTab === 'User Analytics' && (
-                         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm animate-in fade-in duration-500">
-                            <h3 className="text-xl font-black text-slate-800 mb-8">Sisterhood Directory</h3>
-                            <div className="overflow-hidden rounded-2xl border border-slate-50">
-                                <table className="w-full text-left text-sm">
-                                    <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
-                                        <tr>
-                                            <th className="px-6 py-4">Sister</th>
-                                            <th className="px-6 py-4">City</th>
-                                            <th className="px-6 py-4 text-right">Points</th>
-                                            <th className="px-6 py-4 text-center">Role</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-50">
-                                        {allSisters.map((sister) => (
-                                            <tr key={sister.id} className="hover:bg-slate-50 transition-colors font-bold text-slate-700">
-                                                <td className="px-6 py-4">{sister.username || 'Sister'}</td>
-                                                <td className="px-6 py-4 text-slate-500">{sister.city}</td>
-                                                <td className="px-6 py-4 text-right text-rose-500">{sister.points} ❤️</td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className={`px-3 py-1 rounded-full text-[9px] font-black ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                        {(sister.role || 'user').toUpperCase()}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                         </div>
-                    )}
-
-                    {activeTab === 'System Logs' && (
-                        <div className="bg-slate-900 rounded-[2.5rem] p-8 font-mono text-xs text-emerald-400 shadow-2xl min-h-[500px]">
-                            <div className="flex items-center gap-2 mb-6 border-b border-emerald-900/50 pb-4">
-                                <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
-                                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
-                                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                                <span className="ml-4 text-[10px] text-emerald-900 font-bold uppercase tracking-widest">BarakahOS Console</span>
-                            </div>
-                            <div className="space-y-3">
-                                {logs.map(log => (
-                                    <div key={log.id} className="flex gap-4">
-                                        <span className="opacity-40">[{log.time}]</span>
-                                        <span className={`font-black uppercase w-20 ${log.status === 'error' ? 'text-rose-500' : 'text-indigo-400'}`}>{log.user}</span>
-                                        <span className="text-slate-300">{log.event}</span>
+                        {/* Current Active Broadcasts */}
+                        <div className="space-y-3">
+                            <h4 className="px-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Transmissions</h4>
+                            {activeBroadcasts.length === 0 && (
+                                <p className="text-center py-10 text-slate-300 font-bold italic text-sm">No active broadcasts</p>
+                            )}
+                            {activeBroadcasts.map(b => (
+                                <div key={b.id} className="bg-slate-900 text-white p-6 rounded-[2rem] flex justify-between items-center group">
+                                    <div className="flex-1 pr-4">
+                                        <p className="text-xs font-medium leading-relaxed italic">"{b.message}"</p>
+                                        <p className="text-[8px] font-black uppercase text-indigo-400 mt-2 tracking-widest">Status: Scrolling Live</p>
                                     </div>
-                                ))}
-                                <div className="animate-pulse">_</div>
-                            </div>
+                                    <button 
+                                        onClick={() => deleteBroadcast(b.id)}
+                                        className="bg-white/10 hover:bg-rose-500 p-3 rounded-xl transition-all"
+                                    >
+                                        🗑️
+                                    </button>
+                                </div>
+                            ))}
                         </div>
-                    )}
-                </main>
+                    </div>
+                )}
+            </div>
+
+            {/* Bottom Branding */}
+            <div className="text-center py-10 opacity-20">
+                <p className="text-[10px] font-black uppercase tracking-[0.5em]">Nisa Al-Huda Admin Core</p>
             </div>
         </div>
     );

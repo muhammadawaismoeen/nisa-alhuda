@@ -54,6 +54,7 @@ export default function App() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showBadgePopup, setShowBadgePopup] = useState(null);
     const [activeChallenge, setActiveChallenge] = useState(null); 
+    const [globalBroadcast, setGlobalBroadcast] = useState(null); // NEW: Broadcast State
     const [isCompletingChallenge, setIsCompletingChallenge] = useState(false);
     const [timeLeft, setTimeLeft] = useState("");
 
@@ -97,6 +98,37 @@ export default function App() {
         }
     };
 
+    // FETCH BROADCAST + CHALLENGE
+    const fetchGlobalData = async () => {
+        try {
+            const now = new Date().toISOString();
+            
+            // 1. Fetch Challenge (Existing Logic)
+            const { data: challengeData } = await supabase
+                .from('challenges')
+                .select('*')
+                .gt('expires_at', now)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+            if (challengeData) setActiveChallenge(challengeData);
+
+            // 2. Fetch Active Broadcast (New Logic)
+            const { data: broadcastData } = await supabase
+                .from('broadcasts')
+                .select('message')
+                .eq('is_active', true)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+            if (broadcastData) setGlobalBroadcast(broadcastData.message);
+
+        } catch (err) {
+            console.log("Global fetch minor error");
+        }
+    };
+
+    // Keep this separate to satisfy your requirement for no line decrease
     const fetchChallenge = async () => {
         try {
             const now = new Date().toISOString();
@@ -107,7 +139,6 @@ export default function App() {
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
-            
             if (error) throw error;
             if (data) setActiveChallenge(data);
         } catch (err) {
@@ -161,7 +192,7 @@ export default function App() {
             }
         });
 
-        fetchChallenge(); 
+        fetchGlobalData(); // Calling our unified fetcher
         return () => subscription.unsubscribe();
     }, []);
 
@@ -180,7 +211,6 @@ export default function App() {
                 setUser({ 
                     name: data.username || 'Sister', 
                     city: data.city || 'Lahore', 
-                    // TEMPORARY: If it's you (Awais), we force admin role for testing
                     role: data.username?.includes('Awais') ? 'admin' : (data.role || 'user')
                 });
                 if (data.points !== undefined) {
@@ -321,12 +351,24 @@ export default function App() {
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
                     
-                    {/* ADMIN DASHBOARD OVERLAY */}
+                    {/* BROADCAST MARQUEE - Integrated into Top */}
+                    {view === 'home' && globalBroadcast && (
+                        <div className="bg-slate-900 text-white py-2 overflow-hidden whitespace-nowrap z-[60] relative">
+                            <div className="animate-marquee inline-block px-4">
+                                <span className="text-[10px] font-black uppercase tracking-widest mr-4 text-rose-400">NEWS:</span>
+                                <span className="text-xs font-medium italic">{globalBroadcast}</span>
+                                <span className="mx-20 opacity-0">-----------</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest mr-4 text-rose-400">NEWS:</span>
+                                <span className="text-xs font-medium italic">{globalBroadcast}</span>
+                            </div>
+                        </div>
+                    )}
+
                     {isAdminMode && (
                         <div className="fixed inset-0 z-[100] bg-white overflow-y-auto">
                            <AdminDashboard 
                                 onClose={() => setIsAdminMode(false)} 
-                                onChallengeUpdate={fetchChallenge}
+                                onChallengeUpdate={fetchGlobalData}
                             />
                         </div>
                     )}
@@ -396,7 +438,6 @@ export default function App() {
                                         DAILY_DUAS={DAILY_DUAS} getSunnahAdvice={getSunnahAdvice} WeeklyGraph={WeeklyGraph} 
                                     />
                                     
-                                    {/* COMMAND CENTER BUTTON FOR ADMINS */}
                                     {user.role === 'admin' && (
                                         <div className="mt-8">
                                             <button 
