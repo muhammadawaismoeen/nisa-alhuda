@@ -63,35 +63,26 @@ export default function AdminDashboard({ onClose }) {
 
     async function fetchChallengeHistory() {
         try {
-            // Primary Attempt: Fetch challenges WITH completion records
+            // Requirement: Fetch all challenges AND the list of sisters who completed them
             const { data, error } = await supabase
                 .from('challenges')
                 .select(`
-                    id, title, description, points, created_at, expires_at,
-                    challenge_completions ( username )
+                    *,
+                    challenge_completions ( username, completed_at )
                 `)
                 .order('created_at', { ascending: false });
 
             if (error) {
-                console.error("Supabase Join Error:", error.message);
-                addLog('System', `Data Fetch Error: ${error.message}`, 'system', 'error');
-                
-                // Fallback: If cache is still broken, fetch just the challenges so they don't vanish
-                const fallback = await supabase
-                    .from('challenges')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                
-                if (fallback.data) {
-                    setChallengeHistory(fallback.data);
-                }
-            } else {
-                console.log("Successfully fetched challenge data:", data);
-                setChallengeHistory(data || []);
+                console.error("Fetch Error:", error.message);
+                // Fail-safe: if the join fails, at least show the challenges themselves
+                const { data: simpleData } = await supabase.from('challenges').select('*').order('created_at', { ascending: false });
+                if (simpleData) setChallengeHistory(simpleData);
+                return;
             }
+            
+            setChallengeHistory(data || []);
         } catch (err) {
-            console.error("History Fetch Error:", err);
-            addLog('System', 'Critical History Fetch Failure', 'system', 'error');
+            console.error("Critical History Error:", err);
         }
     }
 
@@ -126,8 +117,8 @@ export default function AdminDashboard({ onClose }) {
 
             addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
             setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
-            fetchChallengeHistory(); // Fetch fresh data immediately
-            alert("MashaAllah! Challenge created.");
+            await fetchChallengeHistory();
+            alert("MashaAllah! Challenge live for all sisters.");
         } catch (err) {
             alert("Database Error: " + err.message);
         } finally {
@@ -136,7 +127,7 @@ export default function AdminDashboard({ onClose }) {
     };
 
     const deleteChallenge = async (id) => {
-        if(!confirm("Delete this challenge?")) return;
+        if(!confirm("Are you sure? This will remove history too.")) return;
         const { error } = await supabase.from('challenges').delete().eq('id', id);
         if(!error) fetchChallengeHistory();
     };
@@ -173,8 +164,8 @@ export default function AdminDashboard({ onClose }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button onClick={() => { fetchAdminData(); fetchChallengeHistory(); }} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400">
-                        <span className={loading ? "animate-spin block" : ""}>🔄</span>
+                    <button onClick={() => { fetchAdminData(); fetchChallengeHistory(); }} className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors text-slate-600 font-black text-[10px] uppercase">
+                        <span className={loading ? "animate-spin" : ""}>🔄</span> Force Sync
                     </button>
                     <button onClick={onClose} className="bg-slate-900 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95">
                         EXIT ADMIN ×
@@ -241,14 +232,12 @@ export default function AdminDashboard({ onClose }) {
                         <div className="animate-in fade-in slide-in-from-left-4 duration-500">
                              <header className="mb-8">
                                 <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
-                                <p className="text-slate-500">Create tasks for the community.</p>
+                                <p className="text-slate-500">Create and track community goals.</p>
                             </header>
 
-                            {/* FORCED SIDE-BY-SIDE LAYOUT */}
                             <div className="flex flex-row gap-8 items-start">
-                                
                                 {/* LEFT: Creation Form */}
-                                <div className="w-1/2 flex-shrink-0 bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
+                                <div className="w-[400px] flex-shrink-0 bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
                                     <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                                         <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
                                         Create New
@@ -264,11 +253,11 @@ export default function AdminDashboard({ onClose }) {
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
-                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
+                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Points</label>
                                                 <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
                                             </div>
                                             <div>
-                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
+                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hours</label>
                                                 <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
                                             </div>
                                         </div>
@@ -278,46 +267,52 @@ export default function AdminDashboard({ onClose }) {
                                     </form>
                                 </div>
 
-                                {/* RIGHT: Live Information/History */}
-                                <div className="w-1/2 flex-shrink-0 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                                            <span>📜 History & Activity</span>
-                                        </h3>
-                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold">{challengeHistory.length} Total</span>
+                                {/* RIGHT: Requirement: History & Who Participated */}
+                                <div className="flex-1 bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
+                                    <div className="flex items-center justify-between mb-8 pb-4 border-b border-slate-50">
+                                        <h3 className="text-xl font-black text-slate-800">📜 Challenge History</h3>
+                                        <div className="flex gap-2">
+                                            <span className="bg-emerald-100 text-emerald-600 text-[10px] font-black px-3 py-1 rounded-full uppercase">
+                                                {challengeHistory.filter(c => new Date(c.expires_at) > new Date()).length} Active
+                                            </span>
+                                        </div>
                                     </div>
                                     
-                                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                                    <div className="flex-1 overflow-y-auto pr-4 space-y-6 custom-scrollbar">
                                         {challengeHistory.length === 0 ? (
-                                            <div className="text-center py-20 opacity-40 font-black text-slate-400">NO HISTORY FOUND</div>
+                                            <div className="text-center py-20 opacity-20 font-black text-slate-400">NO HISTORY FOUND</div>
                                         ) : (
                                             challengeHistory.map((ch) => (
-                                                <div key={ch.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group relative">
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <div className="pr-8">
-                                                            <h4 className="font-black text-slate-800 text-sm leading-tight">{ch.title}</h4>
-                                                            <span className="text-[10px] text-slate-400 font-bold block mt-1">{new Date(ch.created_at).toLocaleDateString()}</span>
+                                                <div key={ch.id} className="p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 group relative transition-all hover:bg-white hover:shadow-md">
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div>
+                                                            <h4 className="font-black text-slate-800 text-lg leading-tight">{ch.title}</h4>
+                                                            <p className="text-xs text-slate-500 mt-1 font-medium">{ch.description}</p>
                                                         </div>
-                                                        <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
-                                                            {new Date(ch.expires_at) > new Date() ? 'Active' : 'Expired'}
-                                                        </span>
+                                                        <div className="flex flex-col items-end gap-2">
+                                                            <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-tighter ${new Date(ch.expires_at) > new Date() ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                                                                {new Date(ch.expires_at) > new Date() ? 'LIVE' : 'EXPIRED'}
+                                                            </span>
+                                                            <button onClick={() => deleteChallenge(ch.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 text-[10px] font-black uppercase transition-opacity">Delete Challenge ×</button>
+                                                        </div>
                                                     </div>
-                                                    
-                                                    <button onClick={() => deleteChallenge(ch.id)} className="absolute top-5 right-5 opacity-0 group-hover:opacity-100 text-rose-500 text-xs transition-opacity bg-white w-6 h-6 rounded-full flex items-center justify-center shadow-sm">🗑️</button>
 
-                                                    <div className="border-t border-slate-200 mt-3 pt-3">
-                                                        <p className="text-[8px] font-black text-indigo-600 uppercase mb-2">
-                                                            Completed By ({ch.challenge_completions?.length || 0})
+                                                    {/* Requirement: List of participants */}
+                                                    <div className="bg-white rounded-2xl p-4 border border-slate-100">
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase mb-3 flex items-center gap-2">
+                                                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                                                            Participants ({ch.challenge_completions?.length || 0})
                                                         </p>
-                                                        <div className="flex flex-wrap gap-1">
+                                                        <div className="flex flex-wrap gap-2">
                                                             {ch.challenge_completions && ch.challenge_completions.length > 0 ? (
                                                                 ch.challenge_completions.map((comp, idx) => (
-                                                                    <span key={idx} className="bg-white px-2 py-1 rounded-md text-[9px] font-bold text-slate-600 border border-slate-100 shadow-sm uppercase">
-                                                                        {comp.username}
-                                                                    </span>
+                                                                    <div key={idx} className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 shadow-sm">
+                                                                        <span className="text-xs">👤</span>
+                                                                        <span className="text-[10px] font-black text-slate-700 uppercase">{comp.username}</span>
+                                                                    </div>
                                                                 ))
                                                             ) : (
-                                                                <span className="text-[9px] italic text-slate-400">No one yet</span>
+                                                                <span className="text-[10px] italic text-slate-400 font-bold">Waiting for first completion...</span>
                                                             )}
                                                         </div>
                                                     </div>
@@ -326,7 +321,6 @@ export default function AdminDashboard({ onClose }) {
                                         )}
                                     </div>
                                 </div>
-                                
                             </div>
                         </div>
                     )}
@@ -369,7 +363,7 @@ export default function AdminDashboard({ onClose }) {
                                 <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
                                 <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
                                 <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                                <span className="ml-4 text-[10px] text-emerald-900 font-bold uppercase tracking-widest">BarakahOS Console v4.0.2</span>
+                                <span className="ml-4 text-[10px] text-emerald-900 font-bold uppercase tracking-widest">BarakahOS Console</span>
                             </div>
                             <div className="space-y-3">
                                 {logs.map(log => (
