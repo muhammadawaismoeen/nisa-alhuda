@@ -365,27 +365,34 @@ export default function App() {
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
                     
-                    {/* REDESIGNED GLOBAL BROADCAST POP-UP */}
+                    {/* REDESIGNED GLOBAL BROADCAST POP-UP (FIXED ICON & LONG CONTENT) */}
                     {showBroadcastPopup && globalBroadcast && (
                         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-rose-900/40 backdrop-blur-md animate-in fade-in duration-500">
-                            <div className="bg-white w-full max-w-[340px] rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 border border-white/50">
-                                {/* Header with Gradient */}
-                                <div className="bg-gradient-to-br from-rose-400 to-rose-600 p-8 text-center relative">
-                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white w-20 h-20 rounded-[2.5rem] flex items-center justify-center text-3xl shadow-xl shadow-rose-200/50 border-4 border-rose-50 animate-bounce">
+                            {/* Card Container - Removed overflow-hidden to let icon breathe */}
+                            <div className="bg-white w-full max-w-[360px] rounded-[3rem] shadow-[0_20px_50px_rgba(225,29,72,0.3)] animate-in zoom-in-95 duration-500 border border-white/50 relative">
+                                
+                                {/* Floating Header Icon */}
+                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-30">
+                                    <div className="bg-white w-24 h-24 rounded-[2.8rem] flex items-center justify-center text-4xl shadow-xl shadow-rose-200/50 border-4 border-rose-50 animate-bounce">
                                         📢
                                     </div>
-                                    <p className="text-[10px] font-black text-rose-100 uppercase tracking-[0.4em] mb-2 mt-8">Global Notification</p>
+                                </div>
+
+                                {/* Header with Gradient */}
+                                <div className="bg-gradient-to-br from-rose-400 to-rose-600 pt-16 pb-8 px-8 text-center rounded-t-[3rem]">
+                                    <p className="text-[10px] font-black text-rose-100 uppercase tracking-[0.4em] mb-1">Global Notification</p>
                                     <h2 className="text-white text-2xl font-black tracking-tighter">Sisterhood Alert</h2>
                                 </div>
                                 
-                                {/* Content */}
-                                <div className="p-10 text-center bg-rose-50/30">
-                                    <div className="mb-8 relative">
-                                        <span className="absolute -top-4 -left-2 text-4xl text-rose-200 opacity-50 font-serif">“</span>
-                                        <p className="text-slate-700 font-bold leading-relaxed text-lg relative z-10 italic">
+                                {/* Content Area */}
+                                <div className="p-8 text-center bg-rose-50/20 rounded-b-[3rem]">
+                                    {/* Scrollable Message Box for Long Text */}
+                                    <div className="mb-8 relative max-h-64 overflow-y-auto px-2 custom-scrollbar">
+                                        <span className="sticky top-0 left-0 text-4xl text-rose-200 opacity-30 font-serif block text-left h-4">“</span>
+                                        <p className="text-slate-700 font-bold leading-relaxed text-lg italic py-2">
                                             {globalBroadcast.message}
                                         </p>
-                                        <span className="absolute -bottom-10 -right-2 text-4xl text-rose-200 opacity-50 font-serif">”</span>
+                                        <span className="text-4xl text-rose-200 opacity-30 font-serif block text-right h-4">”</span>
                                     </div>
                                     
                                     <button 
