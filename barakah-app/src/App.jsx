@@ -54,8 +54,8 @@ export default function App() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showBadgePopup, setShowBadgePopup] = useState(null);
     const [activeChallenge, setActiveChallenge] = useState(null); 
-    const [globalBroadcast, setGlobalBroadcast] = useState(null); // Broadcast Data
-    const [showBroadcastPopup, setShowBroadcastPopup] = useState(false); // Controls the Pop-up
+    const [globalBroadcast, setGlobalBroadcast] = useState(null); 
+    const [showBroadcastPopup, setShowBroadcastPopup] = useState(false); 
     const [isCompletingChallenge, setIsCompletingChallenge] = useState(false);
     const [timeLeft, setTimeLeft] = useState("");
 
@@ -124,7 +124,6 @@ export default function App() {
                 .single();
             
             if (broadcastData) {
-                // Only show if user hasn't dismissed THIS specific broadcast ID
                 const dismissedId = localStorage.getItem('last_dismissed_broadcast');
                 if (dismissedId !== broadcastData.id) {
                     setGlobalBroadcast(broadcastData);
@@ -366,22 +365,35 @@ export default function App() {
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
                     
-                    {/* GLOBAL BROADCAST DIALOGUE POP-UP */}
+                    {/* REDESIGNED GLOBAL BROADCAST POP-UP */}
                     {showBroadcastPopup && globalBroadcast && (
-                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                            <div className="bg-white w-full rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                                <div className="bg-slate-900 p-8 text-center relative">
-                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-rose-500 w-16 h-16 rounded-3xl flex items-center justify-center text-3xl shadow-xl shadow-rose-200">📢</div>
-                                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] mb-2 mt-4">Global Announcement</p>
-                                    <h2 className="text-white text-xl font-black tracking-tight">Message from Admin</h2>
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-rose-900/40 backdrop-blur-md animate-in fade-in duration-500">
+                            <div className="bg-white w-full max-w-[340px] rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 border border-white/50">
+                                {/* Header with Gradient */}
+                                <div className="bg-gradient-to-br from-rose-400 to-rose-600 p-8 text-center relative">
+                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-white w-20 h-20 rounded-[2.5rem] flex items-center justify-center text-3xl shadow-xl shadow-rose-200/50 border-4 border-rose-50 animate-bounce">
+                                        📢
+                                    </div>
+                                    <p className="text-[10px] font-black text-rose-100 uppercase tracking-[0.4em] mb-2 mt-8">Global Notification</p>
+                                    <h2 className="text-white text-2xl font-black tracking-tighter">Sisterhood Alert</h2>
                                 </div>
-                                <div className="p-10 text-center">
-                                    <p className="text-slate-600 font-medium leading-relaxed mb-8 italic">"{globalBroadcast.message}"</p>
+                                
+                                {/* Content */}
+                                <div className="p-10 text-center bg-rose-50/30">
+                                    <div className="mb-8 relative">
+                                        <span className="absolute -top-4 -left-2 text-4xl text-rose-200 opacity-50 font-serif">“</span>
+                                        <p className="text-slate-700 font-bold leading-relaxed text-lg relative z-10 italic">
+                                            {globalBroadcast.message}
+                                        </p>
+                                        <span className="absolute -bottom-10 -right-2 text-4xl text-rose-200 opacity-50 font-serif">”</span>
+                                    </div>
+                                    
                                     <button 
                                         onClick={handleDismissBroadcast}
-                                        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"
+                                        className="w-full py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-lg shadow-rose-200 active:scale-95 transition-all flex items-center justify-center gap-2"
                                     >
-                                        I Understand
+                                        <span>I ACKNOWLEDGE</span>
+                                        <span className="bg-white/20 px-2 py-0.5 rounded-lg">✨</span>
                                     </button>
                                 </div>
                             </div>
