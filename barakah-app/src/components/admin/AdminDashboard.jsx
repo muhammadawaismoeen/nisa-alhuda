@@ -18,8 +18,9 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
     const [activeBroadcasts, setActiveBroadcasts] = useState([]);
     const [challengeHistory, setChallengeHistory] = useState([]); // RESTORED: History State
 
-    // --- NEW: SUBSCRIPTION SETTINGS STATE ---
+    // --- SUBSCRIPTION & GLOBAL SETTINGS STATE ---
     const [trialDays, setTrialDays] = useState(7);
+    const [lockAfterTrial, setLockAfterTrial] = useState(true); // NEW: Hard-lock state
     const [settingsLoading, setSettingsLoading] = useState(false);
 
     useEffect(() => {
@@ -59,7 +60,6 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
     };
 
     const fetchPendingRequests = async () => {
-        // Fetching requests with profile info to see who is paying
         const { data } = await supabase
             .from('payment_requests')
             .select('*, profiles(username)')
@@ -86,26 +86,32 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
         if (data) setChallengeHistory(data);
     };
 
-    // --- NEW: FETCH GLOBAL SETTINGS ---
+    // --- FETCH GLOBAL SETTINGS ---
     const fetchGlobalSettings = async () => {
         const { data } = await supabase
             .from('global_settings')
-            .select('trial_period_days')
+            .select('*')
             .eq('id', 'config')
             .single();
-        if (data) setTrialDays(data.trial_period_days);
+        if (data) {
+            setTrialDays(data.trial_period_days);
+            setLockAfterTrial(data.features_locked_after_trial);
+        }
     };
 
-    // --- NEW: UPDATE GLOBAL SETTINGS ---
-    const handleUpdateTrial = async () => {
+    // --- UPDATE GLOBAL SETTINGS ---
+    const handleUpdateSettings = async () => {
         setSettingsLoading(true);
         const { error } = await supabase
             .from('global_settings')
-            .update({ trial_period_days: trialDays })
+            .update({ 
+                trial_period_days: trialDays,
+                features_locked_after_trial: lockAfterTrial 
+            })
             .eq('id', 'config');
         
         if (error) alert(error.message);
-        else alert("Trial Period Updated Successfully!");
+        else alert("System Configuration Updated Successfully! ✅");
         setSettingsLoading(false);
     };
 
@@ -154,13 +160,9 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
         setLoading(false);
     };
 
-    // --- NEW: SUBSCRIPTION APPROVAL LOGIC ---
     const approveSubscription = async (requestId, userId, tier) => {
         setLoading(true);
-        // 1. Update user profile to the new tier
         const { error: profileError } = await supabase.from('profiles').update({ subscription_tier: tier }).eq('id', userId);
-        
-        // 2. Mark request as approved
         const { error: requestError } = await supabase.from('payment_requests').update({ status: 'approved' }).eq('id', requestId);
 
         if (!profileError && !requestError) {
@@ -456,7 +458,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </div>
                 )}
 
-                {/* 6. NEW: SETTINGS TAB FOR TRIAL CONTROL */}
+                {/* 6. SETTINGS TAB FOR TRIAL & GLOBAL CONFIG */}
                 {tab === 'settings' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                         <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
@@ -465,26 +467,45 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                 <h3 className="font-black text-slate-900">System Configuration</h3>
                             </div>
 
-                            <div className="space-y-6">
+                            <div className="space-y-8">
+                                {/* Trial Days Input */}
                                 <div>
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Free Trial Duration (Days)</label>
-                                    <div className="flex gap-4">
-                                        <input 
-                                            type="number" 
-                                            value={trialDays} 
-                                            onChange={(e) => setTrialDays(parseInt(e.target.value))}
-                                            className="flex-1 p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600"
-                                        />
-                                        <button 
-                                            onClick={handleUpdateTrial}
-                                            disabled={settingsLoading}
-                                            className="px-8 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
-                                        >
-                                            {settingsLoading ? "SAVING..." : "UPDATE"}
-                                        </button>
-                                    </div>
-                                    <p className="mt-3 ml-4 text-[10px] text-slate-400 font-medium">This controls the countdown timer for all new users on the 'trial' status.</p>
+                                    <input 
+                                        type="number" 
+                                        value={trialDays} 
+                                        onChange={(e) => setTrialDays(parseInt(e.target.value) || 0)}
+                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600 text-lg"
+                                    />
                                 </div>
+
+                                {/* Hard Lock Toggle */}
+                                <div className="flex items-center justify-between bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100">
+                                    <div>
+                                        <p className="text-xs font-black text-slate-800 uppercase tracking-tight">Hard-Lock Features</p>
+                                        <p className="text-[10px] text-slate-500 font-medium mt-1 leading-tight">
+                                            Block dashboard access after trial expires
+                                        </p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setLockAfterTrial(!lockAfterTrial)}
+                                        className={`w-14 h-7 rounded-full transition-all duration-300 relative shadow-inner ${lockAfterTrial ? 'bg-rose-500' : 'bg-slate-300'}`}
+                                    >
+                                        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${lockAfterTrial ? 'translate-x-8' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+
+                                <button 
+                                    onClick={handleUpdateSettings}
+                                    disabled={settingsLoading}
+                                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all disabled:opacity-50"
+                                >
+                                    {settingsLoading ? "SAVING CONFIGURATION..." : "APPLY GLOBAL CHANGES"}
+                                </button>
+                                
+                                <p className="text-[10px] text-slate-400 font-medium text-center px-4">
+                                    Note: Trial length changes affect all users immediately. Hard-lock prevents "Free" tier users from viewing content once their timer hits zero.
+                                </p>
                             </div>
                         </div>
 

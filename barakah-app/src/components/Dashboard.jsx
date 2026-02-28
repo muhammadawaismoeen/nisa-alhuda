@@ -1,569 +1,265 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../supabaseClient';
+// Standard imports for components in the same folder
+import NotificationCenter from './NotificationCenter'; 
+import DeedTracker from './DeedTracker'; 
+import ToolGrid from './Tools';
 
-export default function AdminDashboard({ onClose, onChallengeUpdate }) {
-    // --- SYSTEM STATES ---
-    const [stats, setStats] = useState({ 
-        totalUsers: 0, 
-        totalPoints: 0, 
-        activeToday: 0, 
-        premiumUsers: 0, 
-        pendingSubs: 0 
-    });
-    const [users, setUsers] = useState([]);
-    const [pendingRequests, setPendingRequests] = useState([]); 
-    const [loading, setLoading] = useState(false);
-    const [tab, setTab] = useState('overview'); 
+/**
+ * ============================================================================
+ * COMPONENT: Dashboard
+ * ============================================================================
+ * The primary interface for the Barakah App. 
+ * Handles profile fetching, subscription status, and real-time events.
+ * ============================================================================
+ */
+export default function Dashboard({ session }) {
+    // -------------------------------------------------------------------------
+    // 1. STATE DEFINITIONS
+    // -------------------------------------------------------------------------
     
-    // --- CHALLENGE CREATION STATES ---
-    const [title, setTitle] = useState('');
-    const [desc, setDesc] = useState('');
-    const [points, setPoints] = useState(100);
-    const [validityHours, setValidityHours] = useState(24); 
+    // User profile state structure
+    const [profile, setProfile] = useState({
+        id: null,
+        username: 'Sister',
+        subscription_tier: 'free',
+        role: 'user',
+        created_at: null,
+        avatar_url: null
+    });
 
-    // --- BROADCAST & HISTORY STATES ---
-    const [broadcast, setBroadcast] = useState('');
-    const [activeBroadcasts, setActiveBroadcasts] = useState([]);
-    const [challengeHistory, setChallengeHistory] = useState([]); 
+    // Operational states
+    const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [error, setError] = useState(null);
+    const [lastSynced, setLastSynced] = useState(new Date());
 
-    // --- SUBSCRIPTION & GLOBAL SETTINGS STATE ---
-    const [trialDays, setTrialDays] = useState(7);
-    const [lockAfterTrial, setLockAfterTrial] = useState(true); 
-    const [settingsLoading, setSettingsLoading] = useState(false);
+    // -------------------------------------------------------------------------
+    // 2. BACKEND SYNCHRONIZATION
+    // -------------------------------------------------------------------------
+
+    /**
+     * getProfile
+     * Fetches authenticated user data from Supabase 'profiles' table.
+     */
+    const getProfile = useCallback(async () => {
+        try {
+            // Safety check for active session
+            if (!session?.user?.id) {
+                console.warn("No active session detected in Dashboard.");
+                return;
+            }
+
+            const { data, error: profileError, status } = await supabase
+                .from('profiles')
+                .select('id, username, subscription_tier, role, created_at, avatar_url')
+                .eq('id', session.user.id)
+                .single();
+
+            // Handle potential query errors
+            if (profileError && status !== 406) {
+                throw profileError;
+            }
+
+            // Successfully retrieved data
+            if (data) {
+                setProfile({
+                    id: data.id,
+                    username: data.username || 'Sister',
+                    subscription_tier: data.subscription_tier || 'free',
+                    role: data.role || 'user',
+                    created_at: data.created_at,
+                    avatar_url: data.avatar_url
+                });
+                setLastSynced(new Date());
+            }
+        } catch (err) {
+            setError(err.message);
+            console.error('Dashboard Data Fetch Error:', err.message);
+        } finally {
+            setLoading(false);
+            setIsRefreshing(false);
+        }
+    }, [session]);
+
+    // -------------------------------------------------------------------------
+    // 3. LIFECYCLE HOOKS
+    // -------------------------------------------------------------------------
 
     useEffect(() => {
-        fetchStats();
-        fetchUsers();
-        fetchCurrentBroadcasts();
-        fetchChallengeHistory();
-        fetchPendingRequests(); 
-        fetchGlobalSettings(); 
-    }, []);
+        let active = true;
 
-    const fetchStats = async () => {
-        try {
-            const { count: userCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-            const { data: pointsData } = await supabase.from('profiles').select('points, subscription_tier');
-            const { count: pendingCount } = await supabase.from('payment_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
-            
-            const totalPts = pointsData?.reduce((acc, curr) => acc + (curr.points || 0), 0);
-            const premiumCount = pointsData?.filter(u => u.subscription_tier !== 'free').length;
-            
-            setStats({
-                totalUsers: userCount || 0,
-                totalPoints: totalPts || 0,
-                activeToday: Math.floor((userCount || 0) * 0.6),
-                premiumUsers: premiumCount || 0,
-                pendingSubs: pendingCount || 0
-            });
-        } catch (e) { console.error(e); }
-    };
-
-    const fetchUsers = async () => {
-        const { data } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('points', { ascending: false });
-        if (data) setUsers(data);
-    };
-
-    const fetchPendingRequests = async () => {
-        const { data } = await supabase
-            .from('payment_requests')
-            .select('*, profiles(username)')
-            .eq('status', 'pending')
-            .order('created_at', { ascending: false });
-        if (data) setPendingRequests(data);
-    };
-
-    const fetchCurrentBroadcasts = async () => {
-        const { data } = await supabase
-            .from('broadcasts')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false });
-        if (data) setActiveBroadcasts(data);
-    };
-
-    const fetchChallengeHistory = async () => {
-        const { data } = await supabase
-            .from('challenges')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(10);
-        if (data) setChallengeHistory(data);
-    };
-
-    const fetchGlobalSettings = async () => {
-        const { data } = await supabase
-            .from('global_settings')
-            .select('*')
-            .eq('id', 'config')
-            .single();
-        if (data) {
-            setTrialDays(data.trial_period_days);
-            setLockAfterTrial(data.features_locked_after_trial);
+        if (active) {
+            getProfile();
         }
+
+        // Standard cleanup to prevent memory leaks during hot reloads
+        return () => { active = false; };
+    }, [getProfile]);
+
+    /**
+     * handleManualRefresh
+     * Allows user to manually trigger a data sync with the database.
+     */
+    const handleManualRefresh = async () => {
+        setIsRefreshing(true);
+        await getProfile();
     };
 
-    const handleUpdateSettings = async () => {
-        setSettingsLoading(true);
-        const { error } = await supabase
-            .from('global_settings')
-            .update({ 
-                trial_period_days: trialDays,
-                features_locked_after_trial: lockAfterTrial 
-            })
-            .eq('id', 'config');
-        
-        if (error) alert(error.message);
-        else alert("System Configuration Updated Successfully! ✅");
-        setSettingsLoading(false);
-    };
+    // -------------------------------------------------------------------------
+    // 4. MODULAR UI FRAGMENTS (MEMOIZED)
+    // -------------------------------------------------------------------------
 
-    // --- TRIAL RESET LOGIC ---
-    const resetUserTrial = async (userId, username) => {
-        const confirmReset = window.confirm(`Reset trial for ${username}? This will restart their trial countdown from today.`);
-        if (!confirmReset) return;
+    const DashboardHeader = useMemo(() => {
+        return (
+            <header className="p-8 pt-16 bg-white rounded-b-[4.5rem] shadow-sm mb-8 border-b border-rose-50/30 relative overflow-hidden">
+                <div className="max-w-5xl mx-auto flex justify-between items-center relative z-10">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                            <p className="text-[11px] font-black text-rose-400 uppercase tracking-[0.4em]">
+                                Assalam-o-Alaikum
+                            </p>
+                        </div>
+                        <h1 className="text-4xl font-black text-slate-900 tracking-tighter leading-tight">
+                            {profile.username}
+                        </h1>
+                        <div className="flex items-center gap-3">
+                            <span className={`text-[9px] font-black px-4 py-1 rounded-full uppercase tracking-widest ${
+                                profile.subscription_tier === 'pro' 
+                                ? 'bg-amber-100 text-amber-600 border border-amber-200' 
+                                : 'bg-slate-100 text-slate-500 border border-slate-200'
+                            }`}>
+                                {profile.subscription_tier === 'pro' ? '★ Premium Access' : 'Standard Plan'}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={handleManualRefresh}
+                        disabled={isRefreshing}
+                        className="relative group transition-all active:scale-95 focus:outline-none"
+                    >
+                        <div className={`w-20 h-20 bg-gradient-to-br from-rose-50 via-white to-orange-50 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-sm border border-rose-100/50 group-hover:shadow-md transition-all ${isRefreshing ? 'animate-spin' : ''}`}>
+                            {profile.avatar_url ? (
+                                <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover rounded-[2.5rem]" />
+                            ) : '✨'}
+                        </div>
+                    </button>
+                </div>
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-rose-100/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+                <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-100/10 rounded-full blur-3xl -ml-24 -mb-24"></div>
+            </header>
+        );
+    }, [profile, isRefreshing]);
 
-        setLoading(true);
-        const { error } = await supabase
-            .from('profiles')
-            .update({ created_at: new Date().toISOString() })
-            .eq('id', userId);
+    // -------------------------------------------------------------------------
+    // 5. RENDER LOGIC
+    // -------------------------------------------------------------------------
 
-        if (error) {
-            alert("Error resetting trial: " + error.message);
-        } else {
-            alert(`Trial reset successfully for ${username}! ⏳`);
-            fetchUsers();
-        }
-        setLoading(false);
-    };
-
-    const handleCreateChallenge = async (e) => {
-        e.preventDefault();
-        if (!title || !desc) return;
-        setLoading(true);
-        
-        const expiresAt = new Date();
-        expiresAt.setHours(expiresAt.getHours() + parseInt(validityHours));
-
-        const { error } = await supabase
-            .from('challenges')
-            .insert([{ 
-                title, 
-                description: desc, 
-                points: parseInt(points), 
-                expires_at: expiresAt.toISOString() 
-            }]);
-
-        if (error) alert(error.message);
-        else {
-            alert("Global Challenge Launched!");
-            setTitle(''); setDesc('');
-            fetchChallengeHistory();
-            onChallengeUpdate();
-        }
-        setLoading(false);
-    };
-
-    const handleSendBroadcast = async () => {
-        if (!broadcast) return;
-        setLoading(true);
-        await supabase.from('broadcasts').update({ is_active: false }).eq('is_active', true);
-        const { error } = await supabase
-            .from('broadcasts')
-            .insert([{ message: broadcast, is_active: true }]);
-
-        if (error) alert(error.message);
-        else {
-            alert("Broadcast is now LIVE for all users!");
-            setBroadcast('');
-            fetchCurrentBroadcasts();
-            onChallengeUpdate(); 
-        }
-        setLoading(false);
-    };
-
-    const approveSubscription = async (requestId, userId, tier) => {
-        setLoading(true);
-        const { error: profileError } = await supabase.from('profiles').update({ subscription_tier: tier }).eq('id', userId);
-        const { error: requestError } = await supabase.from('payment_requests').update({ status: 'approved' }).eq('id', requestId);
-
-        if (!profileError && !requestError) {
-            alert(`Sister successfully upgraded to ${tier.toUpperCase()}! 💎`);
-            fetchPendingRequests();
-            fetchStats();
-            fetchUsers();
-        } else {
-            alert("Verification failed. Check Database.");
-        }
-        setLoading(false);
-    };
-
-    const deleteBroadcast = async (id) => {
-        await supabase.from('broadcasts').update({ is_active: false }).eq('id', id);
-        fetchCurrentBroadcasts();
-        onChallengeUpdate();
-    };
-
-    const updateUserPoints = async (userId, newPoints) => {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ points: newPoints })
-            .eq('id', userId);
-        if (!error) fetchUsers();
-    };
-
-    // --- HELPER TO CALCULATE REMAINING DAYS FOR UI DISPLAY ---
-    const getRemainingDays = (createdAt) => {
-        const created = new Date(createdAt);
-        const today = new Date();
-        const diff = Math.floor((today - created) / (1000 * 60 * 60 * 24));
-        const remaining = trialDays - diff;
-        return remaining > 0 ? remaining : 0;
-    };
+    if (loading) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-[#FDFCFB]">
+                <div className="relative mb-6">
+                    <div className="w-24 h-24 border-[6px] border-rose-50 border-t-rose-400 rounded-full animate-spin"></div>
+                    <div className="absolute inset-0 flex items-center justify-center text-2xl">🌱</div>
+                </div>
+                <p className="text-[11px] font-black text-rose-400 uppercase tracking-[0.5em] animate-pulse">
+                    Aligning your Barakah...
+                </p>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-[#f8fafc] pb-20">
-            {/* Header Section */}
-            <div className="bg-slate-900 text-white p-8 rounded-b-[3rem] shadow-2xl">
-                <div className="flex justify-between items-center mb-6">
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-400">System Administrator</p>
-                        <h1 className="text-3xl font-black tracking-tighter text-white">COMMAND CENTER</h1>
-                    </div>
-                    <button 
-                        onClick={onClose}
-                        className="bg-white/10 hover:bg-white/20 p-4 rounded-2xl backdrop-blur-md transition-all active:scale-90"
-                    >
-                        <span className="text-xs font-black uppercase tracking-widest">Exit</span>
-                    </button>
-                </div>
+        <div className="min-h-screen bg-[#FDFCFB] pb-40 selection:bg-rose-100 animate-in fade-in duration-1000">
+            
+            {/* RENDER MEMOIZED HEADER */}
+            {DashboardHeader}
 
-                {/* Dashboard Stats Panel */}
-                <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                        <p className="text-[8px] font-bold uppercase opacity-50 mb-1">Premium Souls</p>
-                        <p className="text-xl font-black text-emerald-400">{stats.premiumUsers}</p>
-                    </div>
-                    <div className="bg-rose-500/20 p-4 rounded-2xl border border-rose-500/30">
-                        <p className="text-[8px] font-bold uppercase text-rose-300 mb-1 text-white">Pending Subs</p>
-                        <p className="text-xl font-black text-white">{stats.pendingSubs}</p>
-                    </div>
-                    <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                        <p className="text-[8px] font-bold uppercase opacity-50 mb-1">Active Now</p>
-                        <p className="text-xl font-black text-white">{stats.activeToday}</p>
+            {/* NOTIFICATION SECTION */}
+            {/* Integrated with the NotificationCenter.jsx component in your components folder */}
+            <div className="max-w-5xl mx-auto px-6 mb-12">
+                <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-rose-100 to-orange-100 rounded-[3.5rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+                    <div className="relative bg-white/70 backdrop-blur-md rounded-[3.5rem] p-4 border border-white shadow-sm">
+                        <NotificationCenter userId={session.user.id} />
                     </div>
                 </div>
             </div>
 
-            {/* Admin Sub-Navigation */}
-            <div className="flex px-6 gap-2 -mt-4 overflow-x-auto no-scrollbar relative z-10">
-                {['overview', 'users', 'challenges', 'broadcast', 'subs', 'settings'].map((t) => (
-                    <button
-                        key={t}
-                        onClick={() => setTab(t)}
-                        className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg transition-all whitespace-nowrap ${
-                            tab === t ? 'bg-rose-500 text-white scale-105 z-10' : 'bg-white text-slate-400'
-                        }`}
-                    >
-                        {t === 'subs' ? `💎 Verification (${stats.pendingSubs})` : t === 'settings' ? '⚙️ Settings' : t}
-                    </button>
-                ))}
-            </div>
-
-            <div className="p-6 space-y-6">
-                {/* 1. OVERVIEW SECTION */}
-                {tab === 'overview' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 mb-6">
-                            <h3 className="font-black text-slate-800 mb-4">System Health</h3>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
-                                    <span className="text-xs font-bold text-slate-500">Trial Configuration</span>
-                                    <span className="text-[10px] font-black uppercase text-indigo-600">
-                                        {trialDays} Day Window / {lockAfterTrial ? 'Hard Lock Active' : 'Soft Lock'}
-                                    </span>
-                                </div>
-                                <div className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl">
-                                    <span className="text-xs font-bold text-slate-500">Subscription Engine</span>
-                                    <span className={`text-[10px] font-black uppercase ${stats.pendingSubs > 0 ? 'text-rose-500 animate-pulse' : 'text-green-500'}`}>
-                                        {stats.pendingSubs > 0 ? `${stats.pendingSubs} Pending Approval` : 'All Clear'}
-                                    </span>
-                                </div>
-                            </div>
+            {/* PRIMARY CONTENT SECTIONS */}
+            <main className="max-w-5xl mx-auto px-6 space-y-16">
+                
+                {/* SECTION: PROGRESS TRACKING */}
+                <section className="animate-in slide-in-from-bottom-10 duration-1000">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center px-6 mb-8 gap-4">
+                        <div>
+                            <h3 className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
+                                Daily Tracker
+                            </h3>
+                            <p className="text-[10px] text-rose-300 font-bold uppercase tracking-wider">Monitor your spiritual habits</p>
                         </div>
-                        
-                        <div className="bg-indigo-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-indigo-100">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-2 opacity-80">Admin Tip</p>
-                            <p className="text-lg font-bold leading-tight">Use the 'Users' tab to reset trials for sisters who need a few extra days to explore.</p>
+                        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+                            <span className="text-[10px] font-black text-slate-300 px-2 uppercase">Last Sync:</span>
+                            <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 px-4 py-1.5 rounded-xl">
+                                {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
                         </div>
                     </div>
-                )}
-
-                {/* 2. USER DIRECTORY SECTION */}
-                {tab === 'users' && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                        <h3 className="px-2 font-black text-slate-800">Community Directory</h3>
-                        {users.map(u => {
-                            const remaining = getRemainingDays(u.created_at);
-                            return (
-                                <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex justify-between items-center transition-all hover:border-rose-100">
-                                    <div>
-                                        <p className="font-black text-slate-900">{u.username || 'Anonymous'}</p>
-                                        <div className="flex gap-2 items-center">
-                                            <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${u.subscription_tier === 'pro' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                {u.subscription_tier || 'free'}
-                                            </span>
-                                            {u.subscription_tier === 'free' && (
-                                                <span className={`text-[8px] font-bold uppercase ${remaining <= 1 ? 'text-rose-500' : 'text-slate-400'}`}>
-                                                    {remaining} Days Left
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {u.subscription_tier === 'free' && (
-                                            <button 
-                                                onClick={() => resetUserTrial(u.id, u.username)}
-                                                className="bg-indigo-50 p-3 rounded-xl hover:bg-indigo-100 transition-colors"
-                                                title="Grant +7 Days Trial"
-                                            >
-                                                <span className="text-xs">⏳</span>
-                                            </button>
-                                        )}
-                                        <div className="text-right mr-2">
-                                            <p className="text-xs font-black text-rose-500">{u.points || 0} HP</p>
-                                        </div>
-                                        <button 
-                                            onClick={() => updateUserPoints(u.id, (u.points || 0) + 100)}
-                                            className="bg-slate-100 p-3 rounded-xl hover:bg-rose-50 transition-colors"
-                                            title="Gift points"
-                                        >
-                                            🎁
-                                        </button>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    
+                    <div className="bg-white rounded-[4rem] p-4 shadow-sm border border-slate-50 hover:shadow-lg transition-all duration-500">
+                        <DeedTracker userId={session.user.id} />
                     </div>
-                )}
+                </section>
 
-                {/* 3. GLOBAL CHALLENGES SECTION */}
-                {tab === 'challenges' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8">
-                        <form onSubmit={handleCreateChallenge} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-3 mb-6">
-                                <span className="text-2xl">🚀</span>
-                                <h3 className="font-black text-slate-900">Deploy Global Challenge</h3>
-                            </div>
-                            
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Challenge Title</label>
-                                    <input 
-                                        type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                                        placeholder="e.g., Read Surah Kahf"
-                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-bold text-sm"
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Instructions</label>
-                                    <textarea 
-                                        value={desc} onChange={(e) => setDesc(e.target.value)}
-                                        placeholder="Explain what the sisters need to do..."
-                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-bold text-sm h-32"
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Hasanat Points</label>
-                                        <input 
-                                            type="number" value={points} onChange={(e) => setPoints(e.target.value)}
-                                            className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Validity (Hours)</label>
-                                        <input 
-                                            type="number" value={validityHours} onChange={(e) => setValidityHours(e.target.value)}
-                                            className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-slate-700"
-                                        />
-                                    </div>
-                                </div>
-
-                                <button 
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-slate-200 active:scale-95 transition-all mt-4 disabled:opacity-50"
-                                >
-                                    {loading ? "INITIALIZING..." : "LAUNCH TO ALL USERS"}
-                                </button>
-                            </div>
-                        </form>
-
-                        <div className="space-y-4">
-                            <h4 className="px-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Global History</h4>
-                            {challengeHistory.map(ch => (
-                                <div key={ch.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex justify-between items-center group hover:bg-slate-50 transition-all">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-lg shadow-sm text-indigo-500">✨</div>
-                                        <div>
-                                            <p className="font-black text-slate-800 text-sm">{ch.title}</p>
-                                            <p className="text-[9px] font-bold text-slate-400 uppercase">Expires: {new Date(ch.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">+{ch.points} HP</span>
-                                    </div>
-                                </div>
-                            ))}
+                {/* SECTION: SPIRITUAL TOOLS */}
+                <section className="animate-in slide-in-from-bottom-12 duration-1000 delay-200">
+                    <div className="flex justify-between items-end px-6 mb-8">
+                        <div>
+                            <h3 className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">
+                                Essential Tools
+                            </h3>
+                            <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wider italic">Guided resources for every sister</p>
                         </div>
-                    </div>
-                )}
-
-                {/* 4. ANNOUNCEMENT BROADCAST SECTION */}
-                {tab === 'broadcast' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-                        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-3 mb-6">
-                                <span className="text-2xl">📢</span>
-                                <h3 className="font-black text-slate-900">Send Global Message</h3>
-                            </div>
-                            
-                            <textarea 
-                                value={broadcast}
-                                onChange={(e) => setBroadcast(e.target.value)}
-                                placeholder="This message will scroll at the top of every user's screen..."
-                                className="w-full p-6 bg-indigo-50/50 rounded-[2rem] border-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm h-32 mb-4 outline-none"
-                            />
-                            
-                            <button 
-                                onClick={handleSendBroadcast}
-                                disabled={loading || !broadcast}
-                                className="w-full py-5 bg-indigo-600 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 active:scale-95 transition-all disabled:opacity-50"
-                            >
-                                {loading ? "TRANSMITTING..." : "PUSH LIVE ANNOUNCEMENT"}
+                        {profile.subscription_tier !== 'pro' && (
+                            <button className="text-[10px] font-black text-rose-500 bg-rose-50 px-6 py-3 rounded-full hover:bg-rose-500 hover:text-white transition-all duration-300 uppercase tracking-widest shadow-sm">
+                                Explore Pro
                             </button>
-                        </div>
-
-                        <div className="space-y-3">
-                            <h4 className="px-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Live Transmissions</h4>
-                            {activeBroadcasts.length === 0 && (
-                                <p className="text-center py-10 text-slate-300 font-bold italic text-sm">No active broadcasts</p>
-                            )}
-                            {activeBroadcasts.map(b => (
-                                <div key={b.id} className="bg-slate-900 text-white p-6 rounded-[2rem] flex justify-between items-center group shadow-xl">
-                                    <div className="flex-1 pr-4">
-                                        <p className="text-xs font-medium leading-relaxed italic">"{b.message}"</p>
-                                        <p className="text-[8px] font-black uppercase text-indigo-400 mt-2 tracking-widest">Status: Scrolling Live</p>
-                                    </div>
-                                    <button 
-                                        onClick={() => deleteBroadcast(b.id)}
-                                        className="bg-white/10 hover:bg-rose-500 p-3 rounded-xl transition-all"
-                                    >
-                                        🗑️
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* 5. SUBSCRIPTION VERIFICATION SECTION */}
-                {tab === 'subs' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-                        <h3 className="px-2 font-black text-slate-800 text-lg">Pending Payment Verifications</h3>
-                        {pendingRequests.length === 0 && (
-                            <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-                                <p className="text-slate-300 font-bold italic">No pending verifications today.</p>
-                            </div>
                         )}
-                        {pendingRequests.map(req => (
-                            <div key={req.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <p className="font-black text-slate-900">{req.profiles?.username || 'Sister Anonymous'}</p>
-                                        <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Plan Selected: {req.tier}</p>
-                                    </div>
-                                    <span className="bg-amber-50 text-amber-600 px-3 py-1 rounded-full text-[8px] font-black uppercase">Pending Approval</span>
-                                </div>
-                                
-                                <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100 flex items-center justify-center italic text-[10px] text-slate-400">
-                                    [Proof Reference: {req.screenshot_url.substring(0, 12)}...]
-                                </div>
+                    </div>
+                    
+                    <div className="px-2">
+                        <ToolGrid tier={profile.subscription_tier} />
+                    </div>
+                </section>
 
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => approveSubscription(req.id, req.user_id, req.tier)}
-                                        disabled={loading}
-                                        className="flex-1 bg-slate-900 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg"
-                                    >
-                                        Verify & Upgrade
-                                    </button>
-                                    <button className="bg-rose-50 text-rose-500 px-6 py-4 rounded-xl text-[10px] font-black uppercase font-bold">Reject</button>
-                                </div>
-                            </div>
-                        ))}
+                {/* ERROR STATE VIEW */}
+                {error && (
+                    <div className="mx-6 p-8 bg-rose-50/30 rounded-[3rem] border-2 border-dashed border-rose-100 text-center animate-in zoom-in duration-500">
+                        <div className="text-2xl mb-2">📡</div>
+                        <p className="text-[11px] font-black text-rose-500 uppercase tracking-[0.2em] mb-1">
+                            Connection Alert
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-bold mb-4">{error}</p>
+                        <button 
+                            onClick={() => window.location.reload()}
+                            className="text-[9px] font-black text-white bg-slate-800 px-8 py-3 rounded-2xl uppercase tracking-[0.2em] active:scale-95 transition-all"
+                        >
+                            Refresh App
+                        </button>
                     </div>
                 )}
+            </main>
 
-                {/* 6. SYSTEM SETTINGS SECTION */}
-                {tab === 'settings' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-                        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
-                            <div className="flex items-center gap-3 mb-6">
-                                <span className="text-2xl text-slate-700">⚙️</span>
-                                <h3 className="font-black text-slate-900">System Configuration</h3>
-                            </div>
-
-                            <div className="space-y-8">
-                                <div>
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Free Trial Duration (Days)</label>
-                                    <input 
-                                        type="number" 
-                                        value={trialDays} 
-                                        onChange={(e) => setTrialDays(parseInt(e.target.value) || 0)}
-                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600 text-lg outline-none"
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100">
-                                    <div>
-                                        <p className="text-xs font-black text-slate-800 uppercase tracking-tight">Hard-Lock Features</p>
-                                        <p className="text-[10px] text-slate-500 font-medium mt-1 leading-tight">
-                                            Block dashboard access after trial expires
-                                        </p>
-                                    </div>
-                                    <button 
-                                        onClick={() => setLockAfterTrial(!lockAfterTrial)}
-                                        className={`w-14 h-7 rounded-full transition-all duration-300 relative shadow-inner ${lockAfterTrial ? 'bg-rose-500' : 'bg-slate-300'}`}
-                                    >
-                                        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${lockAfterTrial ? 'translate-x-8' : 'translate-x-1'}`} />
-                                    </button>
-                                </div>
-
-                                <button 
-                                    onClick={handleUpdateSettings}
-                                    disabled={settingsLoading}
-                                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    {settingsLoading ? "SAVING CONFIGURATION..." : "APPLY GLOBAL CHANGES"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Admin Footer Branding */}
-            <div className="text-center py-10 opacity-20">
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-900">Nisa Al-Huda Admin Core</p>
-            </div>
+            {/* DECORATIVE FOOTER ELEMENT */}
+            <footer className="fixed bottom-0 left-0 w-full h-48 bg-gradient-to-t from-[#FDFCFB] via-[#FDFCFB]/80 to-transparent pointer-events-none z-0">
+                <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-20">
+                    <div className="w-1 h-10 bg-gradient-to-b from-transparent to-rose-300 rounded-full"></div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.6em]">Barakah v2.0</p>
+                </div>
+            </footer>
         </div>
     );
 }
