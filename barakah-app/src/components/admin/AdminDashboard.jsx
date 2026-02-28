@@ -73,19 +73,25 @@ export default function AdminDashboard({ onClose }) {
                 .order('created_at', { ascending: false });
 
             if (error) {
-                console.warn("Join failed, using fallback:", error.message);
+                console.error("Supabase Join Error:", error.message);
+                addLog('System', `Data Fetch Error: ${error.message}`, 'system', 'error');
+                
                 // Fallback: If cache is still broken, fetch just the challenges so they don't vanish
                 const fallback = await supabase
                     .from('challenges')
                     .select('*')
                     .order('created_at', { ascending: false });
                 
-                if (fallback.data) setChallengeHistory(fallback.data);
+                if (fallback.data) {
+                    setChallengeHistory(fallback.data);
+                }
             } else {
+                console.log("Successfully fetched challenge data:", data);
                 setChallengeHistory(data || []);
             }
         } catch (err) {
             console.error("History Fetch Error:", err);
+            addLog('System', 'Critical History Fetch Failure', 'system', 'error');
         }
     }
 
@@ -274,10 +280,12 @@ export default function AdminDashboard({ onClose }) {
 
                                 {/* RIGHT: Live Information/History */}
                                 <div className="w-1/2 flex-shrink-0 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
-                                    <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center justify-between">
-                                        <span>📜 History & Activity</span>
-                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full">{challengeHistory.length} Total</span>
-                                    </h3>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                                            <span>📜 History & Activity</span>
+                                        </h3>
+                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold">{challengeHistory.length} Total</span>
+                                    </div>
                                     
                                     <div className="flex-1 overflow-y-auto pr-2 space-y-4">
                                         {challengeHistory.length === 0 ? (
