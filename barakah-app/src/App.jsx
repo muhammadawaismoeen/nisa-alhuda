@@ -54,7 +54,8 @@ export default function App() {
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showBadgePopup, setShowBadgePopup] = useState(null);
     const [activeChallenge, setActiveChallenge] = useState(null); 
-    const [globalBroadcast, setGlobalBroadcast] = useState(null); // NEW: Broadcast State
+    const [globalBroadcast, setGlobalBroadcast] = useState(null); // Broadcast Data
+    const [showBroadcastPopup, setShowBroadcastPopup] = useState(false); // Controls the Pop-up
     const [isCompletingChallenge, setIsCompletingChallenge] = useState(false);
     const [timeLeft, setTimeLeft] = useState("");
 
@@ -103,7 +104,7 @@ export default function App() {
         try {
             const now = new Date().toISOString();
             
-            // 1. Fetch Challenge (Existing Logic)
+            // 1. Fetch Challenge
             const { data: challengeData } = await supabase
                 .from('challenges')
                 .select('*')
@@ -113,22 +114,36 @@ export default function App() {
                 .single();
             if (challengeData) setActiveChallenge(challengeData);
 
-            // 2. Fetch Active Broadcast (New Logic)
+            // 2. Fetch Active Broadcast (Now showing as Pop-up)
             const { data: broadcastData } = await supabase
                 .from('broadcasts')
-                .select('message')
+                .select('id, message')
                 .eq('is_active', true)
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
-            if (broadcastData) setGlobalBroadcast(broadcastData.message);
+            
+            if (broadcastData) {
+                // Only show if user hasn't dismissed THIS specific broadcast ID
+                const dismissedId = localStorage.getItem('last_dismissed_broadcast');
+                if (dismissedId !== broadcastData.id) {
+                    setGlobalBroadcast(broadcastData);
+                    setShowBroadcastPopup(true);
+                }
+            }
 
         } catch (err) {
             console.log("Global fetch minor error");
         }
     };
 
-    // Keep this separate to satisfy your requirement for no line decrease
+    const handleDismissBroadcast = () => {
+        if (globalBroadcast) {
+            localStorage.setItem('last_dismissed_broadcast', globalBroadcast.id);
+        }
+        setShowBroadcastPopup(false);
+    };
+
     const fetchChallenge = async () => {
         try {
             const now = new Date().toISOString();
@@ -192,7 +207,7 @@ export default function App() {
             }
         });
 
-        fetchGlobalData(); // Calling our unified fetcher
+        fetchGlobalData(); 
         return () => subscription.unsubscribe();
     }, []);
 
@@ -351,15 +366,24 @@ export default function App() {
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
                     
-                    {/* BROADCAST MARQUEE - Integrated into Top */}
-                    {view === 'home' && globalBroadcast && (
-                        <div className="bg-slate-900 text-white py-2 overflow-hidden whitespace-nowrap z-[60] relative">
-                            <div className="animate-marquee inline-block px-4">
-                                <span className="text-[10px] font-black uppercase tracking-widest mr-4 text-rose-400">NEWS:</span>
-                                <span className="text-xs font-medium italic">{globalBroadcast}</span>
-                                <span className="mx-20 opacity-0">-----------</span>
-                                <span className="text-[10px] font-black uppercase tracking-widest mr-4 text-rose-400">NEWS:</span>
-                                <span className="text-xs font-medium italic">{globalBroadcast}</span>
+                    {/* GLOBAL BROADCAST DIALOGUE POP-UP */}
+                    {showBroadcastPopup && globalBroadcast && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                            <div className="bg-white w-full rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                                <div className="bg-slate-900 p-8 text-center relative">
+                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-rose-500 w-16 h-16 rounded-3xl flex items-center justify-center text-3xl shadow-xl shadow-rose-200">📢</div>
+                                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-[0.3em] mb-2 mt-4">Global Announcement</p>
+                                    <h2 className="text-white text-xl font-black tracking-tight">Message from Admin</h2>
+                                </div>
+                                <div className="p-10 text-center">
+                                    <p className="text-slate-600 font-medium leading-relaxed mb-8 italic">"{globalBroadcast.message}"</p>
+                                    <button 
+                                        onClick={handleDismissBroadcast}
+                                        className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl active:scale-95 transition-all"
+                                    >
+                                        I Understand
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}
