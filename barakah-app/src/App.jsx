@@ -89,7 +89,6 @@ export default function App() {
         localStorage.setItem('barakah_hasanat_extra', newPoints.toString());
         window.dispatchEvent(new Event('storage'));
 
-        // Push to Database for Leaderboard
         if (session?.user?.id) {
             await supabase
                 .from('profiles')
@@ -104,7 +103,7 @@ export default function App() {
             const { data, error } = await supabase
                 .from('challenges')
                 .select('*')
-                .gt('expires_at', now) // ONLY FETCH IF NOT EXPIRED
+                .gt('expires_at', now)
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
@@ -116,7 +115,6 @@ export default function App() {
         }
     };
 
-    // New: Countdown Logic
     useEffect(() => {
         if (!activeChallenge) return;
         const interval = setInterval(() => {
@@ -189,21 +187,11 @@ export default function App() {
                     localStorage.setItem('barakah_points', data.points);
                 }
                 fetchPrayerData(data.city || 'Lahore');
-
-                if (data.role === 'admin' && authEvent === 'SIGNED_IN') {
-                    setIsAdminMode(true);
-                }
             }
         } catch (error) { 
             console.error('System Recognition Error:', error); 
         }
     }
-
-    useEffect(() => {
-        if (isAdminMode && user.role !== 'admin') {
-            setIsAdminMode(false);
-        }
-    }, [user.role, isAdminMode]);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -331,12 +319,17 @@ export default function App() {
             ) : (
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
+                    
+                    {/* ONLY SHOW ADMIN DASHBOARD IF IN ADMIN MODE AND USER IS ADMIN */}
                     {isAdminMode && user.role === 'admin' && (
-                        <AdminDashboard 
-                            onClose={() => setIsAdminMode(false)} 
-                            onChallengeUpdate={fetchChallenge}
-                        />
+                        <div className="fixed inset-0 z-[100] bg-white">
+                           <AdminDashboard 
+                                onClose={() => setIsAdminMode(false)} 
+                                onChallengeUpdate={fetchChallenge}
+                            />
+                        </div>
                     )}
+
                     <main className="h-full pb-32">
                         {view === 'home' && (
                             <div className="bg-rose-500 min-h-screen">
@@ -368,7 +361,6 @@ export default function App() {
                                 </div>
                                 <div className="bg-white rounded-t-[3.5rem] p-8 -mt-6 min-h-[50vh] shadow-2xl relative z-10">
                                     
-                                    {/* LIVE CHALLENGE COMPONENT - WITH TIME LEFT */}
                                     {activeChallenge && (
                                         <div className="mb-8 p-6 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2.5rem] text-white shadow-xl shadow-indigo-100 animate-in fade-in zoom-in duration-500">
                                             <div className="flex justify-between items-start mb-3">
@@ -403,6 +395,7 @@ export default function App() {
                                         DAILY_DUAS={DAILY_DUAS} getSunnahAdvice={getSunnahAdvice} WeeklyGraph={WeeklyGraph} 
                                     />
                                     
+                                    {/* COMMAND CENTER BUTTON ONLY FOR ADMINS */}
                                     {user.role === 'admin' && (
                                         <div className="mt-8">
                                             <button 
