@@ -365,46 +365,52 @@ export default function App() {
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
                     
-                    {/* FIXED: DYNAMIC BROADCAST DIALOGUE */}
+                    {/* PROFESSIONAL BROADCAST POP-UP - FIXED OVERFLOW & MODERN UI */}
                     {showBroadcastPopup && globalBroadcast && (
-                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-rose-950/40 backdrop-blur-md animate-in fade-in duration-500">
-                            {/* Card Wrapper - Height set to 'fit-content' */}
-                            <div className="bg-white w-full max-w-[360px] h-auto rounded-[3.5rem] shadow-[0_30px_60px_rgba(225,29,72,0.25)] animate-in zoom-in-95 duration-500 relative flex flex-col">
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-rose-950/60 backdrop-blur-sm animate-in fade-in duration-500">
+                            {/* Main Modal Card */}
+                            <div className="bg-white w-full max-w-[360px] h-auto rounded-[3.5rem] shadow-[0_40px_80px_-15px_rgba(225,29,72,0.3)] animate-in zoom-in-95 duration-500 relative flex flex-col overflow-visible">
                                 
-                                {/* Header Icon - Absolutely positioned to float outside */}
+                                {/* Header Icon - Floating and Centered */}
                                 <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-[210]">
-                                    <div className="bg-white w-24 h-24 rounded-[2.8rem] flex items-center justify-center text-4xl shadow-2xl shadow-rose-200/60 border-[6px] border-[#fff1f2] animate-bounce">
+                                    <div className="bg-white w-24 h-24 rounded-[2.8rem] flex items-center justify-center text-4xl shadow-2xl shadow-rose-200 border-[6px] border-[#fff1f2] animate-bounce">
                                         📢
                                     </div>
                                 </div>
 
-                                {/* Top Section with Brand Colors */}
-                                <div className="bg-gradient-to-br from-rose-400 to-rose-600 pt-16 pb-8 px-10 text-center rounded-t-[3.5rem]">
-                                    <p className="text-[10px] font-black text-rose-100 uppercase tracking-[0.4em] mb-1">Global Notification</p>
-                                    <h2 className="text-white text-2xl font-black tracking-tighter">Sisterhood Alert</h2>
+                                {/* Banner Section */}
+                                <div className="bg-gradient-to-br from-rose-500 to-rose-600 pt-16 pb-8 px-10 text-center rounded-t-[3.5rem] relative overflow-hidden">
+                                    {/* Abstract background circles for texture */}
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-rose-400/20 rounded-full -ml-10 -mb-10 blur-xl"></div>
+                                    
+                                    <p className="text-[10px] font-black text-rose-100 uppercase tracking-[0.4em] mb-1 relative z-10">Admin Announcement</p>
+                                    <h2 className="text-white text-2xl font-black tracking-tight relative z-10">Sisterhood Alert</h2>
                                 </div>
                                 
-                                {/* Dynamic Content Body */}
-                                <div className="p-10 text-center bg-white rounded-b-[3.5rem] flex-1">
-                                    <div className="relative mb-10 min-h-[60px] flex flex-col items-center justify-center">
-                                        {/* Stylized Quote Marks */}
-                                        <div className="text-5xl text-rose-100 font-serif absolute -top-4 -left-2 select-none opacity-60">“</div>
+                                {/* Content Section */}
+                                <div className="p-8 md:p-10 text-center bg-white rounded-b-[3.5rem] flex flex-col items-center">
+                                    <div className="w-full relative py-2">
+                                        {/* Large Quote Decorations */}
+                                        <span className="text-6xl text-rose-50 font-serif absolute -top-4 -left-2 select-none">“</span>
                                         
-                                        {/* Dynamic Text in Paragraph Form */}
-                                        <p className="text-slate-700 font-bold leading-relaxed text-[17px] italic relative z-10 break-words whitespace-pre-wrap px-4">
-                                            {globalBroadcast.message}
-                                        </p>
-                                        
-                                        <div className="text-5xl text-rose-100 font-serif absolute -bottom-8 -right-2 select-none opacity-60">”</div>
+                                        {/* THE FIX: break-words and overflow-wrap ensure strings don't bleed */}
+                                        <div className="relative z-10 w-full">
+                                            <p className="text-slate-700 font-bold leading-relaxed text-[17px] italic break-words overflow-wrap-anywhere whitespace-pre-wrap px-4">
+                                                {globalBroadcast.message}
+                                            </p>
+                                        </div>
+
+                                        <span className="text-6xl text-rose-50 font-serif absolute -bottom-10 -right-2 select-none">”</span>
                                     </div>
                                     
-                                    {/* Action Button */}
+                                    {/* Confirmation Button */}
                                     <button 
                                         onClick={handleDismissBroadcast}
-                                        className="w-full py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-rose-100 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
+                                        className="w-full mt-10 py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-rose-100 active:scale-95 transition-all flex items-center justify-center gap-3"
                                     >
                                         <span>I ACKNOWLEDGE</span>
-                                        <div className="bg-white/20 p-1.5 rounded-full">
+                                        <div className="bg-white/20 px-2.5 py-1 rounded-full flex items-center justify-center">
                                             <span className="text-[10px]">✨</span>
                                         </div>
                                     </button>
