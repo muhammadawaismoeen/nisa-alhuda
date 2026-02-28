@@ -53,7 +53,8 @@ export default function App() {
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [showBadgePopup, setShowBadgePopup] = useState(null);
-    const [activeChallenge, setActiveChallenge] = useState(null); // NEW: Challenge State
+    const [activeChallenge, setActiveChallenge] = useState(null); 
+    const [isCompletingChallenge, setIsCompletingChallenge] = useState(false);
 
     // --- QURANLY GAMIFICATION ENGINE STATE ---
     const [completedDeeds, setCompletedDeeds] = useState(JSON.parse(localStorage.getItem('barakah_deeds')) || []);
@@ -91,20 +92,38 @@ export default function App() {
         if (session?.user?.id) {
             await supabase
                 .from('profiles')
-                .update({ total_points: newPoints })
+                .update({ points: newPoints }) // Updated to match column name 'points'
                 .eq('id', session.user.id);
         }
     };
 
     const fetchChallenge = async () => {
-        const { data } = await supabase
-            .from('challenges')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
-        if (data) setActiveChallenge(data);
+        try {
+            const { data, error } = await supabase
+                .from('challenges')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+            
+            if (error) throw error;
+            if (data) setActiveChallenge(data);
+        } catch (err) {
+            console.log("No active challenge found or network error.");
+        }
+    };
+
+    const completeChallenge = async () => {
+        if (!activeChallenge || isCompletingChallenge) return;
+        setIsCompletingChallenge(true);
+        
+        const newTotal = totalPoints + (activeChallenge.points || 50);
+        await syncHasanat(newTotal);
+        
+        // Show success and clear challenge from view locally
+        alert(`MashaAllah! You earned ${activeChallenge.points} Hasanat!`);
+        setActiveChallenge(null); 
+        setIsCompletingChallenge(false);
     };
 
     // --- AUTH & RECOGNITION ENGINE ---
@@ -124,7 +143,7 @@ export default function App() {
             }
         });
 
-        fetchChallenge(); // Load live challenge
+        fetchChallenge(); 
         return () => subscription.unsubscribe();
     }, []);
 
@@ -133,7 +152,7 @@ export default function App() {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('username, city, role, total_points')
+                .select('username, city, role, points')
                 .eq('id', userId)
                 .single();
             
@@ -145,10 +164,9 @@ export default function App() {
                     city: data.city || 'Lahore', 
                     role: data.role || 'user' 
                 });
-                // Sync cloud points to local state
-                if (data.total_points !== undefined) {
-                    setTotalPoints(data.total_points);
-                    localStorage.setItem('barakah_points', data.total_points);
+                if (data.points !== undefined) {
+                    setTotalPoints(data.points);
+                    localStorage.setItem('barakah_points', data.points);
                 }
                 fetchPrayerData(data.city || 'Lahore');
 
@@ -330,15 +348,28 @@ export default function App() {
                                 </div>
                                 <div className="bg-white rounded-t-[3.5rem] p-8 -mt-6 min-h-[50vh] shadow-2xl relative z-10">
                                     
-                                    {/* LIVE CHALLENGE COMPONENT */}
+                                    {/* LIVE CHALLENGE COMPONENT - UPDATED */}
                                     {activeChallenge && (
-                                        <div className="mb-8 p-6 bg-gradient-to-br from-rose-500 to-rose-600 rounded-[2.5rem] text-white shadow-xl">
-                                            <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-2">Live Challenge 🎯</p>
-                                            <p className="text-lg font-bold leading-tight">{activeChallenge.text}</p>
-                                            <div className="mt-4 flex justify-between items-center bg-black/10 p-3 rounded-2xl">
-                                                <span className="text-[10px] font-bold uppercase">Reward</span>
-                                                <span className="text-sm font-black">+{activeChallenge.points} Hasanat</span>
+                                        <div className="mb-8 p-6 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2.5rem] text-white shadow-xl shadow-indigo-100 animate-in fade-in zoom-in duration-500">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="bg-white/20 p-1.5 rounded-lg text-xs">🚀</span>
+                                                <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Global Challenge</p>
                                             </div>
+                                            <p className="text-lg font-black leading-tight mb-1">{activeChallenge.title}</p>
+                                            <p className="text-[11px] opacity-70 mb-4 font-medium">{activeChallenge.description}</p>
+                                            
+                                            <button 
+                                                onClick={completeChallenge}
+                                                disabled={isCompletingChallenge}
+                                                className="w-full flex justify-between items-center bg-white/10 hover:bg-white/20 active:scale-95 transition-all p-4 rounded-2xl border border-white/10"
+                                            >
+                                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                                    {isCompletingChallenge ? "SYNCING..." : "Mark Completed"}
+                                                </span>
+                                                <span className="bg-white text-indigo-600 px-3 py-1 rounded-full text-[10px] font-black">
+                                                    +{activeChallenge.points} ❤️
+                                                </span>
+                                            </button>
                                         </div>
                                     )}
 
