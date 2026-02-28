@@ -11,7 +11,7 @@ export default function AdminDashboard({ onClose }) {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('Overview');
 
-    // Challenge Hub States
+    // Challenge Hub History & Form States
     const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points: 50, durationHours: 24 });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [challengeHistory, setChallengeHistory] = useState([]);
@@ -63,14 +63,13 @@ export default function AdminDashboard({ onClose }) {
 
     async function fetchChallengeHistory() {
         try {
-            // Fetch challenges AND their joined completions
+            // This fetches the challenge AND the list of usernames who completed it
             const { data, error } = await supabase
                 .from('challenges')
                 .select(`
                     *,
                     challenge_completions (
-                        username,
-                        completed_at
+                        username
                     )
                 `)
                 .order('created_at', { ascending: false });
@@ -79,7 +78,6 @@ export default function AdminDashboard({ onClose }) {
             setChallengeHistory(data || []);
         } catch (err) {
             console.error("History Fetch Error:", err);
-            addLog('System', 'Failed to fetch challenge history', 'system', 'error');
         }
     }
 
@@ -114,19 +112,13 @@ export default function AdminDashboard({ onClose }) {
 
             addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
             setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
-            fetchChallengeHistory(); // Refresh the history list
-            alert("MashaAllah! Challenge is live.");
+            fetchChallengeHistory(); // Instantly update the list on the right
+            alert("MashaAllah! Challenge created.");
         } catch (err) {
             alert("Database Error: " + err.message);
         } finally {
             setIsSubmitting(false);
         }
-    };
-
-    const deleteChallenge = async (id) => {
-        if(!confirm("Delete this challenge and all its completion records?")) return;
-        const { error } = await supabase.from('challenges').delete().eq('id', id);
-        if(!error) fetchChallengeHistory();
     };
 
     const toggleRole = async (id, currentRole) => {
@@ -148,7 +140,7 @@ export default function AdminDashboard({ onClose }) {
 
     return (
         <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
-            {/* Header */}
+            {/* Nav Header */}
             <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="bg-gradient-to-br from-indigo-600 to-violet-700 w-10 h-10 rounded-xl flex items-center justify-center text-white font-black shadow-lg">A</div>
@@ -171,7 +163,7 @@ export default function AdminDashboard({ onClose }) {
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar Navigation */}
+                {/* Sidebar */}
                 <nav className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2">
                     {['Overview', 'User Analytics', 'Content Manager', 'System Logs'].map((item) => (
                         <button
@@ -188,7 +180,6 @@ export default function AdminDashboard({ onClose }) {
                     ))}
                 </nav>
 
-                {/* Main Content Area */}
                 <main className="flex-1 overflow-y-auto p-8 bg-[#F8FAFC]">
                     {activeTab === 'Overview' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -228,83 +219,62 @@ export default function AdminDashboard({ onClose }) {
 
                     {activeTab === 'Content Manager' && (
                         <div className="animate-in fade-in slide-in-from-left-4 duration-500 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                             {/* Create Challenge Panel */}
+                             {/* LEFT: Creation Form */}
                              <div>
                                 <header className="mb-8">
                                     <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
-                                    <p className="text-slate-500">Push dynamic tasks to all users instantly.</p>
+                                    <p className="text-slate-500">Create tasks for the community.</p>
                                 </header>
 
                                 <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
                                     <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                                         <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
-                                        Create New Challenge
+                                        Create New
                                     </h3>
                                     <form onSubmit={handleAddChallenge} className="space-y-5">
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Challenge Title</label>
-                                            <input required type="text" placeholder="e.g., Read Surah Mulk" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
-                                            <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
-                                        </div>
+                                        <input required type="text" placeholder="Challenge Title" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
+                                        <textarea required placeholder="Description" rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
                                         <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
-                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
-                                            </div>
-                                            <div>
-                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
-                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
-                                            </div>
+                                            <input required type="number" placeholder="Points" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                            <input required type="number" placeholder="Hours" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
                                         </div>
                                         <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
-                                            {isSubmitting ? "SYNCING TO DATABASE..." : "ACTIVATE CHALLENGE NOW"}
+                                            {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
                                         </button>
                                     </form>
                                 </div>
                             </div>
 
-                            {/* Challenge History & Completions Panel */}
-                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
+                            {/* RIGHT: Live Information/History */}
+                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[600px]">
                                 <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
                                     📜 Past Challenges & Completions
                                 </h3>
                                 <div className="flex-1 overflow-y-auto pr-2 space-y-4">
                                     {challengeHistory.length === 0 ? (
-                                        <div className="text-center py-20 opacity-20 font-black">NO HISTORY AVAILABLE</div>
+                                        <div className="text-center py-20 opacity-20 font-black">NO HISTORY FOUND</div>
                                     ) : (
                                         challengeHistory.map((ch) => (
-                                            <div key={ch.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group">
+                                            <div key={ch.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>
                                                         <h4 className="font-black text-slate-800 text-sm">{ch.title}</h4>
-                                                        <p className="text-[9px] text-slate-400 font-bold">{new Date(ch.created_at).toLocaleDateString()}</p>
+                                                        <span className="text-[10px] text-slate-400 font-bold">{new Date(ch.created_at).toLocaleDateString()}</span>
                                                     </div>
-                                                    <div className="flex gap-2">
-                                                        <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-500'}`}>
-                                                            {new Date(ch.expires_at) > new Date() ? 'Active' : 'Expired'}
-                                                        </span>
-                                                        <button onClick={() => deleteChallenge(ch.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 text-xs transition-opacity">🗑️</button>
-                                                    </div>
+                                                    <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                        {new Date(ch.expires_at) > new Date() ? 'Active' : 'Expired'}
+                                                    </span>
                                                 </div>
-                                                
-                                                <div className="mt-4 pt-3 border-t border-slate-200">
-                                                    <p className="text-[9px] font-black text-indigo-600 uppercase tracking-widest mb-2 flex justify-between">
-                                                        <span>Completed By</span>
-                                                        <span>{ch.challenge_completions?.length || 0} Sisters</span>
+                                                <div className="border-t border-slate-200 mt-3 pt-3">
+                                                    <p className="text-[8px] font-black text-indigo-600 uppercase mb-2">
+                                                        Completed By ({ch.challenge_completions?.length || 0} Sisters)
                                                     </p>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {ch.challenge_completions && ch.challenge_completions.length > 0 ? (
-                                                            ch.challenge_completions.map((comp, idx) => (
-                                                                <span key={idx} className="bg-white px-2.5 py-1 rounded-lg text-[9px] font-bold text-slate-600 border border-slate-100 shadow-sm">
-                                                                    {comp.username}
-                                                                </span>
-                                                            ))
-                                                        ) : (
-                                                            <span className="text-[9px] italic text-slate-400">No completions yet</span>
-                                                        )}
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {ch.challenge_completions?.map((comp, idx) => (
+                                                            <span key={idx} className="bg-white px-2 py-1 rounded-md text-[9px] font-bold text-slate-600 border border-slate-100 uppercase">
+                                                                {comp.username}
+                                                            </span>
+                                                        )) || <span className="text-[9px] italic text-slate-400">No one yet</span>}
                                                     </div>
                                                 </div>
                                             </div>
@@ -319,23 +289,23 @@ export default function AdminDashboard({ onClose }) {
                          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm animate-in fade-in duration-500">
                             <h3 className="text-xl font-black text-slate-800 mb-8">Sisterhood Directory</h3>
                             <div className="overflow-hidden rounded-2xl border border-slate-50">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50">
-                                        <tr className="text-[10px] font-black uppercase text-slate-400">
-                                            <th className="px-6 py-4">Sister Name</th>
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+                                        <tr>
+                                            <th className="px-6 py-4">Sister</th>
                                             <th className="px-6 py-4">City</th>
-                                            <th className="px-6 py-4 text-right">Hasanat Points</th>
+                                            <th className="px-6 py-4 text-right">Points</th>
                                             <th className="px-6 py-4 text-center">Role</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {allSisters.map((sister) => (
-                                            <tr key={sister.id} className="group hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-4 font-bold text-slate-700">{sister.username || 'Sister'}</td>
-                                                <td className="px-6 py-4 text-slate-500 text-sm">{sister.city}</td>
-                                                <td className="px-6 py-4 text-right font-black text-rose-500">{sister.points} ❤️</td>
+                                            <tr key={sister.id} className="hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                                <td className="px-6 py-4">{sister.username || 'Sister'}</td>
+                                                <td className="px-6 py-4 text-slate-500">{sister.city}</td>
+                                                <td className="px-6 py-4 text-right text-rose-500">{sister.points} ❤️</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className={`px-3 py-1 rounded-full text-[9px] font-black ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
                                                         {(sister.role || 'user').toUpperCase()}
                                                     </button>
                                                 </td>
@@ -353,15 +323,13 @@ export default function AdminDashboard({ onClose }) {
                                 <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
                                 <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
                                 <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                                <span className="ml-4 text-[10px] text-emerald-900 font-bold uppercase tracking-widest">BarakahOS Console v4.0.5</span>
+                                <span className="ml-4 text-[10px] text-emerald-900 font-bold uppercase tracking-widest">BarakahOS Console v4.0.2</span>
                             </div>
                             <div className="space-y-3">
                                 {logs.map(log => (
-                                    <div key={log.id} className="flex gap-4 animate-in slide-in-from-left duration-300">
-                                        <span className="opacity-40 whitespace-nowrap">[{log.time}]</span>
-                                        <span className={`font-black uppercase tracking-tighter w-20 ${log.status === 'error' ? 'text-rose-500' : 'text-indigo-400'}`}>
-                                            {log.user}
-                                        </span>
+                                    <div key={log.id} className="flex gap-4">
+                                        <span className="opacity-40">[{log.time}]</span>
+                                        <span className={`font-black uppercase w-20 ${log.status === 'error' ? 'text-rose-500' : 'text-indigo-400'}`}>{log.user}</span>
                                         <span className="text-slate-300">{log.event}</span>
                                     </div>
                                 ))}
