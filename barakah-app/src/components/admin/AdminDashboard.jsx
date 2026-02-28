@@ -1,442 +1,385 @@
-import React, { useState, useEffect } from 'react';
-// CRITICAL: Explicit .js extension and verified path depth for Vercel/Vite production
-import { supabase } from '../../supabaseClient.js'; 
-import { 
-  Rocket, 
-  Trophy, 
-  Clock, 
-  CheckCircle, 
-  Users, 
-  Calendar, 
-  LayoutDashboard,
-  LogOut,
-  RefreshCw,
-  Search,
-  Filter,
-  PlusCircle,
-  Activity,
-  ShieldCheck,
-  AlertCircle,
-  TrendingUp,
-  Award,
-  Zap,
-  ChevronRight,
-  MoreVertical,
-  Bell
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+// FIXED: Path changed to ../../ to correctly resolve from src/components/admin/
+import { supabase } from '../../supabaseClient'; 
 
-const AdminDashboard = () => {
-  // --- STATE MANAGEMENT ---
-  const [challenges, setChallenges] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // --- FORM STATE ---
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [reward, setReward] = useState('50');
-  const [duration, setDuration] = useState('24');
+export default function AdminDashboard({ onClose }) {
+    const [stats, setStats] = useState({ users: 0, activeToday: 0, totalHasanat: '0', avgStreak: 0 });
+    const [cityData, setCityData] = useState([]);
+    const [allSisters, setAllSisters] = useState([]);
+    const [logs, setLogs] = useState([
+        { id: 1, user: 'System', event: 'Command Center Initialized', time: new Date().toLocaleTimeString(), type: 'system', status: 'success' }
+    ]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('Overview');
 
-  // --- STATS STATE ---
-  const [stats, setStats] = useState({
-    totalSisters: 0,
-    liveNow: 5,
-    totalCompletions: 0,
-    activeChallenges: 0,
-    engagementRate: '88%'
-  });
+    // Challenge Hub History & Form States
+    const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points: 50, durationHours: 24 });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [challengeHistory, setChallengeHistory] = useState([]);
 
-  useEffect(() => {
-    fetchInitialData();
-    
-    // Real-time broadcast listener for instant admin-hub synchronization
-    const channel = supabase
-      .channel('admin_prod_sync_v7')
-      .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'challenges' }, 
-        () => fetchChallenges()
-      )
-      .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'challenge_completions' }, 
-        () => {
-          fetchChallenges();
-          fetchStats();
+    useEffect(() => {
+        fetchAdminData();
+        fetchChallengeHistory();
+    }, []);
+
+    async function fetchAdminData() {
+        setLoading(true);
+        try {
+            const { data: profileData, count: userCount, error } = await supabase
+                .from('profiles')
+                .select('id, username, city, role, points', { count: 'exact' });
+
+            if (error) throw error;
+            setAllSisters(profileData || []);
+
+            const totalPointsSum = profileData.reduce((acc, curr) => acc + (curr.points || 0), 0);
+            const formattedPoints = totalPointsSum > 1000 ? (totalPointsSum / 1000).toFixed(1) + 'k' : totalPointsSum;
+
+            const cityMap = profileData.reduce((acc, curr) => {
+                const city = curr.city || 'Unknown';
+                acc[city] = (acc[city] || 0) + 1;
+                return acc;
+            }, {});
+
+            const formattedCityData = Object.entries(cityMap).map(([city, count]) => ({
+                city,
+                count,
+                color: city === 'Lahore' ? 'bg-rose-500' : 'bg-indigo-500'
+            })).sort((a, b) => b.count - a.count);
+
+            setStats({
+                users: userCount || 0,
+                activeToday: Math.floor((userCount || 0) * 0.4),
+                totalHasanat: formattedPoints,
+                avgStreak: 7
+            });
+            setCityData(formattedCityData);
+
+        } catch (error) {
+            addLog('Error', error.message, 'system', 'error');
+        } finally {
+            setLoading(false);
         }
-      )
-      .subscribe();
+    }
 
-    return () => {
-      supabase.removeChannel(channel);
+    async function fetchChallengeHistory() {
+        try {
+            const { data, error } = await supabase
+                .from('challenges')
+                .select(`
+                    id, 
+                    title, 
+                    description, 
+                    points, 
+                    created_at, 
+                    expires_at,
+                    challenge_completions (
+                        username,
+                        completed_at
+                    )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("History Fetch Error:", error.message);
+                addLog('System', `Fetch Failed: ${error.message}`, 'system', 'error');
+                return;
+            }
+
+            setChallengeHistory(data || []);
+            addLog('System', `History Loaded: ${data?.length || 0} items`, 'system', 'success');
+        } catch (err) {
+            console.error("Critical History Error:", err);
+        }
+    }
+
+    const addLog = (user, event, type, status) => {
+        setLogs(prev => [{
+            id: Date.now(),
+            user,
+            event,
+            time: new Date().toLocaleTimeString(),
+            type,
+            status
+        }, ...prev]);
     };
-  }, []);
 
-  const fetchInitialData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([
-        fetchChallenges(),
-        fetchStats()
-      ]);
-    } catch (error) {
-      console.error("Critical Data Sync Error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const handleAddChallenge = async (e) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        try {
+            const expiryDate = new Date();
+            expiryDate.setHours(expiryDate.getHours() + parseInt(newChallenge.durationHours));
 
-  const fetchStats = async () => {
-    try {
-      const { count: sistersCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+            const { error } = await supabase
+                .from('challenges')
+                .insert([{ 
+                    title: newChallenge.title, 
+                    description: newChallenge.description, 
+                    points: parseInt(newChallenge.points),
+                    expires_at: expiryDate.toISOString()
+                }]);
 
-      const { count: completionsCount } = await supabase
-        .from('challenge_completions')
-        .select('*', { count: 'exact', head: true });
+            if (error) throw error;
 
-      const { count: activeCount } = await supabase
-        .from('challenges')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true);
-        
-      setStats({
-        totalSisters: sistersCount || 0,
-        liveNow: 5, 
-        totalCompletions: completionsCount || 0,
-        activeChallenges: activeCount || 0,
-        engagementRate: '88%'
-      });
-    } catch (err) {
-      console.error("Error fetching schema stats:", err);
-    }
-  };
+            addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
+            setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
+            await fetchChallengeHistory();
+            alert("Success! Challenge created and history updated.");
+        } catch (err) {
+            alert("Database Error: " + err.message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-  const fetchChallenges = async () => {
-    try {
-      // FINAL SCHEMA: Fetching reward_points and is_active columns
-      const { data, error } = await supabase
-        .from('challenges')
-        .select(`
-          *,
-          challenge_completions (
-            id,
-            username,
-            completed_at
-          )
-        `)
-        .order('created_at', { ascending: false });
+    const deleteChallenge = async (id) => {
+        if(!confirm("Delete this challenge and all its participant history?")) return;
+        const { error } = await supabase.from('challenges').delete().eq('id', id);
+        if(!error) fetchChallengeHistory();
+    };
 
-      if (error) throw error;
-      setChallenges(data || []);
-    } catch (error) {
-      console.error('Database Connectivity Issue:', error.message);
-    }
-  };
+    const toggleRole = async (id, currentRole) => {
+        const newRole = currentRole === 'admin' ? 'user' : 'admin';
+        const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id);
+        if (!error) {
+            addLog('Admin', `Updated Role to ${newRole}`, 'security', 'success');
+            fetchAdminData();
+        }
+    };
 
-  const handleCreateChallenge = async (e) => {
-    e.preventDefault();
-    if (!title || !description) return alert("Please fill in the Title and Description fields.");
-
-    setIsSubmitting(true);
-    try {
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + parseInt(duration));
-
-      // FINAL SCHEMA SYNC: Explicitly using reward_points and is_active
-      const { error } = await supabase
-        .from('challenges')
-        .insert([
-          {
-            title: title,
-            description: description,
-            reward_points: parseInt(reward), 
-            expires_at: expiresAt.toISOString(),
-            is_active: true,
-            created_at: new Date().toISOString()
-          }
-        ]);
-
-      if (error) throw error;
-
-      setTitle('');
-      setDescription('');
-      setReward('50');
-      setDuration('24');
-      
-      await fetchInitialData();
-      alert("Success: Challenge is now Live on the Barakah Hub!");
-      
-    } catch (error) {
-      alert("Submission Error: " + error.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-[#fafbff] font-sans text-slate-900">
-      {/* --- NAVIGATION --- */}
-      <nav className="bg-white/80 border-b border-slate-100 px-8 py-6 flex justify-between items-center sticky top-0 z-50 backdrop-blur-xl">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-2 rounded-xl">
-               <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-black text-2xl tracking-tighter text-slate-800 uppercase">Admin Portal</span>
-          </div>
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1 ml-1">v2.0 Production Sync</span>
+    const StatCard = ({ label, value, icon, color }) => (
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 transition-transform hover:scale-[1.02]">
+            <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center text-xl mb-4 shadow-inner`}>{icon}</div>
+            <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest">{label}</p>
+            <h3 className="text-2xl font-black text-slate-800 mt-1">{loading ? "..." : value}</h3>
         </div>
-        
-        <div className="flex items-center gap-10">
-          <div className="hidden md:flex gap-8 border-r border-slate-100 pr-10">
-            <div className="text-right">
-              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Sisters</p>
-              <p className="text-xl font-black text-slate-800 leading-none mt-1">{stats.totalSisters}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Online</p>
-              <p className="text-xl font-black text-slate-800 leading-none mt-1">{stats.liveNow}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-             <button className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all relative">
-               <Bell className="w-5 h-5" />
-               <span className="absolute top-3 right-3 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-             </button>
-             <button className="bg-slate-900 text-white px-6 py-3.5 rounded-2xl hover:bg-slate-800 transition-all flex items-center gap-3 font-bold text-sm shadow-xl shadow-slate-200">
-               <LogOut className="w-4 h-4" />
-               Sign Out
-             </button>
-          </div>
-        </div>
-      </nav>
+    );
 
-      <main className="max-w-[1600px] mx-auto p-8 md:p-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          
-          {/* --- LEFT SIDE: CREATE ENGINE --- */}
-          <div className="lg:col-span-5">
-            <div className="bg-[#5d51e8] rounded-[50px] p-12 shadow-2xl text-white relative overflow-hidden border-8 border-white">
-              <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
-              <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-60 h-60 bg-indigo-400/20 rounded-full blur-3xl"></div>
-              
-              <div className="flex items-center gap-5 mb-12 relative z-10">
-                <div className="bg-white/20 p-5 rounded-[28px] backdrop-blur-xl border border-white/20 shadow-inner">
-                  <Rocket className="w-8 h-8" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-black tracking-tight leading-none uppercase">Broadcast</h2>
-                  <p className="text-white/60 text-[10px] font-black uppercase mt-2 tracking-[0.2em]">New Challenge Engine</p>
-                </div>
-              </div>
-
-              <form onSubmit={handleCreateChallenge} className="space-y-10 relative z-10">
-                <div className="space-y-4">
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] opacity-80 ml-1">Challenge Headline</label>
-                  <input
-                    type="text"
-                    placeholder="Enter short, impactful title..."
-                    className="w-full bg-white/10 border-2 border-white/10 rounded-[28px] p-6 placeholder:text-white/30 focus:outline-none focus:border-white/40 focus:bg-white/20 transition-all font-bold text-lg shadow-inner"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <label className="block text-[11px] font-black uppercase tracking-[0.2em] opacity-80 ml-1">Instructions for Sisters</label>
-                  <textarea
-                    placeholder="What should they do to earn the reward?"
-                    className="w-full bg-white/10 border-2 border-white/10 rounded-[28px] p-6 placeholder:text-white/30 focus:outline-none focus:border-white/40 focus:bg-white/20 transition-all min-h-[180px] font-medium resize-none shadow-inner"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-black uppercase tracking-[0.2em] opacity-80 ml-1">Hasanat points</label>
-                    <div className="relative group">
-                      <PlusCircle className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-white transition-colors" />
-                      <input
-                        type="number"
-                        className="w-full bg-white/10 border-2 border-white/10 rounded-[28px] p-6 pl-14 focus:outline-none focus:border-white/40 font-black text-2xl transition-all shadow-inner"
-                        value={reward}
-                        onChange={(e) => setReward(e.target.value)}
-                      />
+    return (
+        <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
+            {/* Nav Header */}
+            <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 w-10 h-10 rounded-xl flex items-center justify-center text-white font-black shadow-lg">A</div>
+                    <div>
+                        <h2 className="text-slate-800 font-bold leading-none tracking-tight">Command Center</h2>
+                        <p className="text-[10px] text-emerald-500 font-black uppercase mt-1 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                            Live System Active
+                        </p>
                     </div>
-                  </div>
-                  <div className="space-y-4">
-                    <label className="block text-[11px] font-black uppercase tracking-[0.2em] opacity-80 ml-1">Validity (Hrs)</label>
-                    <div className="relative group">
-                      <Clock className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40 group-focus-within:text-white transition-colors" />
-                      <input
-                        type="number"
-                        className="w-full bg-white/10 border-2 border-white/10 rounded-[28px] p-6 pl-14 focus:outline-none focus:border-white/40 font-black text-2xl transition-all shadow-inner"
-                        value={duration}
-                        onChange={(e) => setDuration(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-white text-[#5d51e8] font-black py-7 rounded-[32px] mt-6 hover:scale-[1.02] active:scale-95 transition-all uppercase tracking-[0.25em] text-sm shadow-2xl shadow-indigo-950/50 flex items-center justify-center gap-4 disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <RefreshCw className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <>
-                      <Zap className="w-5 h-5 fill-indigo-600" />
-                      ACTIVATE BROADCAST
-                    </>
-                  )}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* --- RIGHT SIDE: LIVE FEED & PARTICIPANTS --- */}
-          <div className="lg:col-span-7">
-            <div className="bg-white rounded-[50px] p-12 shadow-sm border border-slate-100 min-h-[900px] flex flex-col border-8 border-slate-50">
-              <div className="flex items-center justify-between mb-12 pb-8 border-b border-slate-100">
-                <div className="flex items-center gap-5">
-                  <div className="bg-indigo-50 p-4 rounded-[22px] text-indigo-600 shadow-sm border border-indigo-100">
-                    <Activity className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">Activity Ledger</h2>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Live Database Interaction</p>
-                  </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center bg-slate-50 border border-slate-100 rounded-2xl px-4 py-2">
-                    <Search className="w-4 h-4 text-slate-300 mr-2" />
-                    <input 
-                       type="text" 
-                       placeholder="Filter tasks..." 
-                       className="bg-transparent border-none outline-none text-xs font-bold w-32"
-                       value={searchQuery}
-                       onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <button onClick={fetchInitialData} className="p-3.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all border border-slate-100">
-                    <RefreshCw className="w-5 h-5" />
-                  </button>
+                    <button onClick={() => { fetchAdminData(); fetchChallengeHistory(); }} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400">
+                        <span className={loading ? "animate-spin block" : ""}>🔄</span>
+                    </button>
+                    <button onClick={onClose} className="bg-slate-900 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95">
+                        EXIT ADMIN ×
+                    </button>
                 </div>
-              </div>
-
-              <div className="space-y-10 flex-1 overflow-y-auto pr-4 custom-scrollbar">
-                {loading ? (
-                  <div className="flex flex-col items-center justify-center py-48 gap-6">
-                    <div className="relative">
-                      <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                      <ShieldCheck className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-indigo-600/30" />
-                    </div>
-                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] animate-pulse">Syncing Production Schema...</p>
-                  </div>
-                ) : challenges.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-48 text-center bg-slate-50/50 rounded-[40px] border-2 border-dashed border-slate-100">
-                    <AlertCircle className="w-20 h-20 text-slate-200 mb-6" />
-                    <p className="font-black text-slate-300 uppercase tracking-widest text-sm italic">The ledger is currently empty</p>
-                  </div>
-                ) : (
-                  challenges
-                    .filter(c => c.title.toLowerCase().includes(searchQuery.toLowerCase()))
-                    .map((challenge) => (
-                    <div key={challenge.id} className="group border-2 border-slate-50 rounded-[45px] p-10 hover:border-indigo-100 hover:bg-indigo-50/20 transition-all shadow-hover shadow-indigo-100/10">
-                      <div className="flex justify-between items-start mb-8">
-                        <div>
-                          <div className="flex items-center gap-4 mb-4">
-                            <span className={`text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-widest shadow-sm border ${
-                              challenge.is_active 
-                                ? 'bg-emerald-500 text-white border-emerald-400' 
-                                : 'bg-slate-100 text-slate-400 border-slate-100'
-                            }`}>
-                              {challenge.is_active ? '● Live Now' : 'Expired'}
-                            </span>
-                            <span className="text-[10px] text-slate-300 font-black uppercase tracking-[0.2em] bg-white px-3 py-2 rounded-xl border border-slate-100">
-                              UID-{challenge.id.toString().slice(-6).toUpperCase()}
-                            </span>
-                          </div>
-                          <h3 className="font-black text-slate-800 text-3xl tracking-tighter leading-tight group-hover:text-indigo-600 transition-colors">
-                            {challenge.title}
-                          </h3>
-                          <div className="flex items-center gap-8 mt-5">
-                            <div className="flex items-center gap-2.5 bg-amber-50 px-4 py-2 rounded-2xl border border-amber-100 shadow-sm">
-                              <Trophy className="w-4 h-4 text-amber-500 fill-amber-500" />
-                              <span className="text-xs font-black text-amber-700 uppercase">{challenge.reward_points} Hasanat</span>
-                            </div>
-                            <div className="flex items-center gap-2.5 bg-indigo-50 px-4 py-2 rounded-2xl border border-indigo-100 shadow-sm">
-                              <Calendar className="w-4 h-4 text-indigo-500" />
-                              <span className="text-xs font-black text-indigo-700 uppercase">{new Date(challenge.created_at).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <button className="p-3 text-slate-200 hover:text-slate-400 transition-colors">
-                           <MoreVertical className="w-6 h-6" />
-                        </button>
-                      </div>
-
-                      {/* --- PARTICIPATION TRAY --- */}
-                      <div className="bg-white/80 border-2 border-slate-50 rounded-[36px] p-8 shadow-sm backdrop-blur-sm group-hover:border-white transition-all">
-                        <div className="flex items-center justify-between mb-6 border-b border-slate-50 pb-5">
-                           <div className="flex items-center gap-3">
-                              <div className="p-2 bg-indigo-600 rounded-lg shadow-lg shadow-indigo-100">
-                                 <Users className="w-4 h-4 text-white" />
-                              </div>
-                              <p className="text-[11px] font-black text-slate-700 uppercase tracking-[0.2em]">
-                                 Completed By ({challenge.challenge_completions?.length || 0})
-                              </p>
-                           </div>
-                           <ChevronRight className="w-4 h-4 text-slate-300" />
-                        </div>
-                        
-                        <div className="flex flex-wrap gap-4">
-                          {challenge.challenge_completions && challenge.challenge_completions.length > 0 ? (
-                            challenge.challenge_completions.map((completion, idx) => (
-                              <div 
-                                key={idx} 
-                                className="bg-white border-2 border-slate-50 text-slate-700 px-6 py-3.5 rounded-[22px] text-[11px] font-black shadow-sm flex items-center gap-3 hover:scale-105 hover:border-indigo-200 hover:text-indigo-600 transition-all cursor-default"
-                              >
-                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-emerald-50"></div>
-                                {completion.username || 'System Sister'}
-                              </div>
-                            ))
-                          ) : (
-                            <div className="w-full py-12 text-center border-2 border-dashed border-slate-100 rounded-[30px] bg-slate-50/30">
-                               <p className="text-[10px] text-slate-300 font-black uppercase tracking-[0.4em]">Listening for participation...</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
             </div>
-          </div>
+
+            <div className="flex flex-1 overflow-hidden">
+                {/* Sidebar */}
+                <nav className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2 flex-shrink-0">
+                    {['Overview', 'User Analytics', 'Content Manager', 'System Logs'].map((item) => (
+                        <button
+                            key={item}
+                            onClick={() => setActiveTab(item)}
+                            className={`w-full text-left px-4 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider transition-all ${
+                                activeTab === item 
+                                ? 'bg-indigo-600 text-white shadow-indigo-200 shadow-lg' 
+                                : 'text-slate-400 hover:bg-slate-50'
+                            }`}
+                        >
+                            {item}
+                        </button>
+                    ))}
+                </nav>
+
+                <main className="flex-1 overflow-y-auto p-8 bg-[#F8FAFC]">
+                    {activeTab === 'Overview' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <header className="mb-10">
+                                <h1 className="text-4xl font-black text-slate-800 tracking-tight">System Snapshot</h1>
+                                <p className="text-slate-500 font-medium">Real-time engagement tracking.</p>
+                            </header>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                                <StatCard label="Total Sisters" value={stats.users} icon="👥" color="bg-blue-50" />
+                                <StatCard label="Live Estim." value={stats.activeToday} icon="⚡" color="bg-amber-50" />
+                                <StatCard label="Global Hasanat" value={stats.totalHasanat} icon="💎" color="bg-emerald-50" />
+                                <StatCard label="Avg. Streak" value={`${stats.avgStreak} Days`} icon="🔥" color="bg-rose-50" />
+                            </div>
+
+                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                                <h3 className="text-lg font-black text-slate-800 mb-6">Regional Distribution</h3>
+                                <div className="space-y-6">
+                                    {cityData.map((item, i) => (
+                                        <div key={i}>
+                                            <div className="flex justify-between text-xs font-black uppercase mb-2">
+                                                <span className="text-slate-600">{item.city}</span>
+                                                <span className="text-indigo-600">{item.count} Sisters</span>
+                                            </div>
+                                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                                <div 
+                                                    className={`h-full ${item.color} rounded-full transition-all duration-1000`} 
+                                                    style={{ width: stats.users > 0 ? `${(item.count/stats.users)*100}%` : '0%' }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'Content Manager' && (
+                        <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                             <header className="mb-8">
+                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
+                                <p className="text-slate-500">Manage community challenges and track completions.</p>
+                            </header>
+
+                            <div className="flex flex-row gap-8 items-start">
+                                {/* LEFT: Creation Form */}
+                                <div className="w-1/2 flex-shrink-0 bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
+                                    <h3 className="text-xl font-black mb-6 flex items-center gap-3">
+                                        <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
+                                        Create New
+                                    </h3>
+                                    <form onSubmit={handleAddChallenge} className="space-y-5">
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Challenge Title</label>
+                                            <input required type="text" placeholder="e.g., Read Surah Mulk" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
+                                            <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
+                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
+                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95 mt-4">
+                                            {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
+                                        </button>
+                                    </form>
+                                </div>
+
+                                {/* RIGHT: HISTORY & PARTICIPANTS LIST */}
+                                <div className="w-1/2 flex-shrink-0 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                                            <span>📜 Challenge History</span>
+                                        </h3>
+                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold">{challengeHistory.length} Total</span>
+                                    </div>
+                                    
+                                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                                        {challengeHistory.length === 0 ? (
+                                            <div className="text-center py-20 opacity-40 font-black text-slate-400">NO HISTORY RECORDED</div>
+                                        ) : (
+                                            challengeHistory.map((ch) => (
+                                                <div key={ch.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 group relative">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div className="pr-8">
+                                                            <h4 className="font-black text-slate-800 text-base leading-tight">{ch.title}</h4>
+                                                            <p className="text-[10px] text-slate-400 font-bold block mt-1">CREATED: {new Date(ch.created_at).toLocaleDateString()}</p>
+                                                        </div>
+                                                        <button onClick={() => deleteChallenge(ch.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 text-xs transition-opacity bg-white w-8 h-8 rounded-full flex items-center justify-center shadow-sm border border-slate-100">🗑️</button>
+                                                    </div>
+                                                    
+                                                    <div className="mt-4 pt-4 border-t border-slate-200">
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <p className="text-[9px] font-black text-indigo-600 uppercase tracking-wider">Completed By ({ch.challenge_completions?.length || 0})</p>
+                                                            <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                                {new Date(ch.expires_at) > new Date() ? 'ACTIVE' : 'EXPIRED'}
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {ch.challenge_completions && ch.challenge_completions.length > 0 ? (
+                                                                ch.challenge_completions.map((comp, idx) => (
+                                                                    <span key={idx} className="bg-white px-2 py-1 rounded-lg text-[9px] font-bold text-slate-600 border border-slate-200 shadow-sm uppercase">
+                                                                        {comp.username}
+                                                                    </span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-[9px] italic text-slate-400">No participants yet</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'User Analytics' && (
+                         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm animate-in fade-in duration-500">
+                            <h3 className="text-xl font-black text-slate-800 mb-8">Sisterhood Directory</h3>
+                            <div className="overflow-hidden rounded-2xl border border-slate-50">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+                                        <tr>
+                                            <th className="px-6 py-4">Sister</th>
+                                            <th className="px-6 py-4">City</th>
+                                            <th className="px-6 py-4 text-right">Points</th>
+                                            <th className="px-6 py-4 text-center">Role</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-50">
+                                        {allSisters.map((sister) => (
+                                            <tr key={sister.id} className="hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                                <td className="px-6 py-4">{sister.username || 'Sister'}</td>
+                                                <td className="px-6 py-4 text-slate-500">{sister.city}</td>
+                                                <td className="px-6 py-4 text-right text-rose-500">{sister.points} ❤️</td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className={`px-3 py-1 rounded-full text-[9px] font-black ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                        {(sister.role || 'user').toUpperCase()}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                         </div>
+                    )}
+
+                    {activeTab === 'System Logs' && (
+                        <div className="bg-slate-900 rounded-[2.5rem] p-8 font-mono text-xs text-emerald-400 shadow-2xl min-h-[500px]">
+                            <div className="flex items-center gap-2 mb-6 border-b border-emerald-900/50 pb-4">
+                                <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
+                                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                                <span className="ml-4 text-[10px] text-emerald-900 font-bold uppercase tracking-widest">BarakahOS Console</span>
+                            </div>
+                            <div className="space-y-3">
+                                {logs.map(log => (
+                                    <div key={log.id} className="flex gap-4">
+                                        <span className="opacity-40">[{log.time}]</span>
+                                        <span className={`font-black uppercase w-20 ${log.status === 'error' ? 'text-rose-500' : 'text-indigo-400'}`}>{log.user}</span>
+                                        <span className="text-slate-300">{log.event}</span>
+                                    </div>
+                                ))}
+                                <div className="animate-pulse">_</div>
+                            </div>
+                        </div>
+                    )}
+                </main>
+            </div>
         </div>
-      </main>
-
-      <style jsx="true">{`
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #f1f5f9; border-radius: 30px; border: 3px solid #ffffff; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #e2e8f0; }
-        @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-up { animation: fadeUp 0.6s ease-out forwards; }
-      `}</style>
-    </div>
-  );
-};
-
-export default AdminDashboard;
+    );
+}
