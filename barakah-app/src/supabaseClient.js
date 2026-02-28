@@ -3,9 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Fail-safe check for Production
+// Fail-safe to prevent Vercel build crashes if env vars are missing during build time
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("CRITICAL: Supabase keys are missing! Check your Vercel Environment Variables.");
+    console.warn("Supabase credentials not found. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in Vercel.");
 }
 
 export const supabase = createClient(
