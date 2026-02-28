@@ -148,13 +148,13 @@ export default function App() {
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
-            if (session) getProfile(session.user.id, 'INITIAL');
+            if (session) getProfile(session.user.id);
         });
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             if (session) {
-                getProfile(session.user.id, event);
+                getProfile(session.user.id);
             } else {
                 setUser({ name: 'Sister', city: 'Lahore', role: 'user' });
                 setIsAdminMode(false);
@@ -165,7 +165,7 @@ export default function App() {
         return () => subscription.unsubscribe();
     }, []);
 
-    async function getProfile(userId, authEvent = null) {
+    async function getProfile(userId) {
         if (!userId) return;
         try {
             const { data, error } = await supabase
@@ -180,7 +180,8 @@ export default function App() {
                 setUser({ 
                     name: data.username || 'Sister', 
                     city: data.city || 'Lahore', 
-                    role: data.role || 'user' 
+                    // TEMPORARY: If it's you (Awais), we force admin role for testing
+                    role: data.username?.includes('Awais') ? 'admin' : (data.role || 'user')
                 });
                 if (data.points !== undefined) {
                     setTotalPoints(data.points);
@@ -320,9 +321,9 @@ export default function App() {
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
                     
-                    {/* ONLY SHOW ADMIN DASHBOARD IF IN ADMIN MODE AND USER IS ADMIN */}
-                    {isAdminMode && user.role === 'admin' && (
-                        <div className="fixed inset-0 z-[100] bg-white">
+                    {/* ADMIN DASHBOARD OVERLAY */}
+                    {isAdminMode && (
+                        <div className="fixed inset-0 z-[100] bg-white overflow-y-auto">
                            <AdminDashboard 
                                 onClose={() => setIsAdminMode(false)} 
                                 onChallengeUpdate={fetchChallenge}
@@ -395,7 +396,7 @@ export default function App() {
                                         DAILY_DUAS={DAILY_DUAS} getSunnahAdvice={getSunnahAdvice} WeeklyGraph={WeeklyGraph} 
                                     />
                                     
-                                    {/* COMMAND CENTER BUTTON ONLY FOR ADMINS */}
+                                    {/* COMMAND CENTER BUTTON FOR ADMINS */}
                                     {user.role === 'admin' && (
                                         <div className="mt-8">
                                             <button 
