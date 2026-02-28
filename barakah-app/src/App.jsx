@@ -55,6 +55,7 @@ export default function App() {
     const [showBadgePopup, setShowBadgePopup] = useState(null);
     const [activeChallenge, setActiveChallenge] = useState(null); 
     const [isCompletingChallenge, setIsCompletingChallenge] = useState(false);
+    const [timeLeft, setTimeLeft] = useState("");
 
     // --- QURANLY GAMIFICATION ENGINE STATE ---
     const [completedDeeds, setCompletedDeeds] = useState(JSON.parse(localStorage.getItem('barakah_deeds')) || []);
@@ -92,16 +93,18 @@ export default function App() {
         if (session?.user?.id) {
             await supabase
                 .from('profiles')
-                .update({ points: newPoints }) // Updated to match column name 'points'
+                .update({ points: newPoints }) 
                 .eq('id', session.user.id);
         }
     };
 
     const fetchChallenge = async () => {
         try {
+            const now = new Date().toISOString();
             const { data, error } = await supabase
                 .from('challenges')
                 .select('*')
+                .gt('expires_at', now) // ONLY FETCH IF NOT EXPIRED
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
@@ -109,18 +112,35 @@ export default function App() {
             if (error) throw error;
             if (data) setActiveChallenge(data);
         } catch (err) {
-            console.log("No active challenge found or network error.");
+            setActiveChallenge(null);
         }
     };
+
+    // New: Countdown Logic
+    useEffect(() => {
+        if (!activeChallenge) return;
+        const interval = setInterval(() => {
+            const target = new Date(activeChallenge.expires_at).getTime();
+            const now = new Date().getTime();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                setActiveChallenge(null);
+                clearInterval(interval);
+            } else {
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                setTimeLeft(`${hours}h ${mins}m left`);
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [activeChallenge]);
 
     const completeChallenge = async () => {
         if (!activeChallenge || isCompletingChallenge) return;
         setIsCompletingChallenge(true);
-        
         const newTotal = totalPoints + (activeChallenge.points || 50);
         await syncHasanat(newTotal);
-        
-        // Show success and clear challenge from view locally
         alert(`MashaAllah! You earned ${activeChallenge.points} Hasanat!`);
         setActiveChallenge(null); 
         setIsCompletingChallenge(false);
@@ -348,12 +368,15 @@ export default function App() {
                                 </div>
                                 <div className="bg-white rounded-t-[3.5rem] p-8 -mt-6 min-h-[50vh] shadow-2xl relative z-10">
                                     
-                                    {/* LIVE CHALLENGE COMPONENT - UPDATED */}
+                                    {/* LIVE CHALLENGE COMPONENT - WITH TIME LEFT */}
                                     {activeChallenge && (
                                         <div className="mb-8 p-6 bg-gradient-to-br from-indigo-600 to-violet-700 rounded-[2.5rem] text-white shadow-xl shadow-indigo-100 animate-in fade-in zoom-in duration-500">
-                                            <div className="flex items-center gap-2 mb-3">
-                                                <span className="bg-white/20 p-1.5 rounded-lg text-xs">🚀</span>
-                                                <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Global Challenge</p>
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="bg-white/20 p-1.5 rounded-lg text-xs">🚀</span>
+                                                    <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Global Challenge</p>
+                                                </div>
+                                                <span className="text-[10px] font-black bg-black/20 px-3 py-1 rounded-full">{timeLeft}</span>
                                             </div>
                                             <p className="text-lg font-black leading-tight mb-1">{activeChallenge.title}</p>
                                             <p className="text-[11px] opacity-70 mb-4 font-medium">{activeChallenge.description}</p>

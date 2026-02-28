@@ -12,8 +12,8 @@ export default function AdminDashboard({ onClose }) {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('Overview');
 
-    // Challenge Management State
-    const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points: 50 });
+    // Challenge Management State - Added duration
+    const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points: 50, durationHours: 24 });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -75,18 +75,23 @@ export default function AdminDashboard({ onClose }) {
         e.preventDefault();
         setIsSubmitting(true);
         try {
+            // Calculate expiry date based on custom duration
+            const expiryDate = new Date();
+            expiryDate.setHours(expiryDate.getHours() + parseInt(newChallenge.durationHours));
+
             const { error } = await supabase
                 .from('challenges')
                 .insert([{ 
                     title: newChallenge.title, 
                     description: newChallenge.description, 
-                    points: parseInt(newChallenge.points) 
+                    points: parseInt(newChallenge.points),
+                    expires_at: expiryDate.toISOString()
                 }]);
 
             if (error) throw error;
 
             addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
-            setNewChallenge({ title: '', description: '', points: 50 });
+            setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
             alert("MashaAllah! Challenge is live.");
         } catch (err) {
             alert("Sync Error: " + err.message);
@@ -213,9 +218,15 @@ export default function AdminDashboard({ onClose }) {
                                         <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
                                         <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
                                     </div>
-                                    <div className="w-40">
-                                        <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
-                                        <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
+                                            <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
+                                            <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
+                                        </div>
                                     </div>
                                     <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
                                         {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
