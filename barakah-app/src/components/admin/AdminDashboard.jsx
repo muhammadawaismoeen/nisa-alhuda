@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-// CORRECT IMPORT: Go up two levels to reach src/
-import { supabase } from '../../supabaseClient'; 
+import { supabase } from '../supabaseClient'; 
 
 export default function AdminDashboard({ onClose }) {
     const [stats, setStats] = useState({ users: 0, activeToday: 0, totalHasanat: '0', avgStreak: 0 });
@@ -12,7 +11,7 @@ export default function AdminDashboard({ onClose }) {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('Overview');
 
-    // Challenge Management State - Added duration
+    // Timer Logic State Added
     const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points: 50, durationHours: 24 });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -75,7 +74,7 @@ export default function AdminDashboard({ onClose }) {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            // Calculate expiry date based on custom duration
+            // Calculate Expiry based on timer input
             const expiryDate = new Date();
             expiryDate.setHours(expiryDate.getHours() + parseInt(newChallenge.durationHours));
 
@@ -92,9 +91,9 @@ export default function AdminDashboard({ onClose }) {
 
             addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
             setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
-            alert("MashaAllah! Challenge is live.");
+            alert("MashaAllah! Challenge is live with timer.");
         } catch (err) {
-            alert("Sync Error: " + err.message);
+            alert("Database Error: " + err.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -119,7 +118,6 @@ export default function AdminDashboard({ onClose }) {
 
     return (
         <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
-            {/* Top Bar */}
             <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="bg-gradient-to-br from-indigo-600 to-violet-700 w-10 h-10 rounded-xl flex items-center justify-center text-white font-black shadow-lg">A</div>
@@ -142,7 +140,6 @@ export default function AdminDashboard({ onClose }) {
             </div>
 
             <div className="flex flex-1 overflow-hidden">
-                {/* Navigation Sidebar */}
                 <nav className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2">
                     {['Overview', 'User Analytics', 'Content Manager', 'System Logs'].map((item) => (
                         <button
@@ -159,7 +156,6 @@ export default function AdminDashboard({ onClose }) {
                     ))}
                 </nav>
 
-                {/* Main Dashboard Content */}
                 <main className="flex-1 overflow-y-auto p-8 bg-[#F8FAFC]">
                     {activeTab === 'Overview' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -201,7 +197,7 @@ export default function AdminDashboard({ onClose }) {
                         <div className="max-w-2xl animate-in fade-in slide-in-from-left-4 duration-500">
                              <header className="mb-8">
                                 <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
-                                <p className="text-slate-500">Push dynamic tasks to all users instantly.</p>
+                                <p className="text-slate-500">Push dynamic tasks with auto-expiration.</p>
                             </header>
 
                             <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
@@ -225,7 +221,7 @@ export default function AdminDashboard({ onClose }) {
                                         </div>
                                         <div>
                                             <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
-                                            <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
+                                            <input required type="number" placeholder="24" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
                                         </div>
                                     </div>
                                     <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
