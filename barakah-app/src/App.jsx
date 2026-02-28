@@ -114,7 +114,7 @@ export default function App() {
                 .single();
             if (challengeData) setActiveChallenge(challengeData);
 
-            // 2. Fetch Active Broadcast (Now showing as Pop-up)
+            // 2. Fetch Active Broadcast
             const { data: broadcastData } = await supabase
                 .from('broadcasts')
                 .select('id, message')
@@ -365,42 +365,48 @@ export default function App() {
                 <>
                     {showBadgePopup && <BadgePopup badge={showBadgePopup} onClose={() => setShowBadgePopup(null)} />}
                     
-                    {/* REDESIGNED GLOBAL BROADCAST POP-UP (FIXED ICON & LONG CONTENT) */}
+                    {/* FIXED: DYNAMIC BROADCAST DIALOGUE */}
                     {showBroadcastPopup && globalBroadcast && (
-                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-rose-900/40 backdrop-blur-md animate-in fade-in duration-500">
-                            {/* Card Container - Removed overflow-hidden to let icon breathe */}
-                            <div className="bg-white w-full max-w-[360px] rounded-[3rem] shadow-[0_20px_50px_rgba(225,29,72,0.3)] animate-in zoom-in-95 duration-500 border border-white/50 relative">
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-rose-950/40 backdrop-blur-md animate-in fade-in duration-500">
+                            {/* Card Wrapper - Height set to 'fit-content' */}
+                            <div className="bg-white w-full max-w-[360px] h-auto rounded-[3.5rem] shadow-[0_30px_60px_rgba(225,29,72,0.25)] animate-in zoom-in-95 duration-500 relative flex flex-col">
                                 
-                                {/* Floating Header Icon */}
-                                <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-30">
-                                    <div className="bg-white w-24 h-24 rounded-[2.8rem] flex items-center justify-center text-4xl shadow-xl shadow-rose-200/50 border-4 border-rose-50 animate-bounce">
+                                {/* Header Icon - Absolutely positioned to float outside */}
+                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-[210]">
+                                    <div className="bg-white w-24 h-24 rounded-[2.8rem] flex items-center justify-center text-4xl shadow-2xl shadow-rose-200/60 border-[6px] border-[#fff1f2] animate-bounce">
                                         📢
                                     </div>
                                 </div>
 
-                                {/* Header with Gradient */}
-                                <div className="bg-gradient-to-br from-rose-400 to-rose-600 pt-16 pb-8 px-8 text-center rounded-t-[3rem]">
+                                {/* Top Section with Brand Colors */}
+                                <div className="bg-gradient-to-br from-rose-400 to-rose-600 pt-16 pb-8 px-10 text-center rounded-t-[3.5rem]">
                                     <p className="text-[10px] font-black text-rose-100 uppercase tracking-[0.4em] mb-1">Global Notification</p>
                                     <h2 className="text-white text-2xl font-black tracking-tighter">Sisterhood Alert</h2>
                                 </div>
                                 
-                                {/* Content Area */}
-                                <div className="p-8 text-center bg-rose-50/20 rounded-b-[3rem]">
-                                    {/* Scrollable Message Box for Long Text */}
-                                    <div className="mb-8 relative max-h-64 overflow-y-auto px-2 custom-scrollbar">
-                                        <span className="sticky top-0 left-0 text-4xl text-rose-200 opacity-30 font-serif block text-left h-4">“</span>
-                                        <p className="text-slate-700 font-bold leading-relaxed text-lg italic py-2">
+                                {/* Dynamic Content Body */}
+                                <div className="p-10 text-center bg-white rounded-b-[3.5rem] flex-1">
+                                    <div className="relative mb-10 min-h-[60px] flex flex-col items-center justify-center">
+                                        {/* Stylized Quote Marks */}
+                                        <div className="text-5xl text-rose-100 font-serif absolute -top-4 -left-2 select-none opacity-60">“</div>
+                                        
+                                        {/* Dynamic Text in Paragraph Form */}
+                                        <p className="text-slate-700 font-bold leading-relaxed text-[17px] italic relative z-10 break-words whitespace-pre-wrap px-4">
                                             {globalBroadcast.message}
                                         </p>
-                                        <span className="text-4xl text-rose-200 opacity-30 font-serif block text-right h-4">”</span>
+                                        
+                                        <div className="text-5xl text-rose-100 font-serif absolute -bottom-8 -right-2 select-none opacity-60">”</div>
                                     </div>
                                     
+                                    {/* Action Button */}
                                     <button 
                                         onClick={handleDismissBroadcast}
-                                        className="w-full py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-lg shadow-rose-200 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                        className="w-full py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-rose-100 active:scale-95 transition-all flex items-center justify-center gap-3 mt-4"
                                     >
                                         <span>I ACKNOWLEDGE</span>
-                                        <span className="bg-white/20 px-2 py-0.5 rounded-lg">✨</span>
+                                        <div className="bg-white/20 p-1.5 rounded-full">
+                                            <span className="text-[10px]">✨</span>
+                                        </div>
                                     </button>
                                 </div>
                             </div>
