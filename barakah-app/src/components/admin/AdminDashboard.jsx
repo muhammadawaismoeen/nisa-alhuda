@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-// Path adjusted for: src/components/admin/AdminDashboard.jsx -> src/supabaseClient
+// CORRECT IMPORT: Go up two levels to reach src/
 import { supabase } from '../../supabaseClient'; 
 
 export default function AdminDashboard({ onClose }) {
@@ -7,7 +7,7 @@ export default function AdminDashboard({ onClose }) {
     const [cityData, setCityData] = useState([]);
     const [allSisters, setAllSisters] = useState([]);
     const [logs, setLogs] = useState([
-        { id: 1, user: 'System', event: 'Database Connection Established', time: 'Just now', type: 'system', status: 'success' }
+        { id: 1, user: 'System', event: 'Command Center Initialized', time: new Date().toLocaleTimeString(), type: 'system', status: 'success' }
     ]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('Overview');
@@ -54,12 +54,22 @@ export default function AdminDashboard({ onClose }) {
             setCityData(formattedCityData);
 
         } catch (error) {
-            console.error("Admin Fetch Error:", error);
-            setLogs(prev => [{ id: Date.now(), user: 'Error', event: error.message, time: 'Now', type: 'system', status: 'error' }, ...prev]);
+            addLog('Error', error.message, 'system', 'error');
         } finally {
             setLoading(false);
         }
     }
+
+    const addLog = (user, event, type, status) => {
+        setLogs(prev => [{
+            id: Date.now(),
+            user,
+            event,
+            time: new Date().toLocaleTimeString(),
+            type,
+            status
+        }, ...prev]);
+    };
 
     const handleAddChallenge = async (e) => {
         e.preventDefault();
@@ -75,19 +85,11 @@ export default function AdminDashboard({ onClose }) {
 
             if (error) throw error;
 
-            setLogs(prev => [{
-                id: Date.now(),
-                user: 'Admin',
-                event: `NEW CHALLENGE: ${newChallenge.title}`,
-                time: new Date().toLocaleTimeString(),
-                type: 'content',
-                status: 'success'
-            }, ...prev]);
-            
+            addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
             setNewChallenge({ title: '', description: '', points: 50 });
-            alert("MashaAllah! Challenge is now live.");
+            alert("MashaAllah! Challenge is live.");
         } catch (err) {
-            alert("Failed: " + err.message);
+            alert("Sync Error: " + err.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -97,7 +99,7 @@ export default function AdminDashboard({ onClose }) {
         const newRole = currentRole === 'admin' ? 'user' : 'admin';
         const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', id);
         if (!error) {
-            setLogs(prev => [{ id: Date.now(), user: 'Admin', event: `Updated Role to ${newRole}`, time: 'Now', type: 'security', status: 'success' }, ...prev]);
+            addLog('Admin', `Updated Role to ${newRole}`, 'security', 'success');
             fetchAdminData();
         }
     };
@@ -112,6 +114,7 @@ export default function AdminDashboard({ onClose }) {
 
     return (
         <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col font-sans overflow-hidden text-slate-900">
+            {/* Top Bar */}
             <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <div className="bg-gradient-to-br from-indigo-600 to-violet-700 w-10 h-10 rounded-xl flex items-center justify-center text-white font-black shadow-lg">A</div>
@@ -134,6 +137,7 @@ export default function AdminDashboard({ onClose }) {
             </div>
 
             <div className="flex flex-1 overflow-hidden">
+                {/* Navigation Sidebar */}
                 <nav className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2">
                     {['Overview', 'User Analytics', 'Content Manager', 'System Logs'].map((item) => (
                         <button
@@ -148,14 +152,9 @@ export default function AdminDashboard({ onClose }) {
                             {item}
                         </button>
                     ))}
-                    <div className="mt-auto p-5 bg-slate-900 rounded-[2rem] text-white overflow-hidden relative">
-                        <div className="relative z-10">
-                            <p className="text-[10px] font-black text-indigo-400 uppercase mb-1">Server Status</p>
-                            <p className="text-xs font-bold">All Systems Operational</p>
-                        </div>
-                    </div>
                 </nav>
 
+                {/* Main Dashboard Content */}
                 <main className="flex-1 overflow-y-auto p-8 bg-[#F8FAFC]">
                     {activeTab === 'Overview' && (
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -171,25 +170,23 @@ export default function AdminDashboard({ onClose }) {
                                 <StatCard label="Avg. Streak" value={`${stats.avgStreak} Days`} icon="🔥" color="bg-rose-50" />
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                                    <h3 className="text-lg font-black text-slate-800 mb-6">Regional Distribution</h3>
-                                    <div className="space-y-6">
-                                        {cityData.map((item, i) => (
-                                            <div key={i}>
-                                                <div className="flex justify-between text-xs font-black uppercase mb-2">
-                                                    <span className="text-slate-600">{item.city}</span>
-                                                    <span className="text-indigo-600">{item.count} Sisters</span>
-                                                </div>
-                                                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div 
-                                                        className={`h-full ${item.color} rounded-full transition-all duration-1000`} 
-                                                        style={{ width: stats.users > 0 ? `${(item.count/stats.users)*100}%` : '0%' }}
-                                                    ></div>
-                                                </div>
+                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                                <h3 className="text-lg font-black text-slate-800 mb-6">Regional Distribution</h3>
+                                <div className="space-y-6">
+                                    {cityData.map((item, i) => (
+                                        <div key={i}>
+                                            <div className="flex justify-between text-xs font-black uppercase mb-2">
+                                                <span className="text-slate-600">{item.city}</span>
+                                                <span className="text-indigo-600">{item.count} Sisters</span>
                                             </div>
-                                        ))}
-                                    </div>
+                                            <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                                                <div 
+                                                    className={`h-full ${item.color} rounded-full transition-all duration-1000`} 
+                                                    style={{ width: stats.users > 0 ? `${(item.count/stats.users)*100}%` : '0%' }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -202,33 +199,28 @@ export default function AdminDashboard({ onClose }) {
                                 <p className="text-slate-500">Push dynamic tasks to all users instantly.</p>
                             </header>
 
-                            <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200 relative overflow-hidden">
-                                <div className="relative z-10">
-                                    <h3 className="text-xl font-black mb-6 flex items-center gap-3">
-                                        <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
-                                        Create New Challenge
-                                    </h3>
-                                    <form onSubmit={handleAddChallenge} className="space-y-5">
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Challenge Title</label>
-                                            <input required type="text" placeholder="e.g., Read Surah Mulk" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
-                                            <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
-                                        </div>
-                                        <div className="w-40">
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
-                                            <div className="flex items-center bg-white/10 border border-white/20 rounded-2xl px-4">
-                                                <span className="text-rose-300">❤️</span>
-                                                <input required type="number" className="w-full p-4 bg-transparent outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
-                                            </div>
-                                        </div>
-                                        <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
-                                            {isSubmitting ? "SYNCING TO DATABASE..." : "ACTIVATE CHALLENGE NOW"}
-                                        </button>
-                                    </form>
-                                </div>
+                            <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
+                                <h3 className="text-xl font-black mb-6 flex items-center gap-3">
+                                    <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
+                                    Create New Challenge
+                                </h3>
+                                <form onSubmit={handleAddChallenge} className="space-y-5">
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Challenge Title</label>
+                                        <input required type="text" placeholder="e.g., Read Surah Mulk" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
+                                        <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
+                                    </div>
+                                    <div className="w-40">
+                                        <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
+                                        <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                    </div>
+                                    <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
+                                        {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     )}
@@ -242,32 +234,19 @@ export default function AdminDashboard({ onClose }) {
                                         <tr className="text-[10px] font-black uppercase text-slate-400">
                                             <th className="px-6 py-4">Sister Name</th>
                                             <th className="px-6 py-4">City</th>
-                                            <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4 text-right">Points</th>
-                                            <th className="px-6 py-4 text-center">Manage</th>
+                                            <th className="px-6 py-4 text-center">Role</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {allSisters.map((sister) => (
                                             <tr key={sister.id} className="group hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-black text-indigo-600 uppercase">
-                                                            {sister.username?.substring(0, 2)}
-                                                        </div>
-                                                        <span className="font-bold text-slate-700">{sister.username || 'Sister'}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-slate-500 text-sm font-medium">{sister.city}</td>
-                                                <td className="px-6 py-4">
-                                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-                                                        {(sister.role || 'user').toUpperCase()}
-                                                    </span>
-                                                </td>
+                                                <td className="px-6 py-4 font-bold text-slate-700">{sister.username || 'Sister'}</td>
+                                                <td className="px-6 py-4 text-slate-500 text-sm">{sister.city}</td>
                                                 <td className="px-6 py-4 text-right font-black text-rose-500">{sister.points} ❤️</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className="text-[10px] font-black text-indigo-400 uppercase hover:text-indigo-600 tracking-tighter transition-all">
-                                                        Switch Role
+                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                        {(sister.role || 'user').toUpperCase()}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -276,6 +255,29 @@ export default function AdminDashboard({ onClose }) {
                                 </table>
                             </div>
                          </div>
+                    )}
+
+                    {activeTab === 'System Logs' && (
+                        <div className="bg-slate-900 rounded-[2.5rem] p-8 font-mono text-xs text-emerald-400 shadow-2xl min-h-[500px]">
+                            <div className="flex items-center gap-2 mb-6 border-b border-emerald-900/50 pb-4">
+                                <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
+                                <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                                <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                                <span className="ml-4 text-[10px] text-emerald-900 font-bold uppercase tracking-widest">BarakahOS Console v4.0.2</span>
+                            </div>
+                            <div className="space-y-3">
+                                {logs.map(log => (
+                                    <div key={log.id} className="flex gap-4 animate-in slide-in-from-left duration-300">
+                                        <span className="opacity-40 whitespace-nowrap">[{log.time}]</span>
+                                        <span className={`font-black uppercase tracking-tighter w-20 ${log.status === 'error' ? 'text-rose-500' : 'text-indigo-400'}`}>
+                                            {log.user}
+                                        </span>
+                                        <span className="text-slate-300">{log.event}</span>
+                                    </div>
+                                ))}
+                                <div className="animate-pulse">_</div>
+                            </div>
+                        </div>
                     )}
                 </main>
             </div>
