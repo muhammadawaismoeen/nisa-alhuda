@@ -1,18 +1,26 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../supabaseClient';
 
 export default function AdminDashboard({ onClose, onChallengeUpdate }) {
-    // --- EXISTING STATES ---
-    const [stats, setStats] = useState({ totalUsers: 0, totalPoints: 0, activeToday: 0, premiumUsers: 0, pendingSubs: 0 });
+    // --- SYSTEM STATES ---
+    const [stats, setStats] = useState({ 
+        totalUsers: 0, 
+        totalPoints: 0, 
+        activeToday: 0, 
+        premiumUsers: 0, 
+        pendingSubs: 0 
+    });
     const [users, setUsers] = useState([]);
     const [pendingRequests, setPendingRequests] = useState([]); 
+    const [loading, setLoading] = useState(false);
+    const [tab, setTab] = useState('overview'); 
+    
+    // --- CHALLENGE CREATION STATES ---
     const [title, setTitle] = useState('');
     const [desc, setDesc] = useState('');
     const [points, setPoints] = useState(100);
     const [validityHours, setValidityHours] = useState(24); 
-    const [loading, setLoading] = useState(false);
-    const [tab, setTab] = useState('overview'); 
-    
+
     // --- BROADCAST & HISTORY STATES ---
     const [broadcast, setBroadcast] = useState('');
     const [activeBroadcasts, setActiveBroadcasts] = useState([]);
@@ -219,12 +227,12 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
 
     return (
         <div className="min-h-screen bg-[#f8fafc] pb-20">
-            {/* Header */}
+            {/* Header Section */}
             <div className="bg-slate-900 text-white p-8 rounded-b-[3rem] shadow-2xl">
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-400">System Administrator</p>
-                        <h1 className="text-3xl font-black tracking-tighter">COMMAND CENTER</h1>
+                        <h1 className="text-3xl font-black tracking-tighter text-white">COMMAND CENTER</h1>
                     </div>
                     <button 
                         onClick={onClose}
@@ -234,25 +242,25 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </button>
                 </div>
 
-                {/* Quick Stats Grid */}
+                {/* Dashboard Stats Panel */}
                 <div className="grid grid-cols-3 gap-4">
                     <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
                         <p className="text-[8px] font-bold uppercase opacity-50 mb-1">Premium Souls</p>
                         <p className="text-xl font-black text-emerald-400">{stats.premiumUsers}</p>
                     </div>
                     <div className="bg-rose-500/20 p-4 rounded-2xl border border-rose-500/30">
-                        <p className="text-[8px] font-bold uppercase text-rose-300 mb-1">Pending Subs</p>
+                        <p className="text-[8px] font-bold uppercase text-rose-300 mb-1 text-white">Pending Subs</p>
                         <p className="text-xl font-black text-white">{stats.pendingSubs}</p>
                     </div>
                     <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
                         <p className="text-[8px] font-bold uppercase opacity-50 mb-1">Active Now</p>
-                        <p className="text-xl font-black">{stats.activeToday}</p>
+                        <p className="text-xl font-black text-white">{stats.activeToday}</p>
                     </div>
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex px-6 gap-2 -mt-4 overflow-x-auto no-scrollbar">
+            {/* Admin Sub-Navigation */}
+            <div className="flex px-6 gap-2 -mt-4 overflow-x-auto no-scrollbar relative z-10">
                 {['overview', 'users', 'challenges', 'broadcast', 'subs', 'settings'].map((t) => (
                     <button
                         key={t}
@@ -267,7 +275,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
             </div>
 
             <div className="p-6 space-y-6">
-                {/* 1. OVERVIEW TAB */}
+                {/* 1. OVERVIEW SECTION */}
                 {tab === 'overview' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 mb-6">
@@ -295,14 +303,14 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </div>
                 )}
 
-                {/* 2. USER MANAGEMENT TAB */}
+                {/* 2. USER DIRECTORY SECTION */}
                 {tab === 'users' && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
                         <h3 className="px-2 font-black text-slate-800">Community Directory</h3>
                         {users.map(u => {
                             const remaining = getRemainingDays(u.created_at);
                             return (
-                                <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex justify-between items-center">
+                                <div key={u.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex justify-between items-center transition-all hover:border-rose-100">
                                     <div>
                                         <p className="font-black text-slate-900">{u.username || 'Anonymous'}</p>
                                         <div className="flex gap-2 items-center">
@@ -332,6 +340,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                         <button 
                                             onClick={() => updateUserPoints(u.id, (u.points || 0) + 100)}
                                             className="bg-slate-100 p-3 rounded-xl hover:bg-rose-50 transition-colors"
+                                            title="Gift points"
                                         >
                                             🎁
                                         </button>
@@ -342,7 +351,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </div>
                 )}
 
-                {/* 3. CHALLENGES TAB */}
+                {/* 3. GLOBAL CHALLENGES SECTION */}
                 {tab === 'challenges' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8">
                         <form onSubmit={handleCreateChallenge} className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
@@ -402,7 +411,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                             {challengeHistory.map(ch => (
                                 <div key={ch.id} className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex justify-between items-center group hover:bg-slate-50 transition-all">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-lg shadow-sm">✨</div>
+                                        <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-lg shadow-sm text-indigo-500">✨</div>
                                         <div>
                                             <p className="font-black text-slate-800 text-sm">{ch.title}</p>
                                             <p className="text-[9px] font-bold text-slate-400 uppercase">Expires: {new Date(ch.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -417,7 +426,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </div>
                 )}
 
-                {/* 4. BROADCAST TAB */}
+                {/* 4. ANNOUNCEMENT BROADCAST SECTION */}
                 {tab === 'broadcast' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                         <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
@@ -430,7 +439,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                 value={broadcast}
                                 onChange={(e) => setBroadcast(e.target.value)}
                                 placeholder="This message will scroll at the top of every user's screen..."
-                                className="w-full p-6 bg-indigo-50/50 rounded-[2rem] border-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm h-32 mb-4"
+                                className="w-full p-6 bg-indigo-50/50 rounded-[2rem] border-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm h-32 mb-4 outline-none"
                             />
                             
                             <button 
@@ -448,7 +457,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                 <p className="text-center py-10 text-slate-300 font-bold italic text-sm">No active broadcasts</p>
                             )}
                             {activeBroadcasts.map(b => (
-                                <div key={b.id} className="bg-slate-900 text-white p-6 rounded-[2rem] flex justify-between items-center group">
+                                <div key={b.id} className="bg-slate-900 text-white p-6 rounded-[2rem] flex justify-between items-center group shadow-xl">
                                     <div className="flex-1 pr-4">
                                         <p className="text-xs font-medium leading-relaxed italic">"{b.message}"</p>
                                         <p className="text-[8px] font-black uppercase text-indigo-400 mt-2 tracking-widest">Status: Scrolling Live</p>
@@ -465,10 +474,10 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </div>
                 )}
 
-                {/* 5. SUBSCRIPTION VERIFICATION TAB */}
+                {/* 5. SUBSCRIPTION VERIFICATION SECTION */}
                 {tab === 'subs' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
-                        <h3 className="px-2 font-black text-slate-800">Pending Payments</h3>
+                        <h3 className="px-2 font-black text-slate-800 text-lg">Pending Payment Verifications</h3>
                         {pendingRequests.length === 0 && (
                             <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
                                 <p className="text-slate-300 font-bold italic">No pending verifications today.</p>
@@ -492,23 +501,23 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                     <button 
                                         onClick={() => approveSubscription(req.id, req.user_id, req.tier)}
                                         disabled={loading}
-                                        className="flex-1 bg-slate-900 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                                        className="flex-1 bg-slate-900 text-white py-4 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all shadow-lg"
                                     >
                                         Verify & Upgrade
                                     </button>
-                                    <button className="bg-rose-50 text-rose-500 px-6 py-4 rounded-xl text-[10px] font-black uppercase">Reject</button>
+                                    <button className="bg-rose-50 text-rose-500 px-6 py-4 rounded-xl text-[10px] font-black uppercase font-bold">Reject</button>
                                 </div>
                             </div>
                         ))}
                     </div>
                 )}
 
-                {/* 6. SETTINGS TAB */}
+                {/* 6. SYSTEM SETTINGS SECTION */}
                 {tab === 'settings' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                         <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
                             <div className="flex items-center gap-3 mb-6">
-                                <span className="text-2xl">⚙️</span>
+                                <span className="text-2xl text-slate-700">⚙️</span>
                                 <h3 className="font-black text-slate-900">System Configuration</h3>
                             </div>
 
@@ -519,7 +528,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                         type="number" 
                                         value={trialDays} 
                                         onChange={(e) => setTrialDays(parseInt(e.target.value) || 0)}
-                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600 text-lg"
+                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600 text-lg outline-none"
                                     />
                                 </div>
 
@@ -551,9 +560,9 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                 )}
             </div>
 
-            {/* Bottom Branding */}
+            {/* Admin Footer Branding */}
             <div className="text-center py-10 opacity-20">
-                <p className="text-[10px] font-black uppercase tracking-[0.5em]">Nisa Al-Huda Admin Core</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-900">Nisa Al-Huda Admin Core</p>
             </div>
         </div>
     );
