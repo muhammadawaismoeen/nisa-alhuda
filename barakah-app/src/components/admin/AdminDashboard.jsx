@@ -11,12 +11,14 @@ export default function AdminDashboard({ onClose }) {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('Overview');
 
-    // Timer Logic State Added
+    // New State for History
     const [newChallenge, setNewChallenge] = useState({ title: '', description: '', points: 50, durationHours: 24 });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [challengeHistory, setChallengeHistory] = useState([]);
 
     useEffect(() => {
         fetchAdminData();
+        fetchChallengeHistory();
     }, []);
 
     async function fetchAdminData() {
@@ -59,6 +61,25 @@ export default function AdminDashboard({ onClose }) {
         }
     }
 
+    async function fetchChallengeHistory() {
+        try {
+            const { data, error } = await supabase
+                .from('challenges')
+                .select(`
+                    *,
+                    challenge_completions (
+                        username
+                    )
+                `)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            setChallengeHistory(data || []);
+        } catch (err) {
+            console.error("History Error:", err.message);
+        }
+    }
+
     const addLog = (user, event, type, status) => {
         setLogs(prev => [{
             id: Date.now(),
@@ -74,7 +95,6 @@ export default function AdminDashboard({ onClose }) {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            // Calculate Expiry based on timer input
             const expiryDate = new Date();
             expiryDate.setHours(expiryDate.getHours() + parseInt(newChallenge.durationHours));
 
@@ -91,7 +111,8 @@ export default function AdminDashboard({ onClose }) {
 
             addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
             setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
-            alert("MashaAllah! Challenge is live with timer.");
+            fetchChallengeHistory();
+            alert("MashaAllah! Challenge and timer are active.");
         } catch (err) {
             alert("Database Error: " + err.message);
         } finally {
@@ -130,7 +151,7 @@ export default function AdminDashboard({ onClose }) {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button onClick={fetchAdminData} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400">
+                    <button onClick={() => { fetchAdminData(); fetchChallengeHistory(); }} className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-400">
                         <span className={loading ? "animate-spin block" : ""}>🔄</span>
                     </button>
                     <button onClick={onClose} className="bg-slate-900 hover:bg-rose-600 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg active:scale-95">
@@ -161,7 +182,7 @@ export default function AdminDashboard({ onClose }) {
                         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <header className="mb-10">
                                 <h1 className="text-4xl font-black text-slate-800 tracking-tight">System Snapshot</h1>
-                                <p className="text-slate-500 font-medium">Real-time engagement across the platform.</p>
+                                <p className="text-slate-500 font-medium">Real-time engagement tracking.</p>
                             </header>
                             
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
@@ -194,40 +215,62 @@ export default function AdminDashboard({ onClose }) {
                     )}
 
                     {activeTab === 'Content Manager' && (
-                        <div className="max-w-2xl animate-in fade-in slide-in-from-left-4 duration-500">
-                             <header className="mb-8">
-                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
-                                <p className="text-slate-500">Push dynamic tasks with auto-expiration.</p>
-                            </header>
+                        <div className="animate-in fade-in slide-in-from-left-4 duration-500 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                             <div>
+                                <header className="mb-8">
+                                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
+                                    <p className="text-slate-500">Create tasks with auto-expiry timers.</p>
+                                </header>
 
-                            <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
-                                <h3 className="text-xl font-black mb-6 flex items-center gap-3">
-                                    <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
-                                    Create New Challenge
-                                </h3>
-                                <form onSubmit={handleAddChallenge} className="space-y-5">
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Challenge Title</label>
-                                        <input required type="text" placeholder="e.g., Read Surah Mulk" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
-                                        <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20 transition-all" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
-                                            <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
+                                    <h3 className="text-xl font-black mb-6 flex items-center gap-3">
+                                        <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
+                                        Create New
+                                    </h3>
+                                    <form onSubmit={handleAddChallenge} className="space-y-5">
+                                        <input required type="text" placeholder="Challenge Title" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
+                                        <textarea required placeholder="Description" rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <input required type="number" placeholder="Points" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                            <input required type="number" placeholder="Timer (Hrs)" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
                                         </div>
-                                        <div>
-                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
-                                            <input required type="number" placeholder="24" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
-                                        </div>
-                                    </div>
-                                    <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
-                                        {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
-                                    </button>
-                                </form>
+                                        <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
+                                            {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[600px]">
+                                <h3 className="text-xl font-black text-slate-800 mb-6">📜 Challenge History</h3>
+                                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                                    {challengeHistory.length === 0 ? (
+                                        <div className="text-center py-20 opacity-20 font-black">NO HISTORY FOUND</div>
+                                    ) : (
+                                        challengeHistory.map((ch) => (
+                                            <div key={ch.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <h4 className="font-black text-slate-800 text-sm">{ch.title}</h4>
+                                                    <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                        {new Date(ch.expires_at) > new Date() ? 'Active' : 'Expired'}
+                                                    </span>
+                                                </div>
+                                                <div className="border-t border-slate-200 mt-3 pt-3">
+                                                    <p className="text-[8px] font-black text-indigo-600 uppercase mb-2">
+                                                        Completed By ({ch.challenge_completions?.length || 0})
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {ch.challenge_completions?.map((comp, idx) => (
+                                                            <span key={idx} className="bg-white px-2 py-1 rounded-md text-[9px] font-bold text-slate-600 border border-slate-100 uppercase">
+                                                                {comp.username}
+                                                            </span>
+                                                        )) || <span className="text-[9px] italic text-slate-400">No one yet</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -236,10 +279,10 @@ export default function AdminDashboard({ onClose }) {
                          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm animate-in fade-in duration-500">
                             <h3 className="text-xl font-black text-slate-800 mb-8">Sisterhood Directory</h3>
                             <div className="overflow-hidden rounded-2xl border border-slate-50">
-                                <table className="w-full text-left">
-                                    <thead className="bg-slate-50">
-                                        <tr className="text-[10px] font-black uppercase text-slate-400">
-                                            <th className="px-6 py-4">Sister Name</th>
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-slate-50 text-[10px] font-black uppercase text-slate-400">
+                                        <tr>
+                                            <th className="px-6 py-4">Sister</th>
                                             <th className="px-6 py-4">City</th>
                                             <th className="px-6 py-4 text-right">Points</th>
                                             <th className="px-6 py-4 text-center">Role</th>
@@ -247,12 +290,12 @@ export default function AdminDashboard({ onClose }) {
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
                                         {allSisters.map((sister) => (
-                                            <tr key={sister.id} className="group hover:bg-slate-50 transition-colors">
-                                                <td className="px-6 py-4 font-bold text-slate-700">{sister.username || 'Sister'}</td>
-                                                <td className="px-6 py-4 text-slate-500 text-sm">{sister.city}</td>
-                                                <td className="px-6 py-4 text-right font-black text-rose-500">{sister.points} ❤️</td>
+                                            <tr key={sister.id} className="hover:bg-slate-50 transition-colors font-bold text-slate-700">
+                                                <td className="px-6 py-4">{sister.username || 'Sister'}</td>
+                                                <td className="px-6 py-4 text-slate-500">{sister.city}</td>
+                                                <td className="px-6 py-4 text-right text-rose-500">{sister.points} ❤️</td>
                                                 <td className="px-6 py-4 text-center">
-                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className={`px-3 py-1 rounded-full text-[9px] font-black tracking-widest ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                                                    <button onClick={() => toggleRole(sister.id, sister.role)} className={`px-3 py-1 rounded-full text-[9px] font-black ${sister.role === 'admin' ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
                                                         {(sister.role || 'user').toUpperCase()}
                                                     </button>
                                                 </td>
@@ -274,11 +317,9 @@ export default function AdminDashboard({ onClose }) {
                             </div>
                             <div className="space-y-3">
                                 {logs.map(log => (
-                                    <div key={log.id} className="flex gap-4 animate-in slide-in-from-left duration-300">
-                                        <span className="opacity-40 whitespace-nowrap">[{log.time}]</span>
-                                        <span className={`font-black uppercase tracking-tighter w-20 ${log.status === 'error' ? 'text-rose-500' : 'text-indigo-400'}`}>
-                                            {log.user}
-                                        </span>
+                                    <div key={log.id} className="flex gap-4">
+                                        <span className="opacity-40">[{log.time}]</span>
+                                        <span className={`font-black uppercase w-20 ${log.status === 'error' ? 'text-rose-500' : 'text-indigo-400'}`}>{log.user}</span>
                                         <span className="text-slate-300">{log.event}</span>
                                     </div>
                                 ))}
