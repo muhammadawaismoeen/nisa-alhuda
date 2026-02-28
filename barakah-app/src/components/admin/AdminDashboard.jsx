@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// CORRECT PATH: Go up from 'admin', then up from 'components' to reach 'src'
-import { supabase } from '../../supabaseClient'; 
+// CRITICAL: Explicit .js extension and verified path for Vercel/Vite production
+import { supabase } from '../../supabaseClient.js'; 
 import { 
   Rocket, 
   Trophy, 
@@ -24,6 +24,7 @@ const AdminDashboard = () => {
   const [challenges, setChallenges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   
   // --- FORM STATE ---
   const [title, setTitle] = useState('');
@@ -44,7 +45,7 @@ const AdminDashboard = () => {
     
     // Real-time subscription to sync UI across all devices
     const channel = supabase
-      .channel('admin_sync_v5')
+      .channel('admin_sync_v6')
       .on(
         'postgres_changes', 
         { event: '*', schema: 'public', table: 'challenges' }, 
@@ -107,7 +108,6 @@ const AdminDashboard = () => {
 
   const fetchChallenges = async () => {
     try {
-      // Pulling relational data to show exactly who completed which challenge
       const { data, error } = await supabase
         .from('challenges')
         .select(`
@@ -136,14 +136,13 @@ const AdminDashboard = () => {
       const expiresAt = new Date();
       expiresAt.setHours(expiresAt.getHours() + parseInt(duration));
 
-      // This logic ensures 'is_active' is true so it appears in the user list
       const { error } = await supabase
         .from('challenges')
         .insert([
           {
             title: title,
             description: description,
-            reward_points: parseInt(reward),
+            reward_points: parseInt(reward), // Matches your DB schema
             expires_at: expiresAt.toISOString(),
             is_active: true,
             created_at: new Date().toISOString()
@@ -152,7 +151,6 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      // Reset form on success
       setTitle('');
       setDescription('');
       setReward('50');
@@ -204,7 +202,6 @@ const AdminDashboard = () => {
           {/* LEFT COLUMN: CREATION ENGINE */}
           <div className="lg:col-span-5">
             <div className="bg-[#5d51e8] rounded-[48px] p-10 shadow-2xl text-white relative overflow-hidden ring-8 ring-indigo-50">
-              {/* Background Decoration */}
               <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
               
               <div className="flex items-center gap-5 mb-10 relative z-10">
@@ -343,6 +340,7 @@ const AdminDashboard = () => {
                         </div>
                       </div>
 
+                      {/* DETAILED PARTICIPANT LOG */}
                       <div className="bg-white border-2 border-slate-50 rounded-[32px] p-6 shadow-sm">
                         <div className="flex items-center justify-between mb-5 border-b border-slate-50 pb-4">
                            <p className="text-[11px] font-black text-indigo-600 uppercase tracking-[0.2em] flex items-center gap-2">
