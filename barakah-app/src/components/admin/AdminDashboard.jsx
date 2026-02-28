@@ -5,22 +5,21 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
     // --- EXISTING STATES ---
     const [stats, setStats] = useState({ totalUsers: 0, totalPoints: 0, activeToday: 0, premiumUsers: 0, pendingSubs: 0 });
     const [users, setUsers] = useState([]);
-    const [pendingRequests, setPendingRequests] = useState([]); 
+    const [pendingRequests, setPendingRequests] = useState([]); // NEW: Pending Payment State
     const [title, setTitle] = useState('');
     const [desc, setDesc] = useState('');
     const [points, setPoints] = useState(100);
-    const [validityHours, setValidityHours] = useState(24); 
+    const [validityHours, setValidityHours] = useState(24); // RESTORED: Timer State
     const [loading, setLoading] = useState(false);
-    const [tab, setTab] = useState('overview'); 
+    const [tab, setTab] = useState('overview'); // overview, users, challenges, broadcast, subs, settings
     
     // --- BROADCAST & HISTORY STATES ---
     const [broadcast, setBroadcast] = useState('');
     const [activeBroadcasts, setActiveBroadcasts] = useState([]);
-    const [challengeHistory, setChallengeHistory] = useState([]); 
+    const [challengeHistory, setChallengeHistory] = useState([]); // RESTORED: History State
 
-    // --- SUBSCRIPTION & GLOBAL SETTINGS STATE ---
+    // --- NEW: SUBSCRIPTION SETTINGS STATE ---
     const [trialDays, setTrialDays] = useState(7);
-    const [lockAfterTrial, setLockAfterTrial] = useState(true); 
     const [settingsLoading, setSettingsLoading] = useState(false);
 
     useEffect(() => {
@@ -28,8 +27,8 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
         fetchUsers();
         fetchCurrentBroadcasts();
         fetchChallengeHistory();
-        fetchPendingRequests(); 
-        fetchGlobalSettings(); 
+        fetchPendingRequests(); // Load verification queue
+        fetchGlobalSettings(); // Load trial settings
     }, []);
 
     const fetchStats = async () => {
@@ -60,6 +59,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
     };
 
     const fetchPendingRequests = async () => {
+        // Fetching requests with profile info to see who is paying
         const { data } = await supabase
             .from('payment_requests')
             .select('*, profiles(username)')
@@ -86,51 +86,27 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
         if (data) setChallengeHistory(data);
     };
 
+    // --- NEW: FETCH GLOBAL SETTINGS ---
     const fetchGlobalSettings = async () => {
         const { data } = await supabase
             .from('global_settings')
-            .select('*')
+            .select('trial_period_days')
             .eq('id', 'config')
             .single();
-        if (data) {
-            setTrialDays(data.trial_period_days);
-            setLockAfterTrial(data.features_locked_after_trial);
-        }
+        if (data) setTrialDays(data.trial_period_days);
     };
 
-    const handleUpdateSettings = async () => {
+    // --- NEW: UPDATE GLOBAL SETTINGS ---
+    const handleUpdateTrial = async () => {
         setSettingsLoading(true);
         const { error } = await supabase
             .from('global_settings')
-            .update({ 
-                trial_period_days: trialDays,
-                features_locked_after_trial: lockAfterTrial 
-            })
+            .update({ trial_period_days: trialDays })
             .eq('id', 'config');
         
         if (error) alert(error.message);
-        else alert("System Configuration Updated Successfully! ✅");
+        else alert("Trial Period Updated Successfully!");
         setSettingsLoading(false);
-    };
-
-    // --- NEW: TRIAL RESET LOGIC ---
-    const resetUserTrial = async (userId, username) => {
-        const confirmReset = window.confirm(`Reset trial for ${username}? This will restart their ${trialDays}-day countdown from today.`);
-        if (!confirmReset) return;
-
-        setLoading(true);
-        const { error } = await supabase
-            .from('profiles')
-            .update({ created_at: new Date().toISOString() })
-            .eq('id', userId);
-
-        if (error) {
-            alert("Error resetting trial: " + error.message);
-        } else {
-            alert(`Trial reset successfully for ${username}! ⏳`);
-            fetchUsers();
-        }
-        setLoading(false);
     };
 
     const handleCreateChallenge = async (e) => {
@@ -178,9 +154,13 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
         setLoading(false);
     };
 
+    // --- NEW: SUBSCRIPTION APPROVAL LOGIC ---
     const approveSubscription = async (requestId, userId, tier) => {
         setLoading(true);
+        // 1. Update user profile to the new tier
         const { error: profileError } = await supabase.from('profiles').update({ subscription_tier: tier }).eq('id', userId);
+        
+        // 2. Mark request as approved
         const { error: requestError } = await supabase.from('payment_requests').update({ status: 'approved' }).eq('id', requestId);
 
         if (!profileError && !requestError) {
@@ -299,26 +279,12 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                         <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{u.city || 'Unknown'}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="text-right mr-2">
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
                                         <p className="text-xs font-black text-rose-500">{u.points || 0} HP</p>
                                     </div>
-                                    
-                                    {/* Action: Trial Reset */}
-                                    {u.subscription_tier === 'free' && (
-                                        <button 
-                                            onClick={() => resetUserTrial(u.id, u.username)}
-                                            title="Reset Free Trial"
-                                            className="bg-indigo-50 p-3 rounded-xl hover:bg-indigo-100 transition-colors"
-                                        >
-                                            ⏳
-                                        </button>
-                                    )}
-
-                                    {/* Action: Gift Points */}
                                     <button 
                                         onClick={() => updateUserPoints(u.id, (u.points || 0) + 100)}
-                                        title="Gift 100 Points"
                                         className="bg-slate-100 p-3 rounded-xl hover:bg-rose-50 transition-colors"
                                     >
                                         🎁
@@ -490,7 +456,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </div>
                 )}
 
-                {/* 6. SETTINGS TAB */}
+                {/* 6. NEW: SETTINGS TAB FOR TRIAL CONTROL */}
                 {tab === 'settings' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                         <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
@@ -499,40 +465,34 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                 <h3 className="font-black text-slate-900">System Configuration</h3>
                             </div>
 
-                            <div className="space-y-8">
+                            <div className="space-y-6">
                                 <div>
                                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Free Trial Duration (Days)</label>
-                                    <input 
-                                        type="number" 
-                                        value={trialDays} 
-                                        onChange={(e) => setTrialDays(parseInt(e.target.value) || 0)}
-                                        className="w-full p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600 text-lg"
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between bg-slate-50 p-6 rounded-[1.5rem] border border-slate-100">
-                                    <div>
-                                        <p className="text-xs font-black text-slate-800 uppercase tracking-tight">Hard-Lock Features</p>
-                                        <p className="text-[10px] text-slate-500 font-medium mt-1 leading-tight">
-                                            Block dashboard access after trial expires
-                                        </p>
+                                    <div className="flex gap-4">
+                                        <input 
+                                            type="number" 
+                                            value={trialDays} 
+                                            onChange={(e) => setTrialDays(parseInt(e.target.value))}
+                                            className="flex-1 p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600"
+                                        />
+                                        <button 
+                                            onClick={handleUpdateTrial}
+                                            disabled={settingsLoading}
+                                            className="px-8 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
+                                        >
+                                            {settingsLoading ? "SAVING..." : "UPDATE"}
+                                        </button>
                                     </div>
-                                    <button 
-                                        onClick={() => setLockAfterTrial(!lockAfterTrial)}
-                                        className={`w-14 h-7 rounded-full transition-all duration-300 relative shadow-inner ${lockAfterTrial ? 'bg-rose-500' : 'bg-slate-300'}`}
-                                    >
-                                        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${lockAfterTrial ? 'translate-x-8' : 'translate-x-1'}`} />
-                                    </button>
+                                    <p className="mt-3 ml-4 text-[10px] text-slate-400 font-medium">This controls the countdown timer for all new users on the 'trial' status.</p>
                                 </div>
-
-                                <button 
-                                    onClick={handleUpdateSettings}
-                                    disabled={settingsLoading}
-                                    className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all disabled:opacity-50"
-                                >
-                                    {settingsLoading ? "SAVING CONFIGURATION..." : "APPLY GLOBAL CHANGES"}
-                                </button>
                             </div>
+                        </div>
+
+                        <div className="bg-amber-500/10 p-6 rounded-[2rem] border border-amber-500/20">
+                            <p className="text-[10px] font-black uppercase text-amber-600 mb-1">Information</p>
+                            <p className="text-xs text-amber-700 font-bold leading-relaxed">
+                                Increasing the trial period will automatically extend the time remaining for users currently in their trial phase.
+                            </p>
                         </div>
                     </div>
                 )}
