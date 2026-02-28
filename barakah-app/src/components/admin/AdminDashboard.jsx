@@ -11,12 +11,16 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
     const [points, setPoints] = useState(100);
     const [validityHours, setValidityHours] = useState(24); // RESTORED: Timer State
     const [loading, setLoading] = useState(false);
-    const [tab, setTab] = useState('overview'); // overview, users, challenges, broadcast, subs
+    const [tab, setTab] = useState('overview'); // overview, users, challenges, broadcast, subs, settings
     
     // --- BROADCAST & HISTORY STATES ---
     const [broadcast, setBroadcast] = useState('');
     const [activeBroadcasts, setActiveBroadcasts] = useState([]);
     const [challengeHistory, setChallengeHistory] = useState([]); // RESTORED: History State
+
+    // --- NEW: SUBSCRIPTION SETTINGS STATE ---
+    const [trialDays, setTrialDays] = useState(7);
+    const [settingsLoading, setSettingsLoading] = useState(false);
 
     useEffect(() => {
         fetchStats();
@@ -24,6 +28,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
         fetchCurrentBroadcasts();
         fetchChallengeHistory();
         fetchPendingRequests(); // Load verification queue
+        fetchGlobalSettings(); // Load trial settings
     }, []);
 
     const fetchStats = async () => {
@@ -79,6 +84,29 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
             .order('created_at', { ascending: false })
             .limit(10);
         if (data) setChallengeHistory(data);
+    };
+
+    // --- NEW: FETCH GLOBAL SETTINGS ---
+    const fetchGlobalSettings = async () => {
+        const { data } = await supabase
+            .from('global_settings')
+            .select('trial_period_days')
+            .eq('id', 'config')
+            .single();
+        if (data) setTrialDays(data.trial_period_days);
+    };
+
+    // --- NEW: UPDATE GLOBAL SETTINGS ---
+    const handleUpdateTrial = async () => {
+        setSettingsLoading(true);
+        const { error } = await supabase
+            .from('global_settings')
+            .update({ trial_period_days: trialDays })
+            .eq('id', 'config');
+        
+        if (error) alert(error.message);
+        else alert("Trial Period Updated Successfully!");
+        setSettingsLoading(false);
     };
 
     const handleCreateChallenge = async (e) => {
@@ -196,7 +224,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
 
             {/* Navigation Tabs */}
             <div className="flex px-6 gap-2 -mt-4 overflow-x-auto no-scrollbar">
-                {['overview', 'users', 'challenges', 'broadcast', 'subs'].map((t) => (
+                {['overview', 'users', 'challenges', 'broadcast', 'subs', 'settings'].map((t) => (
                     <button
                         key={t}
                         onClick={() => setTab(t)}
@@ -204,7 +232,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                             tab === t ? 'bg-rose-500 text-white scale-105 z-10' : 'bg-white text-slate-400'
                         }`}
                     >
-                        {t === 'subs' ? `💎 Verification (${stats.pendingSubs})` : t}
+                        {t === 'subs' ? `💎 Verification (${stats.pendingSubs})` : t === 'settings' ? '⚙️ Settings' : t}
                     </button>
                 ))}
             </div>
@@ -390,7 +418,7 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                     </div>
                 )}
 
-                {/* 5. SUBSCRIPTION VERIFICATION TAB (NEW) */}
+                {/* 5. SUBSCRIPTION VERIFICATION TAB */}
                 {tab === 'subs' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                         <h3 className="px-2 font-black text-slate-800">Pending Payments</h3>
@@ -425,6 +453,47 @@ export default function AdminDashboard({ onClose, onChallengeUpdate }) {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* 6. NEW: SETTINGS TAB FOR TRIAL CONTROL */}
+                {tab === 'settings' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+                        <div className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100">
+                            <div className="flex items-center gap-3 mb-6">
+                                <span className="text-2xl">⚙️</span>
+                                <h3 className="font-black text-slate-900">System Configuration</h3>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4 mb-2 block">Free Trial Duration (Days)</label>
+                                    <div className="flex gap-4">
+                                        <input 
+                                            type="number" 
+                                            value={trialDays} 
+                                            onChange={(e) => setTrialDays(parseInt(e.target.value))}
+                                            className="flex-1 p-5 bg-slate-50 rounded-[1.5rem] border-none focus:ring-2 focus:ring-rose-500 font-black text-indigo-600"
+                                        />
+                                        <button 
+                                            onClick={handleUpdateTrial}
+                                            disabled={settingsLoading}
+                                            className="px-8 bg-slate-900 text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all disabled:opacity-50"
+                                        >
+                                            {settingsLoading ? "SAVING..." : "UPDATE"}
+                                        </button>
+                                    </div>
+                                    <p className="mt-3 ml-4 text-[10px] text-slate-400 font-medium">This controls the countdown timer for all new users on the 'trial' status.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-amber-500/10 p-6 rounded-[2rem] border border-amber-500/20">
+                            <p className="text-[10px] font-black uppercase text-amber-600 mb-1">Information</p>
+                            <p className="text-xs text-amber-700 font-bold leading-relaxed">
+                                Increasing the trial period will automatically extend the time remaining for users currently in their trial phase.
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>
