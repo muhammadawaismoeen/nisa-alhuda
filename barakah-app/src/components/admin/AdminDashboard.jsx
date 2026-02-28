@@ -63,19 +63,27 @@ export default function AdminDashboard({ onClose }) {
 
     async function fetchChallengeHistory() {
         try {
-            // This fetches the challenge AND the list of usernames who completed it
+            // Primary Attempt: Fetch challenges WITH completion records
             const { data, error } = await supabase
                 .from('challenges')
                 .select(`
-                    *,
-                    challenge_completions (
-                        username
-                    )
+                    id, title, description, points, created_at, expires_at,
+                    challenge_completions ( username )
                 `)
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
-            setChallengeHistory(data || []);
+            if (error) {
+                console.warn("Join failed, using fallback:", error.message);
+                // Fallback: If cache is still broken, fetch just the challenges so they don't vanish
+                const fallback = await supabase
+                    .from('challenges')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (fallback.data) setChallengeHistory(fallback.data);
+            } else {
+                setChallengeHistory(data || []);
+            }
         } catch (err) {
             console.error("History Fetch Error:", err);
         }
@@ -112,13 +120,19 @@ export default function AdminDashboard({ onClose }) {
 
             addLog('Admin', `NEW CHALLENGE: ${newChallenge.title}`, 'content', 'success');
             setNewChallenge({ title: '', description: '', points: 50, durationHours: 24 });
-            fetchChallengeHistory(); // Instantly update the list on the right
+            fetchChallengeHistory(); // Fetch fresh data immediately
             alert("MashaAllah! Challenge created.");
         } catch (err) {
             alert("Database Error: " + err.message);
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const deleteChallenge = async (id) => {
+        if(!confirm("Delete this challenge?")) return;
+        const { error } = await supabase.from('challenges').delete().eq('id', id);
+        if(!error) fetchChallengeHistory();
     };
 
     const toggleRole = async (id, currentRole) => {
@@ -164,7 +178,7 @@ export default function AdminDashboard({ onClose }) {
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Sidebar */}
-                <nav className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2">
+                <nav className="w-64 bg-white border-r border-slate-200 p-6 flex flex-col gap-2 flex-shrink-0">
                     {['Overview', 'User Analytics', 'Content Manager', 'System Logs'].map((item) => (
                         <button
                             key={item}
@@ -218,69 +232,93 @@ export default function AdminDashboard({ onClose }) {
                     )}
 
                     {activeTab === 'Content Manager' && (
-                        <div className="animate-in fade-in slide-in-from-left-4 duration-500 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                             {/* LEFT: Creation Form */}
-                             <div>
-                                <header className="mb-8">
-                                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
-                                    <p className="text-slate-500">Create tasks for the community.</p>
-                                </header>
+                        <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                             <header className="mb-8">
+                                <h1 className="text-3xl font-black text-slate-800 tracking-tight">Challenge Hub</h1>
+                                <p className="text-slate-500">Create tasks for the community.</p>
+                            </header>
 
-                                <div className="bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
+                            {/* FORCED SIDE-BY-SIDE LAYOUT */}
+                            <div className="flex flex-row gap-8 items-start">
+                                
+                                {/* LEFT: Creation Form */}
+                                <div className="w-1/2 flex-shrink-0 bg-indigo-600 p-8 rounded-[3rem] text-white shadow-2xl shadow-indigo-200">
                                     <h3 className="text-xl font-black mb-6 flex items-center gap-3">
                                         <span className="bg-white/20 p-2 rounded-xl text-lg">🚀</span>
                                         Create New
                                     </h3>
                                     <form onSubmit={handleAddChallenge} className="space-y-5">
-                                        <input required type="text" placeholder="Challenge Title" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
-                                        <textarea required placeholder="Description" rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <input required type="number" placeholder="Points" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
-                                            <input required type="number" placeholder="Hours" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Challenge Title</label>
+                                            <input required type="text" placeholder="e.g., Read Surah Mulk" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-bold placeholder:text-white/30 focus:bg-white/20" value={newChallenge.title} onChange={(e) => setNewChallenge({...newChallenge, title: e.target.value})} />
                                         </div>
-                                        <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95">
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Description</label>
+                                            <textarea required placeholder="Recite before sleeping..." rows="2" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none text-sm placeholder:text-white/30 focus:bg-white/20" value={newChallenge.description} onChange={(e) => setNewChallenge({...newChallenge, description: e.target.value})} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Hasanat Rewards</label>
+                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.points} onChange={(e) => setNewChallenge({...newChallenge, points: e.target.value})} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-black uppercase opacity-60 ml-2 mb-1 block">Duration (Hours)</label>
+                                                <input required type="number" className="w-full p-4 bg-white/10 border border-white/20 rounded-2xl outline-none font-black text-white" value={newChallenge.durationHours} onChange={(e) => setNewChallenge({...newChallenge, durationHours: e.target.value})} />
+                                            </div>
+                                        </div>
+                                        <button disabled={isSubmitting} type="submit" className="w-full bg-white text-indigo-600 p-5 rounded-[1.5rem] font-black text-sm hover:bg-emerald-400 hover:text-white transition-all shadow-xl active:scale-95 mt-4">
                                             {isSubmitting ? "SYNCING..." : "ACTIVATE CHALLENGE NOW"}
                                         </button>
                                     </form>
                                 </div>
-                            </div>
 
-                            {/* RIGHT: Live Information/History */}
-                            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[600px]">
-                                <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
-                                    📜 Past Challenges & Completions
-                                </h3>
-                                <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                                    {challengeHistory.length === 0 ? (
-                                        <div className="text-center py-20 opacity-20 font-black">NO HISTORY FOUND</div>
-                                    ) : (
-                                        challengeHistory.map((ch) => (
-                                            <div key={ch.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-100">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div>
-                                                        <h4 className="font-black text-slate-800 text-sm">{ch.title}</h4>
-                                                        <span className="text-[10px] text-slate-400 font-bold">{new Date(ch.created_at).toLocaleDateString()}</span>
+                                {/* RIGHT: Live Information/History */}
+                                <div className="w-1/2 flex-shrink-0 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col h-[650px]">
+                                    <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center justify-between">
+                                        <span>📜 History & Activity</span>
+                                        <span className="text-[10px] bg-slate-100 text-slate-500 px-3 py-1 rounded-full">{challengeHistory.length} Total</span>
+                                    </h3>
+                                    
+                                    <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+                                        {challengeHistory.length === 0 ? (
+                                            <div className="text-center py-20 opacity-40 font-black text-slate-400">NO HISTORY FOUND</div>
+                                        ) : (
+                                            challengeHistory.map((ch) => (
+                                                <div key={ch.id} className="p-5 bg-slate-50 rounded-3xl border border-slate-100 group relative">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div className="pr-8">
+                                                            <h4 className="font-black text-slate-800 text-sm leading-tight">{ch.title}</h4>
+                                                            <span className="text-[10px] text-slate-400 font-bold block mt-1">{new Date(ch.created_at).toLocaleDateString()}</span>
+                                                        </div>
+                                                        <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                            {new Date(ch.expires_at) > new Date() ? 'Active' : 'Expired'}
+                                                        </span>
                                                     </div>
-                                                    <span className={`text-[8px] font-black px-2 py-1 rounded-lg uppercase ${new Date(ch.expires_at) > new Date() ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-500'}`}>
-                                                        {new Date(ch.expires_at) > new Date() ? 'Active' : 'Expired'}
-                                                    </span>
-                                                </div>
-                                                <div className="border-t border-slate-200 mt-3 pt-3">
-                                                    <p className="text-[8px] font-black text-indigo-600 uppercase mb-2">
-                                                        Completed By ({ch.challenge_completions?.length || 0} Sisters)
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {ch.challenge_completions?.map((comp, idx) => (
-                                                            <span key={idx} className="bg-white px-2 py-1 rounded-md text-[9px] font-bold text-slate-600 border border-slate-100 uppercase">
-                                                                {comp.username}
-                                                            </span>
-                                                        )) || <span className="text-[9px] italic text-slate-400">No one yet</span>}
+                                                    
+                                                    <button onClick={() => deleteChallenge(ch.id)} className="absolute top-5 right-5 opacity-0 group-hover:opacity-100 text-rose-500 text-xs transition-opacity bg-white w-6 h-6 rounded-full flex items-center justify-center shadow-sm">🗑️</button>
+
+                                                    <div className="border-t border-slate-200 mt-3 pt-3">
+                                                        <p className="text-[8px] font-black text-indigo-600 uppercase mb-2">
+                                                            Completed By ({ch.challenge_completions?.length || 0})
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {ch.challenge_completions && ch.challenge_completions.length > 0 ? (
+                                                                ch.challenge_completions.map((comp, idx) => (
+                                                                    <span key={idx} className="bg-white px-2 py-1 rounded-md text-[9px] font-bold text-slate-600 border border-slate-100 shadow-sm uppercase">
+                                                                        {comp.username}
+                                                                    </span>
+                                                                ))
+                                                            ) : (
+                                                                <span className="text-[9px] italic text-slate-400">No one yet</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))
-                                    )}
+                                            ))
+                                        )}
+                                    </div>
                                 </div>
+                                
                             </div>
                         </div>
                     )}
