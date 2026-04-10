@@ -1,0 +1,33 @@
+/**
+ * Dashboard index — redirects user to their role-specific dashboard.
+ * This is a Server Component that checks the user's role and redirects.
+ */
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  // Get the user's role from profiles
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  // Redirect to role-specific dashboard
+  switch (profile?.role) {
+    case "admin":
+      redirect("/dashboard/admin");
+    case "instructor":
+      redirect("/dashboard/instructor");
+    default:
+      redirect("/dashboard/student");
+  }
+}

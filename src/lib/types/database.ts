@@ -1,0 +1,130 @@
+/**
+ * TypeScript types matching our Supabase database schema.
+ * These ensure type safety across the entire application.
+ *
+ * In a production app, you'd auto-generate these with:
+ *   npx supabase gen types typescript --project-id mcatnaujwuuqymbtotnr
+ * For now, we define them manually to match our migration.
+ */
+
+export type UserRole = "admin" | "instructor" | "student";
+export type OfferingType = "program" | "course" | "workshop";
+export type OfferingStatus = "draft" | "published" | "archived";
+export type EnrollmentStatus = "pending" | "approved" | "rejected";
+
+// ─── Row Types (what you GET from the database) ───
+
+export interface Profile {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+  role: UserRole;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Offering {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  short_description: string | null;
+  type: OfferingType;
+  price: number;
+  thumbnail_url: string | null;
+  status: OfferingStatus;
+  instructor_id: string | null;
+  schedule_start: string | null;
+  schedule_end: string | null;
+  live_class_link: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Subject {
+  id: string;
+  offering_id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  instructor_id: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Lesson {
+  id: string;
+  offering_id: string;
+  subject_id: string | null;
+  title: string;
+  description: string | null;
+  scheduled_at: string | null;
+  live_class_link: string | null;
+  recording_url: string | null;
+  sort_order: number;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Resource {
+  id: string;
+  lesson_id: string;
+  title: string;
+  file_url: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+}
+
+export interface Enrollment {
+  id: string;
+  student_id: string;
+  offering_id: string;
+  status: EnrollmentStatus;
+  payment_receipt_url: string;
+  payment_amount: number;
+  payment_method: string;
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatRoom {
+  id: string;
+  offering_id: string;
+  subject_id: string | null;
+  name: string;
+  created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
+
+// ─── Joined / Extended Types (for queries with relations) ───
+
+export interface OfferingWithSubjects extends Offering {
+  subjects: (Subject & { instructor: Profile })[];
+}
+
+export interface OfferingWithInstructor extends Offering {
+  instructor: Profile | null;
+}
+
+export interface EnrollmentWithDetails extends Enrollment {
+  student: Profile;
+  offering: Offering;
+}
+
+export interface ChatMessageWithSender extends ChatMessage {
+  sender: Profile;
+}
