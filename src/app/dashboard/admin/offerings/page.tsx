@@ -1,5 +1,6 @@
 /**
- * Admin Offerings Page — lists all offerings with management actions.
+ * Course Management — list all offerings with feature/archive capabilities.
+ * Admin can feature courses on homepage or archive old ones.
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,6 +9,7 @@ import { LinkButton } from "@/components/ui/link-button";
 import { formatPrice } from "@/lib/constants";
 import { Plus, BookOpen, Pencil } from "lucide-react";
 import { DeleteOffering } from "./delete-offering";
+import { OfferingToggles } from "./offering-toggles";
 import type { Offering } from "@/lib/types/database";
 
 const statusConfig = {
@@ -34,19 +36,47 @@ export default async function AdminOfferingsPage() {
     console.error("Error fetching offerings:", error);
   }
 
+  const published = (offerings || []).filter((o: any) => o.status === "published").length;
+  const featured = (offerings || []).filter((o: any) => o.is_featured).length;
+  const archived = (offerings || []).filter((o: any) => o.status === "archived").length;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Offerings</h1>
+          <h1 className="text-2xl font-bold">Course Management</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your programs, courses, and workshops.
+            Manage programs, courses, and workshops. Feature on homepage or
+            archive old ones.
           </p>
         </div>
         <LinkButton href="/dashboard/admin/offerings/new" className="press">
           <Plus className="h-4 w-4 mr-1.5" />
           New Offering
         </LinkButton>
+      </div>
+
+      {/* Quick stats */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <Badge variant="outline" className="text-sm py-1 px-3">
+          {(offerings || []).length} total
+        </Badge>
+        <Badge variant="default" className="text-sm py-1 px-3">
+          {published} published
+        </Badge>
+        {featured > 0 && (
+          <Badge
+            variant="outline"
+            className="text-sm py-1 px-3 text-amber-600 border-amber-300"
+          >
+            {featured} featured
+          </Badge>
+        )}
+        {archived > 0 && (
+          <Badge variant="secondary" className="text-sm py-1 px-3">
+            {archived} archived
+          </Badge>
+        )}
       </div>
 
       {!offerings || offerings.length === 0 ? (
@@ -63,15 +93,23 @@ export default async function AdminOfferingsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {offerings.map((offering: Offering) => {
-            const status = statusConfig[offering.status];
+          {offerings.map((offering: any) => {
+            const status = statusConfig[offering.status as keyof typeof statusConfig] || statusConfig.draft;
             return (
-              <Card key={offering.id}>
+              <Card
+                key={offering.id}
+                className={offering.status === "archived" ? "opacity-60" : ""}
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {/* Thumbnail placeholder */}
-                    <div className="h-16 w-24 rounded-lg bg-secondary kufic-pattern flex items-center justify-center shrink-0">
+                    <div className="h-16 w-24 rounded-lg bg-secondary kufic-pattern flex items-center justify-center shrink-0 relative">
                       <BookOpen className="h-6 w-6 text-primary/20" />
+                      {offering.is_featured && (
+                        <div className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-amber-400 flex items-center justify-center text-white text-xs font-bold">
+                          ★
+                        </div>
+                      )}
                     </div>
 
                     {/* Info */}
@@ -82,8 +120,16 @@ export default async function AdminOfferingsPage() {
                         </h3>
                         <Badge variant={status.variant}>{status.label}</Badge>
                         <Badge variant="outline" className="text-xs">
-                          {typeLabels[offering.type]}
+                          {typeLabels[offering.type as keyof typeof typeLabels]}
                         </Badge>
+                        {offering.is_featured && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs text-amber-600 border-amber-300"
+                          >
+                            Featured
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
                         {offering.short_description || offering.description}
@@ -108,6 +154,11 @@ export default async function AdminOfferingsPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
+                      <OfferingToggles
+                        offeringId={offering.id}
+                        isFeatured={offering.is_featured || false}
+                        status={offering.status}
+                      />
                       <LinkButton
                         variant="outline"
                         size="sm"

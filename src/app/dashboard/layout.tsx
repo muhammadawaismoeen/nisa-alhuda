@@ -108,8 +108,9 @@ function getNavItems(role: string) {
   if (role === "admin") {
     return [
       ...base,
-      { href: "/dashboard/admin/offerings", label: "Offerings", icon: BookOpen },
-      { href: "/dashboard/admin/enrollments", label: "Enrollments", icon: ClipboardList },
+      { href: "/dashboard/admin/offerings", label: "Courses", icon: BookOpen },
+      { href: "/dashboard/admin/payments", label: "Payments", icon: ClipboardList },
+      { href: "/dashboard/admin/enrollments", label: "Enrollments", icon: GraduationCap },
       { href: "/dashboard/admin/users", label: "Users", icon: Users },
     ];
   }

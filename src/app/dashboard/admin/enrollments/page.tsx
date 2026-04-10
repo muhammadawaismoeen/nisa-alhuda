@@ -1,13 +1,14 @@
 /**
- * Admin Enrollments Page — review and approve/reject student enrollments.
- * Server Component that fetches all enrollments with student & offering details.
+ * Enrollment Management — admin view with manual enroll/remove capabilities.
+ * Shows all enrollments with options to manually add or remove students.
  */
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/constants";
 import { ClipboardList } from "lucide-react";
 import { EnrollmentActions } from "./enrollment-actions";
+import { ManualEnrollment } from "./manual-enrollment";
 
 const statusConfig = {
   pending: { label: "Pending", variant: "outline" as const },
@@ -18,7 +19,6 @@ const statusConfig = {
 export default async function AdminEnrollmentsPage() {
   const supabase = await createClient();
 
-  // Verify admin role
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -37,15 +37,26 @@ export default async function AdminEnrollmentsPage() {
     );
   }
 
-  // Fetch all enrollments with student and offering details
-  const { data: enrollments, error } = await supabase
+  // Fetch all enrollments
+  const { data: enrollments } = await supabase
     .from("enrollments")
-    .select("*, student:profiles!enrollments_student_id_fkey(*), offering:offerings(*)")
+    .select(
+      "*, student:profiles!enrollments_student_id_fkey(*), offering:offerings!enrollments_offering_id_fkey(*)"
+    )
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Error fetching enrollments:", error);
-  }
+  // Fetch data for manual enrollment form
+  const { data: students } = await supabase
+    .from("profiles")
+    .select("id, full_name, role")
+    .eq("role", "student")
+    .order("full_name");
+
+  const { data: offerings } = await supabase
+    .from("offerings")
+    .select("id, title, price, status")
+    .in("status", ["published", "draft"])
+    .order("title");
 
   const pendingCount =
     enrollments?.filter((e) => e.status === "pending").length || 0;
@@ -56,14 +67,31 @@ export default async function AdminEnrollmentsPage() {
         <div>
           <h1 className="text-2xl font-bold">Enrollments</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Review and manage student enrollments.
+            Manage enrollments. Manually add or remove students.
           </p>
         </div>
-        {pendingCount > 0 && (
-          <Badge variant="outline" className="border-primary text-primary">
-            {pendingCount} pending
-          </Badge>
-        )}
+        <div className="flex items-center gap-3">
+          {pendingCount > 0 && (
+            <Badge variant="outline" className="border-primary text-primary">
+              {pendingCount} pending
+            </Badge>
+          )}
+          <ManualEnrollment
+            students={(students || []).map((s: any) => ({
+              id: s.id,
+              full_name: s.full_name,
+            }))}
+            offerings={(offerings || []).map((o: any) => ({
+              id: o.id,
+              title: o.title,
+              price: o.price,
+            }))}
+            existingEnrollments={(enrollments || []).map((e: any) => ({
+              studentId: e.student_id,
+              offeringId: e.offering_id,
+            }))}
+          />
+        </div>
       </div>
 
       {!enrollments || enrollments.length === 0 ? (
@@ -74,7 +102,7 @@ export default async function AdminEnrollmentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {enrollments.map((enrollment: any) => {
             const config =
               statusConfig[enrollment.status as keyof typeof statusConfig];
@@ -85,15 +113,12 @@ export default async function AdminEnrollmentsPage() {
                   enrollment.status === "pending" ? "border-primary/30" : ""
                 }
               >
-                <CardContent className="p-5">
-                  <div className="flex flex-col md:flex-row md:items-center gap-4">
-                    {/* Student & Offering Info */}
+                <CardContent className="p-4">
+                  <div className="flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold truncate">
-                          {enrollment.student_details?.full_name ||
-                            enrollment.student?.full_name ||
-                            "Unknown Student"}
+                          {enrollment.student?.full_name || "Unknown Student"}
                         </h3>
                         <Badge variant={config.variant}>{config.label}</Badge>
                       </div>
@@ -101,32 +126,23 @@ export default async function AdminEnrollmentsPage() {
                         {enrollment.offering?.title || "Unknown Offering"}
                       </p>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-                        <span>
-                          Amount: {formatPrice(enrollment.payment_amount)}
-                        </span>
-                        {enrollment.student_details?.phone && (
-                          <span>Phone: {enrollment.student_details.phone}</span>
-                        )}
-                        {enrollment.student_details?.city && (
-                          <span>City: {enrollment.student_details.city}</span>
+                        <span>{formatPrice(enrollment.payment_amount)}</span>
+                        {enrollment.student?.phone && (
+                          <span>{enrollment.student.phone}</span>
                         )}
                         <span>
-                          Submitted:{" "}
                           {new Date(enrollment.created_at).toLocaleDateString(
                             "en-PK",
                             {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
                             }
                           )}
                         </span>
                       </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="flex items-center gap-2 shrink-0">
                       <EnrollmentActions
                         enrollmentId={enrollment.id}
@@ -136,7 +152,6 @@ export default async function AdminEnrollmentsPage() {
                     </div>
                   </div>
 
-                  {/* Rejection reason */}
                   {enrollment.status === "rejected" &&
                     enrollment.rejection_reason && (
                       <div className="mt-3 p-3 rounded-lg bg-destructive/5 text-sm text-destructive">

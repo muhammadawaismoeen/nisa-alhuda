@@ -20,6 +20,7 @@ export interface Profile {
   avatar_url: string | null;
   role: UserRole;
   phone: string | null;
+  is_suspended: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -38,6 +39,7 @@ export interface Offering {
   schedule_start: string | null;
   schedule_end: string | null;
   live_class_link: string | null;
+  is_featured: boolean;
   created_at: string;
   updated_at: string;
 }
