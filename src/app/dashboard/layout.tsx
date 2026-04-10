@@ -12,6 +12,9 @@ import {
   Settings,
   Users,
   ClipboardList,
+  Video,
+  FileText,
+  BarChart3,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
@@ -115,6 +118,10 @@ function getNavItems(role: string) {
     return [
       ...base,
       { href: "/dashboard/instructor", label: "My Subjects", icon: BookOpen },
+      { href: "/dashboard/instructor/live", label: "Live Hub", icon: Video },
+      { href: "/dashboard/instructor/students", label: "Students", icon: Users },
+      { href: "/dashboard/instructor/resources", label: "Resources", icon: FileText },
+      { href: "/dashboard/instructor/analytics", label: "Analytics", icon: BarChart3 },
     ];
   }
 
