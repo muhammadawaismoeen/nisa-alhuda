@@ -4,11 +4,10 @@
  * Server Component with data fetching.
  */
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { Calendar, Clock, Users, BookOpen, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -210,10 +209,10 @@ export default async function OfferingDetailPage({
               </div>
 
               {/* Enroll CTA */}
-              <Button className="w-full" size="lg" render={<Link href={`/register?enroll=${offering.slug}`} />}>
+              <LinkButton className="w-full" size="lg" href={`/register?enroll=${offering.slug}`}>
                   Enroll Now
                   <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+              </LinkButton>
 
               <p className="text-xs text-center text-muted-foreground">
                 Lifetime access to recordings & resources

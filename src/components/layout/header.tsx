@@ -4,7 +4,7 @@
  */
 import Link from "next/link";
 import { BookOpen, Menu } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import {
   Sheet,
   SheetContent,
@@ -43,16 +43,13 @@ export function Header() {
 
         {/* Auth Buttons (Desktop) */}
         <div className="hidden md:flex items-center gap-3">
-          <Button variant="ghost" render={<Link href="/login" />}>Log In</Button>
-          <Button render={<Link href="/register" />}>Get Started</Button>
+          <LinkButton variant="ghost" href="/login">Log In</LinkButton>
+          <LinkButton href="/register">Get Started</LinkButton>
         </div>
 
         {/* Mobile Menu */}
         <Sheet>
-          <SheetTrigger
-            className="md:hidden"
-            render={<Button variant="ghost" size="icon" />}
-          >
+          <SheetTrigger className="md:hidden inline-flex shrink-0 items-center justify-center rounded-lg size-8 hover:bg-muted transition-all">
             <Menu className="h-5 w-5" />
           </SheetTrigger>
           <SheetContent side="right" className="w-72">
@@ -68,8 +65,8 @@ export function Header() {
                 </Link>
               ))}
               <hr className="my-2" />
-              <Button variant="ghost" className="justify-start" render={<Link href="/login" />}>Log In</Button>
-              <Button render={<Link href="/register" />}>Get Started</Button>
+              <LinkButton variant="ghost" className="justify-start" href="/login">Log In</LinkButton>
+              <LinkButton href="/register">Get Started</LinkButton>
             </nav>
           </SheetContent>
         </Sheet>

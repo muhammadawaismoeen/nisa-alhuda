@@ -2,7 +2,6 @@
  * Landing Page — the first thing visitors see.
  * Goal: Communicate value proposition + drive enrollment.
  */
-import Link from "next/link";
 import {
   BookOpen,
   Users,
@@ -11,7 +10,7 @@ import {
   GraduationCap,
   ArrowRight,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { APP_NAME } from "@/lib/constants";
 
@@ -65,11 +64,11 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" render={<Link href="/catalog" />}>
+            <LinkButton size="lg" href="/catalog">
                 Explore Programs
                 <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-            <Button size="lg" variant="outline" render={<Link href="/register" />}>Create Free Account</Button>
+            </LinkButton>
+            <LinkButton size="lg" variant="outline" href="/register">Create Free Account</LinkButton>
           </div>
         </div>
       </section>
@@ -118,10 +117,10 @@ export default function HomePage() {
             Join our sisterhood community and take the first step towards
             deepening your understanding of the Deen.
           </p>
-          <Button size="lg" variant="secondary" render={<Link href="/catalog" />}>
+          <LinkButton size="lg" variant="secondary" href="/catalog">
               View Available Programs
               <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          </LinkButton>
         </div>
       </section>
     </div>

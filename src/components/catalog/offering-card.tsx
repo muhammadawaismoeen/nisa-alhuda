@@ -1,7 +1,6 @@
 /**
  * Reusable card component for displaying an offering in the catalog grid.
  */
-import Link from "next/link";
 import { Calendar, BookOpen } from "lucide-react";
 import {
   Card,
@@ -10,7 +9,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { formatPrice } from "@/lib/constants";
 import type { Offering } from "@/lib/types/database";
 
@@ -68,7 +67,7 @@ export function OfferingCard({ offering }: { offering: Offering }) {
         <span className="font-bold text-primary text-lg">
           {formatPrice(offering.price)}
         </span>
-        <Button size="sm" render={<Link href={`/offerings/${offering.slug}`} />}>View Details</Button>
+        <LinkButton size="sm" href={`/offerings/${offering.slug}`}>View Details</LinkButton>
       </CardFooter>
     </Card>
   );

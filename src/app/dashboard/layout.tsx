@@ -14,7 +14,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
+import { LinkButton } from "@/components/ui/link-button";
 import { APP_NAME } from "@/lib/constants";
 import type { Profile } from "@/lib/types/database";
 import { DashboardLogout } from "./logout-button";
@@ -56,15 +56,15 @@ export default async function DashboardLayout({
 
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => (
-            <Button
+            <LinkButton
               key={item.href}
               variant="ghost"
               className="w-full justify-start gap-3"
-              render={<Link href={item.href} />}
+              href={item.href}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
-            </Button>
+            </LinkButton>
           ))}
         </nav>
 
