@@ -91,17 +91,25 @@ export default async function AdminEnrollmentsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold truncate">
-                          {enrollment.student?.full_name || "Unknown Student"}
+                          {enrollment.student_details?.full_name ||
+                            enrollment.student?.full_name ||
+                            "Unknown Student"}
                         </h3>
                         <Badge variant={config.variant}>{config.label}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
                         {enrollment.offering?.title || "Unknown Offering"}
                       </p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
                         <span>
                           Amount: {formatPrice(enrollment.payment_amount)}
                         </span>
+                        {enrollment.student_details?.phone && (
+                          <span>Phone: {enrollment.student_details.phone}</span>
+                        )}
+                        {enrollment.student_details?.city && (
+                          <span>City: {enrollment.student_details.city}</span>
+                        )}
                         <span>
                           Submitted:{" "}
                           {new Date(enrollment.created_at).toLocaleDateString(

@@ -79,6 +79,16 @@ export interface Resource {
   created_at: string;
 }
 
+export interface StudentDetails {
+  full_name: string;
+  phone: string;
+  city: string;
+  age: string;
+  education_level: string;
+  referral_source: string;
+  message: string;
+}
+
 export interface Enrollment {
   id: string;
   student_id: string;
@@ -87,6 +97,7 @@ export interface Enrollment {
   payment_receipt_url: string;
   payment_amount: number;
   payment_method: string;
+  student_details: StudentDetails | null;
   rejection_reason: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
