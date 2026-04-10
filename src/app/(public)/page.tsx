@@ -1,6 +1,7 @@
 /**
  * Landing Page — the first thing visitors see.
- * Design: Rich visuals, glassmorphism, Kufic motifs, aesthetic illustrations.
+ * Design: Warm blush tones, glassmorphism cards, Kufic pattern accents.
+ * Goal: Communicate value + drive enrollment with a modern GenZ aesthetic.
  */
 import {
   BookOpen,
@@ -9,16 +10,10 @@ import {
   GraduationCap,
   ArrowRight,
   Sparkles,
-  Star,
-  Clock,
-  Heart,
-  Users,
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
 import { Card, CardContent } from "@/components/ui/card";
-import { HeroIllustration } from "@/components/decorative/hero-illustration";
-import { IslamicStar } from "@/components/decorative/islamic-pattern";
-import { SectionDivider, WaveDivider } from "@/components/decorative/section-divider";
+import { TestimonialsSlider } from "@/components/landing/testimonials-slider";
 import { APP_NAME } from "@/lib/constants";
 
 const features = [
@@ -27,121 +22,96 @@ const features = [
     title: "Structured Programs",
     description:
       "Comprehensive Islamic studies with multiple subjects — Fiqh, Arabic, Hadith, and Qur'an.",
-    gradient: "from-rose-500/10 to-rose-600/5",
   },
   {
     icon: Video,
     title: "Live Classes",
     description:
       "Attend live sessions with qualified instructors. Recordings available for all enrolled students.",
-    gradient: "from-rose-400/10 to-rose-500/5",
   },
   {
     icon: MessageCircle,
     title: "Community Chat",
     description:
       "Engage with instructors and fellow sisters through dedicated group discussions.",
-    gradient: "from-rose-500/10 to-rose-400/5",
   },
   {
     icon: GraduationCap,
     title: "Learn at Your Pace",
     description:
       "Lifetime access to recordings and resources. Revisit lessons whenever you need.",
-    gradient: "from-rose-600/10 to-rose-500/5",
   },
-];
-
-const stats = [
-  { icon: BookOpen, value: "4+", label: "Subjects" },
-  { icon: Users, value: "100+", label: "Sisters" },
-  { icon: Clock, value: "Live", label: "Classes" },
-  { icon: Heart, value: "Lifetime", label: "Access" },
 ];
 
 export default function HomePage() {
   return (
     <div className="fade-in">
       {/* ─── Hero Section ─── */}
-      <section className="relative overflow-hidden py-16 md:py-24">
-        {/* Background decorations */}
-        <div className="absolute inset-0 kufic-pattern" />
-        <div className="absolute inset-0 bg-gradient-to-b from-rose-50/90 via-background/80 to-background" />
+      <section className="relative overflow-hidden kufic-pattern py-20 md:py-32">
+        {/* Soft gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-rose-50/80 via-background to-background" />
 
-        {/* Floating geometric stars */}
-        <IslamicStar className="absolute top-10 right-10 text-primary hidden lg:block" size={160} />
-        <IslamicStar className="absolute bottom-20 left-5 text-primary hidden lg:block" size={100} />
+        <div className="container relative mx-auto px-4 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-primary mb-6 glass">
+            <Sparkles className="h-4 w-4" />
+            Sisterhood Learning Community
+          </div>
 
-        <div className="container relative mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left: Text Content */}
-            <div className="text-center lg:text-left">
-              <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-primary mb-6 glass">
-                <Sparkles className="h-4 w-4" />
-                Sisterhood Learning Community
-              </div>
+          <h1 className="font-heading text-4xl md:text-6xl font-bold tracking-tight mb-6">
+            Embark on Your Journey of
+            <span className="text-primary block mt-2">Islamic Knowledge</span>
+          </h1>
 
-              <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
-                Embark on Your
-                <span className="text-primary block mt-1">Journey of Light</span>
-              </h1>
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-10">
+            {APP_NAME} offers live programs, courses, and workshops designed
+            exclusively for sisters seeking authentic Islamic education. Learn
+            from qualified instructors in a supportive community.
+          </p>
 
-              <p className="max-w-xl text-lg text-muted-foreground mb-8 mx-auto lg:mx-0">
-                {APP_NAME} offers live programs, courses, and workshops designed
-                exclusively for sisters seeking authentic Islamic education.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <LinkButton size="lg" href="/catalog" className="press">
-                  Explore Programs
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </LinkButton>
-                <LinkButton size="lg" variant="outline" href="/register" className="press">
-                  Create Free Account
-                </LinkButton>
-              </div>
-
-              {/* Mini stats row */}
-              <div className="flex flex-wrap gap-6 mt-10 justify-center lg:justify-start">
-                {stats.map((stat) => (
-                  <div key={stat.label} className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center">
-                      <stat.icon className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold font-heading">{stat.value}</p>
-                      <p className="text-xs text-muted-foreground">{stat.label}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: Illustration */}
-            <div className="hidden lg:flex justify-center">
-              <div className="relative">
-                {/* Glow behind illustration */}
-                <div className="absolute inset-0 bg-primary/5 rounded-full blur-3xl scale-75" />
-                <HeroIllustration className="relative w-full max-w-lg" />
-              </div>
-            </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <LinkButton size="lg" href="/catalog" className="press">
+              Explore Programs
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </LinkButton>
+            <LinkButton size="lg" variant="outline" href="/register" className="press">
+              Create Free Account
+            </LinkButton>
           </div>
         </div>
       </section>
 
-      {/* ─── Wave Transition ─── */}
-      <div className="bg-gradient-to-b from-background to-secondary/30">
-        <WaveDivider />
-      </div>
+      {/* ─── Qur'anic Ayah Section ─── */}
+      <section className="py-16 bg-secondary/40">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-2xl mx-auto">
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">
+              From the Noble Qur&apos;an
+            </span>
+
+            {/* Arabic Text */}
+            <p className="font-heading text-2xl md:text-3xl text-foreground/90 mt-5 mb-4 leading-relaxed" dir="rtl" lang="ar">
+              يَرْفَعِ ٱللَّهُ ٱلَّذِينَ ءَامَنُوا۟ مِنكُمْ وَٱلَّذِينَ أُوتُوا۟ ٱلْعِلْمَ دَرَجَـٰتٍ
+            </p>
+
+            {/* English Translation */}
+            <p className="text-base md:text-lg text-muted-foreground italic leading-relaxed">
+              &ldquo;Allah will raise those who have believed among you and those
+              who were given knowledge, by degrees.&rdquo;
+            </p>
+
+            {/* Reference */}
+            <p className="text-sm text-primary font-medium mt-4">
+              Surah Al-Mujadila (58:11)
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* ─── Features Section ─── */}
-      <section className="py-20 bg-secondary/30 relative">
+      <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
-            <span className="text-sm font-medium text-primary uppercase tracking-wider">
-              Why Nisa Al-Huda
-            </span>
-            <h2 className="font-heading text-3xl md:text-4xl font-bold mt-3 mb-4">
+            <h2 className="font-heading text-3xl font-bold mb-4">
               Everything You Need to Learn
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
@@ -154,16 +124,16 @@ export default function HomePage() {
             {features.map((feature) => (
               <Card
                 key={feature.title}
-                className="border-0 shadow-sm hover-lift glass group"
+                className="border-0 shadow-sm hover-lift glass"
               >
                 <CardContent className="pt-6">
-                  <div className={`h-14 w-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-5 group-hover:scale-110 transition-transform`}>
-                    <feature.icon className="h-7 w-7 text-primary" />
+                  <div className="h-12 w-12 rounded-xl bg-secondary flex items-center justify-center mb-4">
+                    <feature.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="font-heading font-semibold text-lg mb-2">
+                  <h3 className="font-heading font-semibold mb-2">
                     {feature.title}
                   </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-muted-foreground">
                     {feature.description}
                   </p>
                 </CardContent>
@@ -173,104 +143,54 @@ export default function HomePage() {
         </div>
       </section>
 
-      <SectionDivider />
+      {/* ─── Hadith Section ─── */}
+      <section className="py-16 bg-secondary/40">
+        <div className="container mx-auto px-4 text-center">
+          <div className="max-w-2xl mx-auto">
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">
+              Prophetic Wisdom
+            </span>
 
-      {/* ─── Visual Banner — Subjects Preview ─── */}
-      <section className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left: Subject Cards in Bento-style Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { name: "Fiqh", desc: "Islamic Jurisprudence", icon: "&#xFEDF;", color: "from-rose-600 to-rose-500" },
-                { name: "Arabic", desc: "Classical Language", icon: "&#xFE8D;", color: "from-rose-500 to-rose-400" },
-                { name: "Hadith", desc: "Prophetic Traditions", icon: "&#xFEE7;", color: "from-rose-400 to-rose-500" },
-                { name: "Qur'an", desc: "Divine Revelation", icon: "&#xFED7;", color: "from-rose-500 to-rose-600" },
-              ].map((subject, i) => (
-                <div
-                  key={subject.name}
-                  className={`relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br ${subject.color} text-white hover-lift cursor-default ${
-                    i === 0 ? "row-span-2 flex flex-col justify-end min-h-[200px]" : ""
-                  }`}
-                >
-                  {/* Decorative Kufic grid overlay */}
-                  <div
-                    className="absolute inset-0 opacity-10"
-                    style={{
-                      backgroundImage:
-                        "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
-                      backgroundSize: "20px 20px",
-                    }}
-                  />
-                  <div className="relative">
-                    <h3 className="font-heading font-bold text-lg">{subject.name}</h3>
-                    <p className="text-sm text-white/80 mt-1">{subject.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Arabic Text */}
+            <p className="font-heading text-2xl md:text-3xl text-foreground/90 mt-5 mb-4 leading-relaxed" dir="rtl" lang="ar">
+              طَلَبُ الْعِلْمِ فَرِيضَةٌ عَلَى كُلِّ مُسْلِمٍ
+            </p>
 
-            {/* Right: Text */}
-            <div>
-              <span className="text-sm font-medium text-primary uppercase tracking-wider">
-                Our Curriculum
-              </span>
-              <h2 className="font-heading text-3xl md:text-4xl font-bold mt-3 mb-5">
-                Rooted in Tradition,{" "}
-                <span className="text-primary">Designed for Today</span>
-              </h2>
-              <p className="text-muted-foreground text-lg mb-6 leading-relaxed">
-                Our programs are carefully structured by qualified scholars,
-                covering the essential Islamic sciences that every Muslimah should
-                know. From the foundations of Fiqh to the beauty of Qur'anic
-                recitation.
-              </p>
-              <ul className="space-y-3 mb-8">
-                {[
-                  "Live interactive sessions with qualified instructors",
-                  "Structured curriculum with clear learning outcomes",
-                  "Lifetime access to recordings and notes",
-                  "Supportive sisterhood community",
-                ].map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <Star className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <span className="text-sm text-muted-foreground">{item}</span>
-                  </li>
-                ))}
-              </ul>
-              <LinkButton href="/catalog" className="press">
-                View Full Catalog
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </LinkButton>
-            </div>
+            {/* English Translation */}
+            <p className="text-base md:text-lg text-muted-foreground italic leading-relaxed">
+              &ldquo;Seeking knowledge is an obligation upon every Muslim.&rdquo;
+            </p>
+
+            {/* Reference */}
+            <p className="text-sm text-primary font-medium mt-4">
+              Sunan Ibn Majah 224 — Graded Sahih by Al-Albani
+            </p>
           </div>
         </div>
       </section>
 
-      <SectionDivider />
-
-      {/* ─── Inspirational Quote Banner ─── */}
-      <section className="py-16 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-secondary via-rose-50 to-secondary" />
-        <IslamicStar className="absolute left-10 top-1/2 -translate-y-1/2 text-primary hidden md:block" size={120} />
-        <IslamicStar className="absolute right-10 top-1/2 -translate-y-1/2 text-primary hidden md:block" size={120} />
-
-        <div className="container relative mx-auto px-4 text-center">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-4xl text-primary/20 font-heading mb-4">&ldquo;</div>
-            <p className="font-heading text-xl md:text-2xl font-medium text-foreground/90 italic leading-relaxed">
-              Seeking knowledge is an obligation upon every Muslim.
-            </p>
-            <p className="text-sm text-muted-foreground mt-4">
-              — Prophet Muhammad (peace be upon him)
+      {/* ─── Testimonials Slider ─── */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="text-sm font-medium text-primary uppercase tracking-wider">
+              Student Voices
+            </span>
+            <h2 className="font-heading text-3xl font-bold mt-3 mb-4">
+              What Our Sisters Say
+            </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Hear from sisters who have transformed their lives through knowledge.
             </p>
           </div>
+
+          <TestimonialsSlider />
         </div>
       </section>
 
       {/* ─── CTA Section ─── */}
       <section className="py-20 bg-primary text-primary-foreground relative overflow-hidden">
-        {/* Decorative grid overlay */}
+        {/* Decorative Kufic grid overlay */}
         <div
           className="absolute inset-0 opacity-[0.04]"
           style={{
@@ -279,32 +199,19 @@ export default function HomePage() {
             backgroundSize: "24px 24px",
           }}
         />
-        {/* Decorative stars */}
-        <IslamicStar className="absolute -left-10 -top-10 text-white" size={200} />
-        <IslamicStar className="absolute -right-10 -bottom-10 text-white" size={200} />
 
         <div className="container relative mx-auto px-4 text-center">
-          <h2 className="font-heading text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="font-heading text-3xl font-bold mb-4">
             Ready to Begin Your Journey?
           </h2>
-          <p className="max-w-xl mx-auto mb-8 opacity-90 text-lg">
+          <p className="max-w-xl mx-auto mb-8 opacity-90">
             Join our sisterhood community and take the first step towards
             deepening your understanding of the Deen.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <LinkButton size="lg" variant="secondary" href="/register" className="press">
-              Join the Sisterhood
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </LinkButton>
-            <LinkButton
-              size="lg"
-              variant="outline"
-              href="/catalog"
-              className="press border-white/30 text-white hover:bg-white/10"
-            >
-              Browse Programs
-            </LinkButton>
-          </div>
+          <LinkButton size="lg" variant="secondary" href="/catalog" className="press">
+            View Available Programs
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </LinkButton>
         </div>
       </section>
     </div>
