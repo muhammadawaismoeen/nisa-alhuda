@@ -118,7 +118,7 @@ export function ResourceUploader({
 
           // Upload to storage
           const { error: uploadError } = await supabase.storage
-            .from("lesson-resources")
+            .from("resources")
             .upload(storagePath, file);
 
           if (uploadError) {
@@ -143,7 +143,7 @@ export function ResourceUploader({
             toast.error(`Failed to save ${file.name}: ${insertError.message}`);
             // Clean up uploaded file
             await supabase.storage
-              .from("lesson-resources")
+              .from("resources")
               .remove([storagePath]);
             continue;
           }
@@ -195,7 +195,7 @@ export function ResourceUploader({
 
       // Delete from storage
       await supabase.storage
-        .from("lesson-resources")
+        .from("resources")
         .remove([resource.file_url]);
 
       // Delete record
