@@ -104,7 +104,7 @@ export default async function OfferingDetailPage({
           {/* Description */}
           <div>
             <h2 className="text-xl font-semibold mb-4">About This {typeLabels[offering.type]}</h2>
-            <div className="prose prose-emerald max-w-none text-muted-foreground whitespace-pre-line">
+            <div className="prose prose-rose max-w-none text-muted-foreground whitespace-pre-line">
               {offering.description}
             </div>
           </div>
@@ -140,7 +140,7 @@ export default async function OfferingDetailPage({
             <div>
               <h2 className="text-xl font-semibold mb-4">Your Instructor</h2>
               <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-full bg-emerald-100 flex items-center justify-center">
+                <div className="h-14 w-14 rounded-full bg-secondary flex items-center justify-center">
                   <Users className="h-6 w-6 text-primary" />
                 </div>
                 <div>
@@ -156,7 +156,7 @@ export default async function OfferingDetailPage({
         <div>
           <Card className="sticky top-24">
             {/* Thumbnail */}
-            <div className="aspect-video bg-emerald-50 rounded-t-lg flex items-center justify-center">
+            <div className="aspect-video bg-secondary kufic-pattern rounded-t-lg flex items-center justify-center">
               {offering.thumbnail_url ? (
                 <img
                   src={offering.thumbnail_url}
@@ -164,7 +164,7 @@ export default async function OfferingDetailPage({
                   className="w-full h-full object-cover rounded-t-lg"
                 />
               ) : (
-                <BookOpen className="h-16 w-16 text-emerald-200" />
+                <BookOpen className="h-16 w-16 text-primary/20" />
               )}
             </div>
 

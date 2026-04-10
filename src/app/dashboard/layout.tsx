@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
+import { Logo } from "@/components/layout/logo";
 import { APP_NAME } from "@/lib/constants";
 import type { Profile } from "@/lib/types/database";
 import { DashboardLogout } from "./logout-button";
@@ -48,10 +49,7 @@ export default async function DashboardLayout({
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30">
         <div className="p-4 border-b">
-          <Link href="/" className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <span className="font-bold text-primary">{APP_NAME}</span>
-          </Link>
+          <Logo size="sm" />
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -83,10 +81,7 @@ export default async function DashboardLayout({
       <div className="flex-1 flex flex-col">
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between border-b p-4">
-          <Link href="/" className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <span className="font-bold text-primary">{APP_NAME}</span>
-          </Link>
+          <Logo size="sm" />
           <span className="text-sm text-muted-foreground capitalize">
             {profile.role}
           </span>

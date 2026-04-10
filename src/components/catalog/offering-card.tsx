@@ -24,9 +24,9 @@ export function OfferingCard({ offering }: { offering: Offering }) {
   const config = typeConfig[offering.type];
 
   return (
-    <Card className="flex flex-col hover:shadow-md transition-shadow">
+    <Card className="flex flex-col hover-lift glass overflow-hidden">
       {/* Thumbnail placeholder */}
-      <div className="aspect-video bg-emerald-50 rounded-t-lg flex items-center justify-center">
+      <div className="aspect-video bg-secondary rounded-t-lg flex items-center justify-center kufic-pattern">
         {offering.thumbnail_url ? (
           <img
             src={offering.thumbnail_url}
@@ -34,7 +34,7 @@ export function OfferingCard({ offering }: { offering: Offering }) {
             className="w-full h-full object-cover rounded-t-lg"
           />
         ) : (
-          <BookOpen className="h-12 w-12 text-emerald-200" />
+          <BookOpen className="h-12 w-12 text-primary/20" />
         )}
       </div>
 

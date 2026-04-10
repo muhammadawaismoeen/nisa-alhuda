@@ -4,12 +4,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   NISA AL-HUDA DESIGN SYSTEM
+   Brand: Dusty Rose/Mauve anchored to Square Kufic logo (#C55B7A)
+   Audience: GenZ Muslimahs — modern, aesthetic, peaceful, professional
+   ============================================================ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,54 +52,104 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  /* Custom brand color */
-  --color-emerald-50: oklch(0.979 0.021 166.113);
-  --color-emerald-100: oklch(0.950 0.052 163.051);
-  --color-emerald-600: oklch(0.596 0.145 163.225);
-  --color-emerald-700: oklch(0.508 0.118 165.612);
-  --color-emerald-800: oklch(0.432 0.095 166.913);
-  --color-emerald-900: oklch(0.378 0.077 168.94);
+
+  /* Brand palette tokens */
+  --color-rose-50: #FFF5F7;
+  --color-rose-100: #FAEDE6;
+  --color-rose-200: #F5D4CC;
+  --color-rose-300: #E8B5A8;
+  --color-rose-400: #D4778F;
+  --color-rose-500: #C55B7A;
+  --color-rose-600: #B55A75;
+  --color-rose-700: #9A3D5E;
+  --color-rose-800: #7A3E55;
+  --color-rose-900: #5C2A3E;
+  --color-cream: #FDFBF7;
+  --color-blush: #FAEDE6;
+  --color-plum-dark: #3A2835;
+  --color-plum-muted: #8B6B7B;
 }
 
 /*
- * Nisa Al-Huda Brand Theme
- * Primary: Emerald green (Islamic heritage color)
- * Warm neutrals for a welcoming, feminine feel
+ * ─── LIGHT MODE ─────────────────────────────────────────
+ * Warm cream backgrounds with dusty rose accents.
+ * No harsh whites — everything feels soft and inviting.
  */
 :root {
-  --background: oklch(0.995 0.002 90);
-  --foreground: oklch(0.205 0.015 60);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.205 0.015 60);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.205 0.015 60);
-  --primary: oklch(0.508 0.118 165.612);
-  --primary-foreground: oklch(0.995 0.002 90);
-  --secondary: oklch(0.965 0.010 90);
-  --secondary-foreground: oklch(0.305 0.015 60);
-  --muted: oklch(0.965 0.008 90);
-  --muted-foreground: oklch(0.520 0.010 60);
-  --accent: oklch(0.950 0.052 163.051);
-  --accent-foreground: oklch(0.378 0.077 168.94);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.910 0.008 90);
-  --input: oklch(0.910 0.008 90);
-  --ring: oklch(0.596 0.145 163.225);
-  --chart-1: oklch(0.596 0.145 163.225);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.508 0.118 165.612);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.950 0.052 163.051);
-  --sidebar-accent-foreground: oklch(0.378 0.077 168.94);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.596 0.145 163.225);
+  --background: #FDFBF7;
+  --foreground: #3A2835;
+  --card: #FFFFFF;
+  --card-foreground: #3A2835;
+  --popover: #FFFFFF;
+  --popover-foreground: #3A2835;
+  --primary: #C55B7A;
+  --primary-foreground: #FFF8F6;
+  --secondary: #FAEDE6;
+  --secondary-foreground: #5C2A3E;
+  --muted: #F5EDE8;
+  --muted-foreground: #8B6B7B;
+  --accent: #FFF0ED;
+  --accent-foreground: #9A3D5E;
+  --destructive: #D94F4F;
+  --border: #F0D4CC;
+  --input: #F0D4CC;
+  --ring: #C55B7A;
+  --chart-1: #C55B7A;
+  --chart-2: #D4778F;
+  --chart-3: #9A3D5E;
+  --chart-4: #E8B5A8;
+  --chart-5: #7A3E55;
+  --radius: 0.75rem;
+  --sidebar: #FFF8F6;
+  --sidebar-foreground: #3A2835;
+  --sidebar-primary: #C55B7A;
+  --sidebar-primary-foreground: #FFF8F6;
+  --sidebar-accent: #FFF0ED;
+  --sidebar-accent-foreground: #9A3D5E;
+  --sidebar-border: #F0D4CC;
+  --sidebar-ring: #C55B7A;
 }
+
+/*
+ * ─── TAHAJJUD MODE (Dark Mode) ─────────────────────────
+ * Deep midnight burgundy — like the quiet beauty of night prayers.
+ * Primary rose glows slightly brighter for contrast.
+ */
+.dark {
+  --background: #1A0F15;
+  --foreground: #F5E6E0;
+  --card: #261A22;
+  --card-foreground: #F5E6E0;
+  --popover: #261A22;
+  --popover-foreground: #F5E6E0;
+  --primary: #D4778F;
+  --primary-foreground: #1A0F15;
+  --secondary: #2D1F28;
+  --secondary-foreground: #F5E6E0;
+  --muted: #2D1F28;
+  --muted-foreground: #A08090;
+  --accent: #3A2530;
+  --accent-foreground: #E8B5A8;
+  --destructive: #E06060;
+  --border: rgba(255, 200, 200, 0.08);
+  --input: rgba(255, 200, 200, 0.12);
+  --ring: #D4778F;
+  --chart-1: #D4778F;
+  --chart-2: #E8B5A8;
+  --chart-3: #C55B7A;
+  --chart-4: #9A3D5E;
+  --chart-5: #7A3E55;
+  --sidebar: #1F1319;
+  --sidebar-foreground: #F5E6E0;
+  --sidebar-primary: #D4778F;
+  --sidebar-primary-foreground: #1A0F15;
+  --sidebar-accent: #3A2530;
+  --sidebar-accent-foreground: #E8B5A8;
+  --sidebar-border: rgba(255, 200, 200, 0.08);
+  --sidebar-ring: #D4778F;
+}
+
+/* ─── BASE STYLES ──────────────────────────────────────── */
 
 @layer base {
   * {
@@ -103,6 +159,113 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  /* Heading typography — Poppins */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading), system-ui, sans-serif;
+  }
+}
+
+/* ─── GLASSMORPHISM ────────────────────────────────────── */
+
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid rgba(240, 212, 204, 0.4);
+  }
+
+  .dark .glass {
+    background: rgba(38, 26, 34, 0.7);
+    border: 1px solid rgba(255, 200, 200, 0.06);
+  }
+
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px) saturate(200%);
+    -webkit-backdrop-filter: blur(20px) saturate(200%);
+    border: 1px solid rgba(240, 212, 204, 0.5);
+  }
+}
+
+/* ─── SQUARE KUFIC MOTIF PATTERN ───────────────────────── */
+/* Subtle geometric grid watermark inspired by the logo's
+   Square Kufic calligraphy. Used as background decoration. */
+
+@layer utilities {
+  .kufic-pattern {
+    background-image:
+      linear-gradient(rgba(197, 91, 122, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(197, 91, 122, 0.03) 1px, transparent 1px),
+      linear-gradient(rgba(197, 91, 122, 0.02) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(197, 91, 122, 0.02) 2px, transparent 2px);
+    background-size: 20px 20px, 20px 20px, 60px 60px, 60px 60px;
+  }
+
+  .dark .kufic-pattern {
+    background-image:
+      linear-gradient(rgba(212, 119, 143, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(212, 119, 143, 0.04) 1px, transparent 1px),
+      linear-gradient(rgba(212, 119, 143, 0.03) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(212, 119, 143, 0.03) 2px, transparent 2px);
+    background-size: 20px 20px, 20px 20px, 60px 60px, 60px 60px;
+  }
+}
+
+/* ─── MICRO-INTERACTIONS ───────────────────────────────── */
+
+@layer utilities {
+  /* Soft press effect for buttons */
+  .press {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+
+  /* Smooth page fade-in */
+  .fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  /* Gentle float on hover for cards */
+  .hover-lift {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(197, 91, 122, 0.08);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── SCROLLBAR STYLING ────────────────────────────────── */
+
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(197, 91, 122, 0.2);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(197, 91, 122, 0.35);
   }
 }

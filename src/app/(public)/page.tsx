@@ -1,6 +1,7 @@
 /**
  * Landing Page — the first thing visitors see.
- * Goal: Communicate value proposition + drive enrollment.
+ * Design: Warm blush tones, glassmorphism cards, Kufic pattern accents.
+ * Goal: Communicate value + drive enrollment with a modern GenZ aesthetic.
  */
 import {
   BookOpen,
@@ -9,6 +10,7 @@ import {
   MessageCircle,
   GraduationCap,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,7 +21,7 @@ const features = [
     icon: BookOpen,
     title: "Structured Programs",
     description:
-      "Comprehensive Islamic studies programs with multiple subjects including Fiqh, Arabic, Hadith, and Qur'an.",
+      "Comprehensive Islamic studies with multiple subjects — Fiqh, Arabic, Hadith, and Qur'an.",
   },
   {
     icon: Video,
@@ -31,7 +33,7 @@ const features = [
     icon: MessageCircle,
     title: "Community Chat",
     description:
-      "Engage with your instructors and fellow students through dedicated group discussions.",
+      "Engage with instructors and fellow sisters through dedicated group discussions.",
   },
   {
     icon: GraduationCap,
@@ -43,16 +45,19 @@ const features = [
 
 export default function HomePage() {
   return (
-    <div>
+    <div className="fade-in">
       {/* ─── Hero Section ─── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-emerald-50 to-background py-20 md:py-32">
-        <div className="container mx-auto px-4 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 text-sm font-medium text-emerald-800 mb-6">
-            <Users className="h-4 w-4" />
+      <section className="relative overflow-hidden kufic-pattern py-20 md:py-32">
+        {/* Soft gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-rose-50/80 via-background to-background" />
+
+        <div className="container relative mx-auto px-4 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-1.5 text-sm font-medium text-primary mb-6 glass">
+            <Sparkles className="h-4 w-4" />
             Sisterhood Learning Community
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
+          <h1 className="font-heading text-4xl md:text-6xl font-bold tracking-tight mb-6">
             Embark on Your Journey of
             <span className="text-primary block mt-2">Islamic Knowledge</span>
           </h1>
@@ -64,11 +69,13 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <LinkButton size="lg" href="/catalog">
-                Explore Programs
-                <ArrowRight className="ml-2 h-4 w-4" />
+            <LinkButton size="lg" href="/catalog" className="press">
+              Explore Programs
+              <ArrowRight className="ml-2 h-4 w-4" />
             </LinkButton>
-            <LinkButton size="lg" variant="outline" href="/register">Create Free Account</LinkButton>
+            <LinkButton size="lg" variant="outline" href="/register" className="press">
+              Create Free Account
+            </LinkButton>
           </div>
         </div>
       </section>
@@ -77,12 +84,12 @@ export default function HomePage() {
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold mb-4">
+            <h2 className="font-heading text-3xl font-bold mb-4">
               Everything You Need to Learn
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              A complete digital learning ecosystem built for the modern Muslim
-              woman.
+              A complete digital learning ecosystem built for the modern
+              Muslimah.
             </p>
           </div>
 
@@ -90,13 +97,15 @@ export default function HomePage() {
             {features.map((feature) => (
               <Card
                 key={feature.title}
-                className="border-0 shadow-sm hover:shadow-md transition-shadow"
+                className="border-0 shadow-sm hover-lift glass"
               >
                 <CardContent className="pt-6">
-                  <div className="h-12 w-12 rounded-lg bg-emerald-50 flex items-center justify-center mb-4">
+                  <div className="h-12 w-12 rounded-xl bg-secondary flex items-center justify-center mb-4">
                     <feature.icon className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="font-semibold mb-2">{feature.title}</h3>
+                  <h3 className="font-heading font-semibold mb-2">
+                    {feature.title}
+                  </h3>
                   <p className="text-sm text-muted-foreground">
                     {feature.description}
                   </p>
@@ -108,18 +117,28 @@ export default function HomePage() {
       </section>
 
       {/* ─── CTA Section ─── */}
-      <section className="py-20 bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">
+      <section className="py-20 bg-primary text-primary-foreground relative overflow-hidden">
+        {/* Decorative Kufic grid overlay */}
+        <div
+          className="absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+
+        <div className="container relative mx-auto px-4 text-center">
+          <h2 className="font-heading text-3xl font-bold mb-4">
             Ready to Begin Your Journey?
           </h2>
           <p className="max-w-xl mx-auto mb-8 opacity-90">
             Join our sisterhood community and take the first step towards
             deepening your understanding of the Deen.
           </p>
-          <LinkButton size="lg" variant="secondary" href="/catalog">
-              View Available Programs
-              <ArrowRight className="ml-2 h-4 w-4" />
+          <LinkButton size="lg" variant="secondary" href="/catalog" className="press">
+            View Available Programs
+            <ArrowRight className="ml-2 h-4 w-4" />
           </LinkButton>
         </div>
       </section>

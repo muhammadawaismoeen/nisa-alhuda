@@ -1,9 +1,9 @@
 /**
- * Public site header with navigation.
- * Shows different CTAs based on auth state.
+ * Public site header — glassmorphism navigation bar.
+ * Features the official Square Kufic logo and responsive nav.
  */
 import Link from "next/link";
-import { BookOpen, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
 import {
   Sheet,
@@ -11,7 +11,7 @@ import {
   SheetTrigger,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { APP_NAME } from "@/lib/constants";
+import { Logo } from "@/components/layout/logo";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -20,16 +20,13 @@ const navLinks = [
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full glass">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <BookOpen className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold text-primary">{APP_NAME}</span>
-        </Link>
+        <Logo size="sm" />
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-8">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -43,30 +40,40 @@ export function Header() {
 
         {/* Auth Buttons (Desktop) */}
         <div className="hidden md:flex items-center gap-3">
-          <LinkButton variant="ghost" href="/login">Log In</LinkButton>
-          <LinkButton href="/register">Get Started</LinkButton>
+          <LinkButton variant="ghost" href="/login">
+            Log In
+          </LinkButton>
+          <LinkButton href="/register" className="press">
+            Get Started
+          </LinkButton>
         </div>
 
         {/* Mobile Menu */}
         <Sheet>
-          <SheetTrigger className="md:hidden inline-flex shrink-0 items-center justify-center rounded-lg size-8 hover:bg-muted transition-all">
+          <SheetTrigger className="md:hidden inline-flex shrink-0 items-center justify-center rounded-lg size-8 hover:bg-accent transition-all">
             <Menu className="h-5 w-5" />
           </SheetTrigger>
           <SheetContent side="right" className="w-72">
-            <SheetTitle className="text-primary">{APP_NAME}</SheetTitle>
+            <SheetTitle>
+              <Logo size="sm" />
+            </SheetTitle>
             <nav className="flex flex-col gap-4 mt-8">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-lg font-medium hover:text-primary transition-colors"
+                  className="text-lg font-medium font-heading hover:text-primary transition-colors"
                 >
                   {link.label}
                 </Link>
               ))}
-              <hr className="my-2" />
-              <LinkButton variant="ghost" className="justify-start" href="/login">Log In</LinkButton>
-              <LinkButton href="/register">Get Started</LinkButton>
+              <hr className="my-2 border-border" />
+              <LinkButton variant="ghost" className="justify-start" href="/login">
+                Log In
+              </LinkButton>
+              <LinkButton href="/register" className="press">
+                Get Started
+              </LinkButton>
             </nav>
           </SheetContent>
         </Sheet>
