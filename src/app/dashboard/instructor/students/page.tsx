@@ -66,12 +66,16 @@ export default async function StudentManagementPage() {
   const offeringIds = [...new Set(subjects.map((s) => s.offering_id))];
 
   // Fetch approved enrollments for these offerings
-  const { data: enrollments } = await supabase
+  const { data: enrollments, error: enrollError } = await supabase
     .from("enrollments")
-    .select("*, student:profiles(*), offering:offerings(id, title)")
+    .select("*, student:profiles!enrollments_student_id_fkey(*), offering:offerings!enrollments_offering_id_fkey(id, title)")
     .in("offering_id", offeringIds)
     .eq("status", "approved")
     .order("created_at", { ascending: false });
+
+  if (enrollError) {
+    console.error("Error fetching enrollments:", enrollError.message);
+  }
 
   // Build student data with engagement scores
   const now = new Date();

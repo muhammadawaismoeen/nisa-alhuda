@@ -44,12 +44,16 @@ export default async function AnalyticsPage() {
     : { data: [] };
 
   // Fetch enrollments for instructor's offerings
-  const { data: enrollments } = offeringIds.length > 0
+  const { data: enrollments, error: enrollError } = offeringIds.length > 0
     ? await supabase
         .from("enrollments")
         .select("id, student_id, status, created_at")
         .in("offering_id", offeringIds)
-    : { data: [] };
+    : { data: [] as any[], error: null };
+
+  if (enrollError) {
+    console.error("Error fetching enrollments:", enrollError.message);
+  }
 
   // ── Compute Metrics ──
 
