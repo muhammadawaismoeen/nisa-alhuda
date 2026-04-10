@@ -68,10 +68,6 @@ export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormPr
     offering?.schedule_start || ""
   );
   const [scheduleEnd, setScheduleEnd] = useState(offering?.schedule_end || "");
-  const [liveClassLink, setLiveClassLink] = useState(
-    offering?.live_class_link || ""
-  );
-
   // Subjects (for programs)
   const [subjects, setSubjects] = useState<SubjectDraft[]>(
     existingSubjects.map((s) => ({
@@ -161,7 +157,6 @@ export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormPr
         status,
         schedule_start: scheduleStart || null,
         schedule_end: scheduleEnd || null,
-        live_class_link: liveClassLink.trim() || null,
         instructor_id: offering?.instructor_id || user?.id,
       };
 
@@ -399,18 +394,6 @@ export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormPr
                 type="date"
                 value={scheduleEnd}
                 onChange={(e) => setScheduleEnd(e.target.value)}
-              />
-            </div>
-
-            {/* Live Class Link */}
-            <div className="space-y-2 md:col-span-3">
-              <Label htmlFor="liveLink">Live Class Link (Zoom, Meet, etc.)</Label>
-              <Input
-                id="liveLink"
-                type="url"
-                placeholder="https://zoom.us/j/..."
-                value={liveClassLink}
-                onChange={(e) => setLiveClassLink(e.target.value)}
               />
             </div>
           </div>

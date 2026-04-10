@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { formatPrice } from "@/lib/constants";
 import { Plus, BookOpen, Pencil } from "lucide-react";
+import { DeleteOffering } from "./delete-offering";
 import type { Offering } from "@/lib/types/database";
 
 const statusConfig = {
@@ -106,15 +107,20 @@ export default async function AdminOfferingsPage() {
                     </div>
 
                     {/* Actions */}
-                    <LinkButton
-                      variant="outline"
-                      size="sm"
-                      href={`/dashboard/admin/offerings/${offering.id}/edit`}
-                      className="shrink-0"
-                    >
-                      <Pencil className="h-3.5 w-3.5 mr-1.5" />
-                      Edit
-                    </LinkButton>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <LinkButton
+                        variant="outline"
+                        size="sm"
+                        href={`/dashboard/admin/offerings/${offering.id}/edit`}
+                      >
+                        <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                        Edit
+                      </LinkButton>
+                      <DeleteOffering
+                        offeringId={offering.id}
+                        offeringTitle={offering.title}
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
