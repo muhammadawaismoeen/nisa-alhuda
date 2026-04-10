@@ -8,7 +8,11 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
-export function LoginForm() {
+interface LoginFormProps {
+  redirectTo?: string;
+}
+
+export function LoginForm({ redirectTo }: LoginFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -34,7 +38,7 @@ export function LoginForm() {
     }
 
     toast.success("Welcome back!");
-    router.push("/dashboard");
+    router.push(redirectTo || "/dashboard");
     router.refresh(); // Refresh server components to pick up the new session
   }
 

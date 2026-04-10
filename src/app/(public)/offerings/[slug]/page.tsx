@@ -209,7 +209,7 @@ export default async function OfferingDetailPage({
               </div>
 
               {/* Enroll CTA */}
-              <LinkButton className="w-full" size="lg" href={`/register?enroll=${offering.slug}`}>
+              <LinkButton className="w-full" size="lg" href={`/offerings/${offering.slug}/enroll`}>
                   Enroll Now
                   <ArrowRight className="ml-2 h-4 w-4" />
               </LinkButton>

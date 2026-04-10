@@ -7,7 +7,13 @@ export const metadata: Metadata = {
   title: "Log In",
 };
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  const { redirect: redirectTo } = await searchParams;
+
   return (
     <Card>
       <CardHeader className="text-center">
@@ -17,7 +23,7 @@ export default function LoginPage() {
         </p>
       </CardHeader>
       <CardContent>
-        <LoginForm />
+        <LoginForm redirectTo={redirectTo} />
         <p className="text-center text-sm text-muted-foreground mt-6">
           Don&apos;t have an account?{" "}
           <Link href="/register" className="text-primary hover:underline font-medium">
