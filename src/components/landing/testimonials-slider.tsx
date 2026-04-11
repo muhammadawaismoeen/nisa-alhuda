@@ -69,9 +69,9 @@ export function TestimonialsSlider() {
   };
 
   return (
-    <div className="relative max-w-3xl mx-auto">
+    <div className="relative max-w-3xl mx-auto px-6 md:px-10">
       {/* Testimonial Card */}
-      <div className="glass rounded-2xl p-8 md:p-10 text-center min-h-[280px] flex flex-col items-center justify-center">
+      <div className="glass rounded-2xl p-6 sm:p-8 md:p-10 text-center min-h-[260px] sm:min-h-[280px] flex flex-col items-center justify-center">
         {/* Quote Icon */}
         <Quote className="h-8 w-8 text-primary/30 mb-4" />
 
@@ -94,14 +94,14 @@ export function TestimonialsSlider() {
       {/* Navigation Arrows */}
       <button
         onClick={() => handleManualNav("prev")}
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-6 h-10 w-10 rounded-full bg-card shadow-md flex items-center justify-center hover:bg-secondary transition-colors border border-border"
+        className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-card shadow-md flex items-center justify-center hover:bg-secondary transition-colors border border-border"
         aria-label="Previous testimonial"
       >
-        <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+        <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
       </button>
       <button
         onClick={() => handleManualNav("next")}
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 md:translate-x-6 h-10 w-10 rounded-full bg-card shadow-md flex items-center justify-center hover:bg-secondary transition-colors border border-border"
+        className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-card shadow-md flex items-center justify-center hover:bg-secondary transition-colors border border-border"
         aria-label="Next testimonial"
       >
         <ChevronRight className="h-5 w-5 text-muted-foreground" />

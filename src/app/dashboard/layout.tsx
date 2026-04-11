@@ -1,13 +1,11 @@
 /**
  * Dashboard layout — shared wrapper for all authenticated dashboard pages.
- * Verifies auth and provides the sidebar navigation.
+ * Verifies auth and provides sidebar navigation + mobile drawer.
  */
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import {
   BookOpen,
   LayoutDashboard,
-  LogOut,
   GraduationCap,
   Settings,
   Users,
@@ -16,15 +14,28 @@ import {
   FileText,
   BarChart3,
   Megaphone,
-  Bell,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
 import { Logo } from "@/components/layout/logo";
-import { APP_NAME } from "@/lib/constants";
 import type { Profile } from "@/lib/types/database";
 import { DashboardLogout } from "./logout-button";
 import { NotificationBell } from "./notification-bell";
+import { MobileNav } from "./mobile-nav";
+
+// Icon map for serializing nav items to client component
+const iconMap = {
+  LayoutDashboard,
+  BookOpen,
+  ClipboardList,
+  GraduationCap,
+  Users,
+  Megaphone,
+  Settings,
+  Video,
+  FileText,
+  BarChart3,
+};
 
 export default async function DashboardLayout({
   children,
@@ -50,16 +61,23 @@ export default async function DashboardLayout({
   // Build navigation based on role
   const navItems = getNavItems(profile.role);
 
+  // Serialize nav items for client MobileNav (icon name strings)
+  const serializedNavItems = navItems.map((item) => ({
+    href: item.href,
+    label: item.label,
+    iconName: item.icon.displayName || item.icon.name || "LayoutDashboard",
+  }));
+
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30">
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30 shrink-0">
         <div className="p-4 border-b flex items-center justify-between">
           <Logo size="sm" />
           <NotificationBell userId={profile.id} />
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
             <LinkButton
               key={item.href}
@@ -85,19 +103,21 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between border-b p-4">
-          <Logo size="sm" />
+        <header className="md:hidden flex items-center justify-between border-b px-4 py-3 bg-background sticky top-0 z-40">
           <div className="flex items-center gap-2">
-            <NotificationBell userId={profile.id} />
-            <span className="text-sm text-muted-foreground capitalize">
-              {profile.role}
-            </span>
+            <MobileNav
+              navItems={serializedNavItems}
+              fullName={profile.full_name}
+              role={profile.role}
+            />
+            <Logo size="sm" />
           </div>
+          <NotificationBell userId={profile.id} />
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

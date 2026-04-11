@@ -85,9 +85,9 @@ export default async function OfferingDetailPage({
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* ─── Main Content (left 2/3) ─── */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 space-y-6 sm:space-y-8 order-2 lg:order-1">
           {/* Header */}
           <div>
             <Badge className="mb-3">{typeLabels[offering.type]}</Badge>
@@ -153,8 +153,8 @@ export default async function OfferingDetailPage({
         </div>
 
         {/* ─── Sidebar (right 1/3) ─── */}
-        <div>
-          <Card className="sticky top-24">
+        <div className="order-1 lg:order-2">
+          <Card className="lg:sticky lg:top-24">
             {/* Thumbnail */}
             <div className="aspect-video bg-secondary kufic-pattern rounded-t-lg flex items-center justify-center">
               {offering.thumbnail_url ? (

@@ -57,12 +57,12 @@ export default function HomePage() {
             Sisterhood Learning Community
           </div>
 
-          <h1 className="font-heading text-4xl md:text-6xl font-bold tracking-tight mb-6">
+          <h1 className="font-heading text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight mb-6">
             Embark on Your Journey of
             <span className="text-primary block mt-2">Islamic Knowledge</span>
           </h1>
 
-          <p className="mx-auto max-w-2xl text-lg text-muted-foreground mb-10">
+          <p className="mx-auto max-w-2xl text-base sm:text-lg text-muted-foreground mb-8 sm:mb-10 px-2">
             {APP_NAME} offers live programs, courses, and workshops designed
             exclusively for sisters seeking authentic Islamic education. Learn
             from qualified instructors in a supportive community.
@@ -110,8 +110,8 @@ export default function HomePage() {
       {/* ─── Features Section ─── */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
-            <h2 className="font-heading text-3xl font-bold mb-4">
+          <div className="text-center mb-10 sm:mb-14">
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold mb-4">
               Everything You Need to Learn
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
@@ -176,7 +176,7 @@ export default function HomePage() {
             <span className="text-sm font-medium text-primary uppercase tracking-wider">
               Student Voices
             </span>
-            <h2 className="font-heading text-3xl font-bold mt-3 mb-4">
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold mt-3 mb-4">
               What Our Sisters Say
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
@@ -201,10 +201,10 @@ export default function HomePage() {
         />
 
         <div className="container relative mx-auto px-4 text-center">
-          <h2 className="font-heading text-3xl font-bold mb-4">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold mb-4">
             Ready to Begin Your Journey?
           </h2>
-          <p className="max-w-xl mx-auto mb-8 opacity-90">
+          <p className="max-w-xl mx-auto mb-8 opacity-90 text-sm sm:text-base px-2">
             Join our sisterhood community and take the first step towards
             deepening your understanding of the Deen.
           </p>
