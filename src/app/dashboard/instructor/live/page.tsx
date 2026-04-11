@@ -1,6 +1,6 @@
 /**
  * Live Hub — instructor view for managing live sessions and recording uploads.
- * Shows upcoming scheduled sessions and lessons pending recording uploads.
+ * Two sections: (1) Live Sessions scheduling, (2) Recording uploads for past lessons.
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,13 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Video,
   Clock,
-  ExternalLink,
   AlertCircle,
-  Calendar,
   CheckCircle,
 } from "lucide-react";
 import { RecordingUpdater } from "./recording-updater";
-import type { Lesson, Subject } from "@/lib/types/database";
+import { SessionManager } from "./session-manager";
+import type { Lesson, LiveSession } from "@/lib/types/database";
 
 export default async function LiveHubPage() {
   const supabase = await createClient();
@@ -53,7 +52,29 @@ export default async function LiveHubPage() {
   const subjectIds = subjects.map((s) => s.id);
   const subjectMap = Object.fromEntries(subjects.map((s) => [s.id, s.title]));
 
-  // Fetch all published lessons for instructor's subjects
+  // Get unique offering IDs from subjects
+  const offeringIds = [...new Set(subjects.map((s) => s.offering_id))];
+
+  // Fetch offerings for the session form dropdown
+  const { data: offerings } = await supabase
+    .from("offerings")
+    .select("id, title")
+    .in("id", offeringIds);
+
+  // Fetch live sessions for this instructor
+  let sessions: LiveSession[] = [];
+  try {
+    const { data } = await supabase
+      .from("live_sessions")
+      .select("*")
+      .eq("instructor_id", user.id)
+      .order("scheduled_at", { ascending: true });
+    sessions = (data as LiveSession[]) || [];
+  } catch {
+    // Table may not exist yet before migration
+  }
+
+  // Fetch all published lessons for instructor's subjects (recordings section)
   const { data: lessons } = await supabase
     .from("lessons")
     .select("*")
@@ -61,14 +82,6 @@ export default async function LiveHubPage() {
     .order("scheduled_at", { ascending: true });
 
   const now = new Date();
-
-  // Upcoming sessions: scheduled in the future with a live class link
-  const upcoming = (lessons || []).filter(
-    (l: Lesson) =>
-      l.scheduled_at &&
-      new Date(l.scheduled_at) > now &&
-      l.live_class_link
-  );
 
   // Pending recordings: scheduled in the past without a recording URL
   const pendingRecordings = (lessons || []).filter(
@@ -79,7 +92,7 @@ export default async function LiveHubPage() {
   );
 
   // Recently completed: past lessons WITH recordings (last 10)
-  const completed = (lessons || [])
+  const completedRecordings = (lessons || [])
     .filter(
       (l: Lesson) =>
         l.scheduled_at &&
@@ -94,136 +107,79 @@ export default async function LiveHubPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Live Hub</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Manage your live sessions and recording uploads.
+          Schedule live sessions and manage recording uploads.
         </p>
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center">
-              <Calendar className="h-5 w-5 text-blue-600" />
+            <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center shrink-0">
+              <Video className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{upcoming.length}</p>
-              <p className="text-xs text-muted-foreground">Upcoming Sessions</p>
+              <p className="text-2xl font-bold">
+                {sessions.filter(
+                  (s) => new Date(s.scheduled_at) > now
+                ).length}
+              </p>
+              <p className="text-xs text-muted-foreground">Upcoming</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-xl bg-red-50 dark:bg-red-950/20 flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">
+                {sessions.filter((s) => {
+                  const start = new Date(s.scheduled_at);
+                  const end = new Date(
+                    start.getTime() + s.duration_minutes * 60 * 1000
+                  );
+                  return now >= start && now <= end;
+                }).length}
+              </p>
+              <p className="text-xs text-muted-foreground">Live Now</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center shrink-0">
               <AlertCircle className="h-5 w-5 text-amber-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{pendingRecordings.length}</p>
-              <p className="text-xs text-muted-foreground">
-                Pending Recordings
-              </p>
+              <p className="text-xs text-muted-foreground">Pending Rec.</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-green-50 dark:bg-green-950/20 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-xl bg-green-50 dark:bg-green-950/20 flex items-center justify-center shrink-0">
               <CheckCircle className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{completed.length}</p>
-              <p className="text-xs text-muted-foreground">
-                Recordings Uploaded
-              </p>
+              <p className="text-2xl font-bold">{completedRecordings.length}</p>
+              <p className="text-xs text-muted-foreground">Recordings</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Upcoming Sessions */}
-      <section className="mb-8">
-        <h2 className="font-heading font-semibold text-lg mb-4 flex items-center gap-2">
-          <Video className="h-5 w-5 text-primary" />
-          Upcoming Sessions
-        </h2>
+      {/* Live Sessions Manager */}
+      <SessionManager
+        sessions={sessions}
+        offerings={offerings || []}
+        instructorId={user.id}
+      />
 
-        {upcoming.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No upcoming live sessions scheduled. Add a scheduled date and
-                live class link to a lesson to see it here.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {upcoming.map((lesson: Lesson) => {
-              const scheduled = new Date(lesson.scheduled_at!);
-              const diffMs = scheduled.getTime() - now.getTime();
-              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-              const diffDays = Math.floor(diffHours / 24);
-
-              let timeLabel = "";
-              if (diffDays > 0) {
-                timeLabel = `in ${diffDays} day${diffDays > 1 ? "s" : ""}`;
-              } else if (diffHours > 0) {
-                timeLabel = `in ${diffHours} hour${diffHours > 1 ? "s" : ""}`;
-              } else {
-                timeLabel = "starting soon";
-              }
-
-              return (
-                <Card
-                  key={lesson.id}
-                  className="border-blue-200 dark:border-blue-800"
-                >
-                  <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      <div className="h-12 w-12 rounded-xl bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center shrink-0">
-                        <Video className="h-5 w-5 text-blue-600" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold truncate">
-                            {lesson.title}
-                          </h3>
-                          <Badge
-                            variant="outline"
-                            className="text-xs text-blue-600 border-blue-300 shrink-0"
-                          >
-                            {timeLabel}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {subjectMap[lesson.subject_id || ""] || "General"} &middot;{" "}
-                          {scheduled.toLocaleDateString("en-PK", {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </p>
-                      </div>
-
-                      <a
-                        href={lesson.live_class_link!}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors press shrink-0"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Start Session
-                      </a>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </section>
+      {/* Divider */}
+      <hr className="my-8" />
 
       {/* Pending Recording Uploads */}
       <section>

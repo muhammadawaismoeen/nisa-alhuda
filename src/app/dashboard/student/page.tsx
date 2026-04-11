@@ -15,8 +15,9 @@ import {
   Calendar,
   Video,
   CheckCircle,
+  ExternalLink,
 } from "lucide-react";
-import type { Offering } from "@/lib/types/database";
+import type { Offering, LiveSession, Profile as ProfileType } from "@/lib/types/database";
 
 export default async function StudentDashboardPage() {
   const supabase = await createClient();
@@ -80,6 +81,38 @@ export default async function StudentDashboardPage() {
     }
   }
 
+  // Fetch live sessions (RLS filters to enrolled offerings)
+  let liveSessions: (LiveSession & {
+    instructor: ProfileType;
+    offering: Offering;
+  })[] = [];
+
+  try {
+    const now = new Date();
+    const { data: sessionsData } = await supabase
+      .from("live_sessions")
+      .select(
+        "*, instructor:profiles!live_sessions_instructor_id_fkey(*), offering:offerings!live_sessions_offering_id_fkey(*)"
+      )
+      .gte(
+        "scheduled_at",
+        new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString()
+      )
+      .order("scheduled_at", { ascending: true });
+
+    if (sessionsData) {
+      liveSessions = (sessionsData as typeof liveSessions).filter((s) => {
+        const start = new Date(s.scheduled_at);
+        const end = new Date(
+          start.getTime() + s.duration_minutes * 60 * 1000
+        );
+        return now >= start && now <= end;
+      });
+    }
+  } catch {
+    // Table may not exist before migration
+  }
+
   return (
     <div>
       <div className="mb-6">
@@ -88,6 +121,54 @@ export default async function StudentDashboardPage() {
           Access your enrolled programs, courses, and workshops.
         </p>
       </div>
+
+      {/* Live Now Banner */}
+      {liveSessions.length > 0 && (
+        <div className="mb-6 space-y-3">
+          {liveSessions.map((session) => {
+            const startedAgo = Math.floor(
+              (new Date().getTime() - new Date(session.scheduled_at).getTime()) /
+                (1000 * 60)
+            );
+            return (
+              <div
+                key={session.id}
+                className="p-4 rounded-xl border border-red-200 bg-red-50/80 dark:bg-red-950/20 dark:border-red-800 flex flex-col sm:flex-row sm:items-center gap-3"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="relative shrink-0">
+                    <div className="h-10 w-10 rounded-xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center">
+                      <Video className="h-5 w-5 text-red-600" />
+                    </div>
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">
+                      LIVE NOW &middot; {session.title}
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-300">
+                      {session.instructor?.full_name} &middot; Started{" "}
+                      {startedAgo}m ago
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={session.meeting_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors press shrink-0"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Join Now
+                </a>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Pending enrollments notice */}
       {pending.length > 0 && (

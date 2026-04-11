@@ -161,6 +161,7 @@ function getNavItems(role: string) {
   return [
     ...base,
     { href: "/dashboard/student", label: "My Learning", icon: GraduationCap },
+    { href: "/dashboard/student/live", label: "Live Sessions", icon: Video },
     { href: "/dashboard/student/enrollments", label: "Enrollments", icon: ClipboardList },
     { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
     { href: "/dashboard/settings", label: "Settings", icon: Settings },

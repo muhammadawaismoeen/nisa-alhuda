@@ -160,6 +160,19 @@ export interface LessonProgress {
   completed_at: string;
 }
 
+export interface LiveSession {
+  id: string;
+  instructor_id: string;
+  offering_id: string;
+  title: string;
+  description: string | null;
+  meeting_url: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Joined / Extended Types (for queries with relations) ───
 
 export interface OfferingWithSubjects extends Offering {
@@ -182,4 +195,9 @@ export interface ChatMessageWithSender extends ChatMessage {
 export interface AnnouncementWithAuthor extends Announcement {
   author: Profile;
   offering: Offering | null;
+}
+
+export interface LiveSessionWithDetails extends LiveSession {
+  instructor: Profile;
+  offering: Offering;
 }
