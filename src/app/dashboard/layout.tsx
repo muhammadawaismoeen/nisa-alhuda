@@ -15,6 +15,8 @@ import {
   Video,
   FileText,
   BarChart3,
+  Megaphone,
+  Bell,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
@@ -22,6 +24,7 @@ import { Logo } from "@/components/layout/logo";
 import { APP_NAME } from "@/lib/constants";
 import type { Profile } from "@/lib/types/database";
 import { DashboardLogout } from "./logout-button";
+import { NotificationBell } from "./notification-bell";
 
 export default async function DashboardLayout({
   children,
@@ -51,8 +54,9 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30">
-        <div className="p-4 border-b">
+        <div className="p-4 border-b flex items-center justify-between">
           <Logo size="sm" />
+          <NotificationBell userId={profile.id} />
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -85,9 +89,12 @@ export default async function DashboardLayout({
         {/* Mobile header */}
         <header className="md:hidden flex items-center justify-between border-b p-4">
           <Logo size="sm" />
-          <span className="text-sm text-muted-foreground capitalize">
-            {profile.role}
-          </span>
+          <div className="flex items-center gap-2">
+            <NotificationBell userId={profile.id} />
+            <span className="text-sm text-muted-foreground capitalize">
+              {profile.role}
+            </span>
+          </div>
         </header>
 
         <main className="flex-1 p-6">{children}</main>
@@ -112,6 +119,7 @@ function getNavItems(role: string) {
       { href: "/dashboard/admin/payments", label: "Payments", icon: ClipboardList },
       { href: "/dashboard/admin/enrollments", label: "Enrollments", icon: GraduationCap },
       { href: "/dashboard/admin/users", label: "Users", icon: Users },
+      { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
     ];
   }
 
@@ -123,6 +131,7 @@ function getNavItems(role: string) {
       { href: "/dashboard/instructor/students", label: "Students", icon: Users },
       { href: "/dashboard/instructor/resources", label: "Resources", icon: FileText },
       { href: "/dashboard/instructor/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
     ];
   }
 
@@ -131,5 +140,6 @@ function getNavItems(role: string) {
     ...base,
     { href: "/dashboard/student", label: "My Learning", icon: GraduationCap },
     { href: "/dashboard/student/enrollments", label: "Enrollments", icon: ClipboardList },
+    { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
   ];
 }

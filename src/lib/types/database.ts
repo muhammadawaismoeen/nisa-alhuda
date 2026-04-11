@@ -11,6 +11,12 @@ export type UserRole = "admin" | "instructor" | "student";
 export type OfferingType = "program" | "course" | "workshop";
 export type OfferingStatus = "draft" | "published" | "archived";
 export type EnrollmentStatus = "pending" | "approved" | "rejected";
+export type NotificationType =
+  | "enrollment_approved"
+  | "enrollment_rejected"
+  | "new_lesson"
+  | "new_announcement"
+  | "general";
 
 // ─── Row Types (what you GET from the database) ───
 
@@ -123,6 +129,29 @@ export interface ChatMessage {
   created_at: string;
 }
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  link: string | null;
+  is_read: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface Announcement {
+  id: string;
+  author_id: string;
+  title: string;
+  body: string;
+  offering_id: string | null;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // ─── Joined / Extended Types (for queries with relations) ───
 
 export interface OfferingWithSubjects extends Offering {
@@ -140,4 +169,9 @@ export interface EnrollmentWithDetails extends Enrollment {
 
 export interface ChatMessageWithSender extends ChatMessage {
   sender: Profile;
+}
+
+export interface AnnouncementWithAuthor extends Announcement {
+  author: Profile;
+  offering: Offering | null;
 }
