@@ -120,6 +120,7 @@ function getNavItems(role: string) {
       { href: "/dashboard/admin/enrollments", label: "Enrollments", icon: GraduationCap },
       { href: "/dashboard/admin/users", label: "Users", icon: Users },
       { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
+      { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ];
   }
 
@@ -132,6 +133,7 @@ function getNavItems(role: string) {
       { href: "/dashboard/instructor/resources", label: "Resources", icon: FileText },
       { href: "/dashboard/instructor/analytics", label: "Analytics", icon: BarChart3 },
       { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
+      { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ];
   }
 
@@ -141,5 +143,6 @@ function getNavItems(role: string) {
     { href: "/dashboard/student", label: "My Learning", icon: GraduationCap },
     { href: "/dashboard/student/enrollments", label: "Enrollments", icon: ClipboardList },
     { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/dashboard/settings", label: "Settings", icon: Settings },
   ];
 }
