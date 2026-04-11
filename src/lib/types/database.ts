@@ -152,6 +152,14 @@ export interface Announcement {
   updated_at: string;
 }
 
+export interface LessonProgress {
+  id: string;
+  student_id: string;
+  lesson_id: string;
+  offering_id: string;
+  completed_at: string;
+}
+
 // ─── Joined / Extended Types (for queries with relations) ───
 
 export interface OfferingWithSubjects extends Offering {

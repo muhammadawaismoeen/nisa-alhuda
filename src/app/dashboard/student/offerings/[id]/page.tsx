@@ -14,6 +14,7 @@ import {
   BookOpen,
   Video,
   Clock,
+  CheckCircle,
 } from "lucide-react";
 import { SubjectAccordion } from "./subject-accordion";
 import type { Subject, Lesson } from "@/lib/types/database";
@@ -77,6 +78,20 @@ export default async function StudentLearningHubPage({
   });
 
   const totalLessons = lessons?.length || 0;
+
+  // Fetch student's progress for this offering
+  const { data: progress } = await supabase
+    .from("lesson_progress")
+    .select("lesson_id")
+    .eq("student_id", user.id)
+    .eq("offering_id", id);
+
+  const completedLessonIds = (progress || []).map(
+    (p: { lesson_id: string }) => p.lesson_id
+  );
+  const completedCount = completedLessonIds.length;
+  const completionPct =
+    totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
   // Determine upcoming lesson
   const now = new Date();
@@ -151,7 +166,35 @@ export default async function StudentLearningHubPage({
               {totalLessons} {totalLessons === 1 ? "lesson" : "lessons"}
             </span>
           </div>
+          {totalLessons > 0 && (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <CheckCircle className="h-4 w-4" />
+              <span>
+                {completedCount}/{totalLessons} completed ({completionPct}%)
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* Overall progress bar */}
+        {totalLessons > 0 && (
+          <div className="mt-4 max-w-md">
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+              <span>Overall Progress</span>
+              <span className={completionPct === 100 ? "text-green-600 font-semibold" : ""}>
+                {completionPct}%
+              </span>
+            </div>
+            <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  completionPct === 100 ? "bg-green-500" : "bg-primary"
+                }`}
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Upcoming class notice */}
@@ -209,6 +252,8 @@ export default async function StudentLearningHubPage({
         <SubjectAccordion
           subjects={subjects as (Subject & { instructor: { full_name: string } | null })[]}
           lessonsBySubject={lessonsBySubject}
+          completedLessonIds={completedLessonIds}
+          offeringId={id}
         />
       )}
     </div>

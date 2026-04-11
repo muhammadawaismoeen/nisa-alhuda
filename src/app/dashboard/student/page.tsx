@@ -14,6 +14,7 @@ import {
   GraduationCap,
   Calendar,
   Video,
+  CheckCircle,
 } from "lucide-react";
 import type { Offering } from "@/lib/types/database";
 
@@ -51,6 +52,27 @@ export default async function StudentDashboardPage() {
       lessonCounts = lessons.reduce(
         (acc, l) => {
           acc[l.offering_id] = (acc[l.offering_id] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+    }
+  }
+
+  // Fetch completed lesson counts per offering
+  let completedCounts: Record<string, number> = {};
+
+  if (approvedOfferingIds.length > 0) {
+    const { data: progressData } = await supabase
+      .from("lesson_progress")
+      .select("offering_id")
+      .eq("student_id", user.id)
+      .in("offering_id", approvedOfferingIds);
+
+    if (progressData) {
+      completedCounts = progressData.reduce(
+        (acc, p: { offering_id: string }) => {
+          acc[p.offering_id] = (acc[p.offering_id] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>
@@ -123,6 +145,8 @@ export default async function StudentDashboardPage() {
           {approved.map((enrollment) => {
             const offering = enrollment.offering as Offering;
             const count = lessonCounts[offering.id] || 0;
+            const completed = completedCounts[offering.id] || 0;
+            const pct = count > 0 ? Math.round((completed / count) * 100) : 0;
 
             return (
               <Card key={enrollment.id} className="hover-lift">
@@ -167,12 +191,35 @@ export default async function StudentDashboardPage() {
                     </Badge>
                   </div>
 
+                  {/* Progress bar */}
+                  {count > 0 && (
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          {completed} of {count} lessons
+                        </span>
+                        <span className={pct === 100 ? "text-green-600 font-semibold" : ""}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            pct === 100 ? "bg-green-500" : "bg-primary"
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="pt-3 border-t">
                     <LinkButton
                       className="w-full press"
                       href={`/dashboard/student/offerings/${offering.id}`}
                     >
-                      Continue Learning
+                      {pct === 100 ? "Review Course" : "Continue Learning"}
                       <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </LinkButton>
                   </div>
