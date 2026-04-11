@@ -2,15 +2,12 @@
  * Public site header — glassmorphism navigation bar.
  * Features the official Square Kufic logo and responsive nav.
  */
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
-import { Menu } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Logo } from "@/components/layout/logo";
 
 const navLinks = [
@@ -19,6 +16,8 @@ const navLinks = [
 ];
 
 export function Header() {
+  const [open, setOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-50 w-full glass">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -48,36 +47,51 @@ export function Header() {
           </LinkButton>
         </div>
 
-        {/* Mobile Menu */}
-        <Sheet>
-          <SheetTrigger className="md:hidden inline-flex shrink-0 items-center justify-center rounded-lg size-8 hover:bg-accent transition-all">
-            <Menu className="h-5 w-5" />
-          </SheetTrigger>
-          <SheetContent side="right" className="w-72">
-            <SheetTitle>
-              <Logo size="sm" />
-            </SheetTitle>
-            <nav className="flex flex-col gap-4 mt-8">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-lg font-medium font-heading hover:text-primary transition-colors"
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <hr className="my-2 border-border" />
-              <LinkButton variant="ghost" className="justify-start" href="/login">
+        {/* Mobile Menu Toggle */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="md:hidden h-9 w-9 flex items-center justify-center rounded-lg hover:bg-accent transition-all"
+          aria-label="Toggle menu"
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {/* Mobile Dropdown Menu */}
+      {open && (
+        <div className="md:hidden border-t bg-background/95 backdrop-blur-lg">
+          <nav className="container mx-auto px-4 py-4 space-y-1">
+            {navLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="block px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-muted transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <div className="border-t my-3" />
+            <div className="flex flex-col gap-2 pt-1">
+              <LinkButton
+                variant="outline"
+                href="/login"
+                className="w-full justify-center"
+                onClick={() => setOpen(false)}
+              >
                 Log In
               </LinkButton>
-              <LinkButton href="/register" className="press">
+              <LinkButton
+                href="/register"
+                className="w-full justify-center press"
+                onClick={() => setOpen(false)}
+              >
                 Get Started
               </LinkButton>
-            </nav>
-          </SheetContent>
-        </Sheet>
-      </div>
+            </div>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }
