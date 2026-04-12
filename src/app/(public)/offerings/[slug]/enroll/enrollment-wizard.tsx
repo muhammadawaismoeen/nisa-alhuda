@@ -986,11 +986,14 @@ export function EnrollmentWizard({
 
   // Build step-to-content mapping aligned with the steps array.
   // Each entry here corresponds to the step at the same index.
+  // Call step functions directly (NOT as <Component />) to avoid
+  // re-mounting on every render — inner functions change reference
+  // each render, which would cause React to unmount/remount inputs.
   const stepContent: React.ReactNode[] = [
-    ...(isLoggedIn ? [] : [<EmailStep key="email" />]),
-    <PersonalDetailsStep key="details" />,
-    ...(isFree ? [] : [<PaymentStep key="payment" />]),
-    submitted ? <SuccessStep key="success" /> : null,
+    ...(isLoggedIn ? [] : [EmailStep()]),
+    PersonalDetailsStep(),
+    ...(isFree ? [] : [PaymentStep()]),
+    submitted ? SuccessStep() : null,
   ];
 
   return (
