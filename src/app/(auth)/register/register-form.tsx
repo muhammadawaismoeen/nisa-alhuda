@@ -48,6 +48,7 @@ export function RegisterForm() {
         data: {
           full_name: fullName, // This gets passed to our trigger function
         },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
       },
     });
 

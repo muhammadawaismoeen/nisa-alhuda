@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string }>;
+  searchParams: Promise<{ redirect?: string; error?: string }>;
 }) {
-  const { redirect: redirectTo } = await searchParams;
+  const { redirect: redirectTo, error } = await searchParams;
 
   return (
     <Card>
@@ -21,6 +21,11 @@ export default async function LoginPage({
         <p className="text-sm text-muted-foreground">
           Log in to access your courses and dashboard
         </p>
+        {error === "auth_callback_failed" && (
+          <p className="text-sm text-destructive mt-2">
+            The verification link has expired or is invalid. Please try again.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <LoginForm redirectTo={redirectTo} />
