@@ -48,7 +48,7 @@ export function EnrollmentActions({
       const supabase = createClient();
       const { data, error } = await supabase.storage
         .from("payment-receipts")
-        .createSignedUrl(receiptPath, 300); // 5-minute signed URL
+        .createSignedUrl(receiptPath!, 300); // 5-minute signed URL
 
       if (error) throw error;
       if (data?.signedUrl) {

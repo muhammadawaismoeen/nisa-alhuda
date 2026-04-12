@@ -10,13 +10,16 @@ import {
   GraduationCap,
   ArrowRight,
   Sparkles,
+  Calendar,
+  Wifi,
+  MapPin,
 } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { TestimonialsSlider } from "@/components/landing/testimonials-slider";
-import { OfferingCard } from "@/components/catalog/offering-card";
 import { createClient } from "@/lib/supabase/server";
-import { APP_NAME } from "@/lib/constants";
+import { APP_NAME, formatPriceWithFee } from "@/lib/constants";
 import type { Offering } from "@/lib/types/database";
 
 const features = [
@@ -136,10 +139,66 @@ export default async function HomePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
-              {(offerings as Offering[]).map((offering) => (
-                <OfferingCard key={offering.id} offering={offering} />
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+              {(offerings as Offering[]).map((offering) => {
+                const typeLabel =
+                  offering.type === "program" ? "Program"
+                  : offering.type === "course" ? "Course"
+                  : offering.type === "workshop" ? "Workshop"
+                  : "Class";
+                const ModeIcon = offering.mode === "onsite" ? MapPin : Wifi;
+                const modeLabel = offering.mode === "onsite" ? "Onsite" : offering.mode === "hybrid" ? "Hybrid" : "Online";
+
+                return (
+                  <Card key={offering.id} className={`hover-lift glass ${offering.is_new ? "ring-2 ring-amber-400/70" : ""}`}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                        <Badge variant="secondary" className="text-xs px-2 py-0">
+                          {typeLabel}
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          <ModeIcon className="h-2.5 w-2.5 mr-0.5" />
+                          {modeLabel}
+                        </Badge>
+                        {offering.is_new && (
+                          <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 text-white border-0">
+                            New
+                          </Badge>
+                        )}
+                      </div>
+
+                      <h3 className="font-heading font-semibold text-base leading-tight mb-1.5">
+                        {offering.title}
+                      </h3>
+
+                      {offering.short_description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+                          {offering.short_description}
+                        </p>
+                      )}
+
+                      {offering.schedule_start && (
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1 mb-3">
+                          <Calendar className="h-3 w-3" />
+                          Starts{" "}
+                          {new Date(offering.schedule_start).toLocaleDateString("en-PK", {
+                            month: "short", day: "numeric", year: "numeric",
+                          })}
+                        </span>
+                      )}
+
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <span className="font-bold text-primary text-sm">
+                          {formatPriceWithFee(offering.price, offering.fee_type)}
+                        </span>
+                        <LinkButton size="sm" href={`/offerings/${offering.slug}`} className="text-xs h-7 px-3">
+                          View Details
+                        </LinkButton>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             <div className="text-center mt-8">

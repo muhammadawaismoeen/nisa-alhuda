@@ -78,8 +78,7 @@ export default async function StudentDashboardPage() {
         new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString()
       )
       .order("scheduled_at", { ascending: true })
-      .then((res) => res)
-      .catch(() => ({ data: null })),
+      .then((res) => res as { data: typeof liveSessions | null }),
   ]);
 
   if (lessonsResult.data) {
