@@ -32,11 +32,18 @@ interface SubjectDraft {
   slug: string;
   description: string;
   sort_order: number;
+  instructor_id: string;
+}
+
+interface InstructorOption {
+  id: string;
+  full_name: string;
 }
 
 interface OfferingFormProps {
   offering?: Offering;
   existingSubjects?: Subject[];
+  instructors?: InstructorOption[];
 }
 
 function generateSlug(title: string): string {
@@ -48,7 +55,7 @@ function generateSlug(title: string): string {
     .trim();
 }
 
-export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormProps) {
+export function OfferingForm({ offering, existingSubjects = [], instructors = [] }: OfferingFormProps) {
   const router = useRouter();
   const isEditing = !!offering;
 
@@ -76,6 +83,7 @@ export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormPr
       slug: s.slug,
       description: s.description || "",
       sort_order: s.sort_order,
+      instructor_id: s.instructor_id,
     }))
   );
 
@@ -99,6 +107,7 @@ export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormPr
         slug: "",
         description: "",
         sort_order: prev.length + 1,
+        instructor_id: instructors[0]?.id || "",
       },
     ]);
   }
@@ -212,7 +221,7 @@ export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormPr
             title: subject.title.trim(),
             slug: subject.slug || generateSlug(subject.title),
             description: subject.description.trim() || null,
-            instructor_id: user?.id,
+            instructor_id: subject.instructor_id || user?.id,
             sort_order: i + 1,
           };
 
@@ -442,6 +451,23 @@ export function OfferingForm({ offering, existingSubjects = [] }: OfferingFormPr
                             updateSubject(index, "title", e.target.value)
                           }
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Instructor</Label>
+                        <select
+                          value={subject.instructor_id}
+                          onChange={(e) =>
+                            updateSubject(index, "instructor_id", e.target.value)
+                          }
+                          className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
+                        >
+                          <option value="">Select instructor...</option>
+                          {instructors.map((inst) => (
+                            <option key={inst.id} value={inst.id}>
+                              {inst.full_name}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Slug</Label>

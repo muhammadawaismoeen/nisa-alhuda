@@ -1,9 +1,19 @@
 /**
  * New Offering Page — admin creates a new program, course, or workshop.
  */
+import { createClient } from "@/lib/supabase/server";
 import { OfferingForm } from "../offering-form";
 
-export default function NewOfferingPage() {
+export default async function NewOfferingPage() {
+  const supabase = await createClient();
+
+  // Fetch instructors for the subject assignment dropdown
+  const { data: instructors } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("role", "instructor")
+    .order("full_name");
+
   return (
     <div>
       <div className="mb-6">
@@ -13,7 +23,7 @@ export default function NewOfferingPage() {
         </p>
       </div>
 
-      <OfferingForm />
+      <OfferingForm instructors={instructors || []} />
     </div>
   );
 }

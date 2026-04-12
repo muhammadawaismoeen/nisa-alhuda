@@ -90,7 +90,14 @@ export default async function OfferingDetailPage({
         <div className="lg:col-span-2 space-y-6 sm:space-y-8 order-2 lg:order-1">
           {/* Header */}
           <div>
-            <Badge className="mb-3">{typeLabels[offering.type]}</Badge>
+            <div className="flex items-center gap-2 mb-3">
+              <Badge>{typeLabels[offering.type]}</Badge>
+              {offering.type === "program" && (
+                <Badge variant="outline" className="border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                  Age 12+
+                </Badge>
+              )}
+            </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               {offering.title}
             </h1>

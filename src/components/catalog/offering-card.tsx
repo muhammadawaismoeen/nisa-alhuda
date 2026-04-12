@@ -39,8 +39,13 @@ export function OfferingCard({ offering }: { offering: Offering }) {
       </div>
 
       <CardHeader className="pb-2">
-        <div className="flex items-center gap-2 mb-1">
+        <div className="flex items-center gap-2 mb-1 flex-wrap">
           <Badge variant={config.variant}>{config.label}</Badge>
+          {offering.type === "program" && (
+            <Badge variant="outline" className="text-xs border-emerald-300 text-emerald-700 dark:text-emerald-400">
+              Age 12+
+            </Badge>
+          )}
           {offering.schedule_start && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3 w-3" />

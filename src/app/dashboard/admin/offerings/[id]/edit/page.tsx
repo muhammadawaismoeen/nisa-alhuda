@@ -35,6 +35,13 @@ export default async function EditOfferingPage({
     subjects = (data as Subject[]) || [];
   }
 
+  // Fetch instructors for the subject assignment dropdown
+  const { data: instructors } = await supabase
+    .from("profiles")
+    .select("id, full_name")
+    .eq("role", "instructor")
+    .order("full_name");
+
   return (
     <div>
       <div className="mb-6">
@@ -44,7 +51,11 @@ export default async function EditOfferingPage({
         </p>
       </div>
 
-      <OfferingForm offering={offering} existingSubjects={subjects} />
+      <OfferingForm
+        offering={offering}
+        existingSubjects={subjects}
+        instructors={instructors || []}
+      />
     </div>
   );
 }
