@@ -37,9 +37,26 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       return;
     }
 
+    // Validate redirect path against user's role to prevent cross-role access
+    let safeDest = redirectTo || "/dashboard";
+    if (redirectTo) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .single();
+      const role = profile?.role;
+
+      // Block redirects to wrong role dashboards
+      if (role === "student" && (redirectTo.startsWith("/dashboard/admin") || redirectTo.startsWith("/dashboard/instructor"))) {
+        safeDest = "/dashboard";
+      } else if (role === "instructor" && redirectTo.startsWith("/dashboard/admin")) {
+        safeDest = "/dashboard";
+      }
+    }
+
     toast.success("Welcome back!");
-    router.push(redirectTo || "/dashboard");
-    router.refresh(); // Refresh server components to pick up the new session
+    router.push(safeDest);
+    router.refresh();
   }
 
   return (
@@ -56,7 +73,15 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Password</Label>
+          <a
+            href="/forgot-password"
+            className="text-xs text-primary hover:underline"
+          >
+            Forgot password?
+          </a>
+        </div>
         <Input
           id="password"
           name="password"

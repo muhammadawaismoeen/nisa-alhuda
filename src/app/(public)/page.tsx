@@ -14,7 +14,10 @@ import {
 import { LinkButton } from "@/components/ui/link-button";
 import { Card, CardContent } from "@/components/ui/card";
 import { TestimonialsSlider } from "@/components/landing/testimonials-slider";
+import { OfferingCard } from "@/components/catalog/offering-card";
+import { createClient } from "@/lib/supabase/server";
 import { APP_NAME } from "@/lib/constants";
+import type { Offering } from "@/lib/types/database";
 
 const features = [
   {
@@ -43,7 +46,17 @@ const features = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = await createClient();
+
+  const { data: offerings } = await supabase
+    .from("offerings")
+    .select("*")
+    .eq("status", "published")
+    .order("is_new", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(6);
+
   return (
     <div className="fade-in">
       {/* ─── Hero Section ─── */}
@@ -89,8 +102,8 @@ export default function HomePage() {
             </span>
 
             {/* Arabic Text */}
-            <p className="font-heading text-2xl md:text-3xl text-foreground/90 mt-5 mb-4 leading-relaxed" dir="rtl" lang="ar">
-              يَرْفَعِ ٱللَّهُ ٱلَّذِينَ ءَامَنُوا۟ مِنكُمْ وَٱلَّذِينَ أُوتُوا۟ ٱلْعِلْمَ دَرَجَـٰتٍ
+            <p className="font-heading text-xl md:text-2xl lg:text-3xl text-foreground/90 mt-5 mb-4 leading-loose" dir="rtl" lang="ar">
+              يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوٓا۟ إِذَا قِيلَ لَكُمْ تَفَسَّحُوا۟ فِى ٱلْمَجَـٰلِسِ فَٱفْسَحُوا۟ يَفْسَحِ ٱللَّهُ لَكُمْ ۖ وَإِذَا قِيلَ ٱنشُزُوا۟ فَٱنشُزُوا۟ يَرْفَعِ ٱللَّهُ ٱلَّذِينَ ءَامَنُوا۟ مِنكُمْ وَٱلَّذِينَ أُوتُوا۟ ٱلْعِلْمَ دَرَجَـٰتٍۢ ۚ وَٱللَّهُ بِمَا تَعْمَلُونَ خَبِيرٌۭ
             </p>
 
             {/* English Translation */}
@@ -107,8 +120,40 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ─── Offerings Section ─── */}
+      {offerings && offerings.length > 0 && (
+        <section className="py-20">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-10 sm:mb-14">
+              <span className="text-sm font-medium text-primary uppercase tracking-wider">
+                Start Learning Today
+              </span>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold mt-3 mb-4">
+                Available Programs &amp; Courses
+              </h2>
+              <p className="text-muted-foreground max-w-xl mx-auto">
+                Enroll in our latest offerings and begin your journey of knowledge.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              {(offerings as Offering[]).map((offering) => (
+                <OfferingCard key={offering.id} offering={offering} />
+              ))}
+            </div>
+
+            <div className="text-center mt-8">
+              <LinkButton variant="outline" href="/catalog" className="press">
+                View Full Catalog
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </LinkButton>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ─── Features Section ─── */}
-      <section className="py-20">
+      <section className="py-20 bg-secondary/40">
         <div className="container mx-auto px-4">
           <div className="text-center mb-10 sm:mb-14">
             <h2 className="font-heading text-2xl sm:text-3xl font-bold mb-4">

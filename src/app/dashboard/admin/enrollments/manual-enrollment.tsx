@@ -1,6 +1,7 @@
 /**
  * Manual Enrollment — admin can manually enroll or remove students.
  * Dialog with student/offering selectors and enroll/remove actions.
+ * Uses server actions to handle applicant_email lookup.
  */
 "use client";
 
@@ -22,8 +23,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { manualEnroll, removeEnrollment } from "./actions";
 
 interface ManualEnrollmentProps {
   students: { id: string; full_name: string }[];
@@ -70,25 +71,14 @@ export function ManualEnrollment({
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       const offering = offerings.find((o) => o.id === selectedOffering);
+      const result = await manualEnroll(
+        selectedStudent,
+        selectedOffering,
+        offering?.price || 0
+      );
 
-      const { error } = await supabase.from("enrollments").insert({
-        student_id: selectedStudent,
-        offering_id: selectedOffering,
-        status: "approved",
-        payment_receipt_url: "manual/admin-enrolled",
-        payment_amount: offering?.price || 0,
-        payment_method: "manual",
-        reviewed_by: user?.id,
-        reviewed_at: new Date().toISOString(),
-      });
-
-      if (error) throw new Error(error.message);
+      if (!result.success) throw new Error(result.error);
 
       toast.success("Student enrolled successfully!");
       setOpen(false);
@@ -123,14 +113,8 @@ export function ManualEnrollment({
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("enrollments")
-        .delete()
-        .eq("student_id", selectedStudent)
-        .eq("offering_id", selectedOffering);
-
-      if (error) throw new Error(error.message);
+      const result = await removeEnrollment(selectedStudent, selectedOffering);
+      if (!result.success) throw new Error(result.error);
 
       toast.success("Enrollment removed.");
       setOpen(false);

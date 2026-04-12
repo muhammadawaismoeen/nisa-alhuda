@@ -117,7 +117,7 @@ export default async function StudentEnrollmentsPage() {
                             }
                           )}
                         </span>
-                        {enrollment.payment_amount && (
+                        {enrollment.payment_amount > 0 && (
                           <span>
                             Rs.{" "}
                             {Number(enrollment.payment_amount).toLocaleString()}

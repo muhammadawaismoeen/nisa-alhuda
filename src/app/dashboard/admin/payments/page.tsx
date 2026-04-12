@@ -62,7 +62,7 @@ export default async function PaymentLedgerPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-8">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center">
@@ -134,8 +134,10 @@ export default async function PaymentLedgerPage() {
                   <div className="flex flex-col md:flex-row md:items-center gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold">
-                          {enrollment.student?.full_name || "Unknown"}
+                        <h3 className="font-semibold truncate">
+                          {(enrollment.student_details as any)?.first_name
+                            ? `${(enrollment.student_details as any).first_name} ${(enrollment.student_details as any).last_name || ""}`.trim()
+                            : enrollment.student?.full_name || enrollment.applicant_email || "Unknown"}
                         </h3>
                         <Badge variant="outline" className="text-amber-600">
                           Pending
@@ -194,26 +196,26 @@ export default async function PaymentLedgerPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b text-left">
-                  <th className="pb-3 font-medium text-muted-foreground">
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
                     Student
                   </th>
-                  <th className="pb-3 font-medium text-muted-foreground">
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
                     Offering
                   </th>
-                  <th className="pb-3 font-medium text-muted-foreground">
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
                     Amount
                   </th>
-                  <th className="pb-3 font-medium text-muted-foreground">
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
                     Date
                   </th>
-                  <th className="pb-3 font-medium text-muted-foreground">
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
                     Status
                   </th>
-                  <th className="pb-3 font-medium text-muted-foreground">
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
                     Actions
                   </th>
                 </tr>
@@ -222,15 +224,17 @@ export default async function PaymentLedgerPage() {
                 {(enrollments || []).map((enrollment: any) => (
                   <tr key={enrollment.id} className="border-b last:border-0">
                     <td className="py-3 font-medium">
-                      {enrollment.student?.full_name || "Unknown"}
+                      {(enrollment.student_details as any)?.first_name
+                        ? `${(enrollment.student_details as any).first_name} ${(enrollment.student_details as any).last_name || ""}`.trim()
+                        : enrollment.student?.full_name || enrollment.applicant_email || "Unknown"}
                     </td>
                     <td className="py-3 text-muted-foreground">
                       {enrollment.offering?.title}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 whitespace-nowrap">
                       {formatPrice(enrollment.payment_amount)}
                     </td>
-                    <td className="py-3 text-muted-foreground">
+                    <td className="py-3 text-muted-foreground whitespace-nowrap">
                       {new Date(enrollment.created_at).toLocaleDateString(
                         "en-PK",
                         { day: "numeric", month: "short", year: "numeric" }

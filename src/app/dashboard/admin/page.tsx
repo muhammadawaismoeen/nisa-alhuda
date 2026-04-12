@@ -10,10 +10,8 @@ import {
   Users,
   DollarSign,
   Video,
-  HardDrive,
   BookOpen,
   ClipboardList,
-  TrendingUp,
   ArrowRight,
   Clock,
   CheckCircle,
@@ -85,10 +83,8 @@ export default async function AdminDashboardPage() {
     return diff < 60 * 60 * 1000; // within 1 hour
   }).length;
 
-  // Storage usage estimate (rough: count of enrollments × ~0.5MB per receipt)
-  const storageEstimateMB =
-    ((enrollmentsRes.count || 0) + (lessonsRes.count || 0)) * 0.5;
-  const storageGB = (storageEstimateMB / 1024).toFixed(2);
+  // Total lessons count
+  const totalLessons = lessonsRes.count || 0;
 
   const recentEnrollments = recentEnrollmentsRes.data || [];
 
@@ -171,20 +167,20 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Storage Usage */}
+        {/* Total Lessons */}
         <Card className="hover-lift">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-medium text-muted-foreground">
-                Storage Usage
+                Total Lessons
               </p>
               <div className="h-9 w-9 rounded-xl bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center">
-                <HardDrive className="h-4 w-4 text-purple-600" />
+                <ClipboardList className="h-4 w-4 text-purple-600" />
               </div>
             </div>
-            <p className="text-3xl font-bold">~{storageGB} GB</p>
+            <p className="text-3xl font-bold">{totalLessons}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              estimated usage
+              {(lessonsRes.data || []).filter((l: any) => l.is_published).length} published
             </p>
           </CardContent>
         </Card>
@@ -267,7 +263,7 @@ export default async function AdminDashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">
-                        {enrollment.student?.full_name || "Unknown"}
+                        {enrollment.student?.full_name || (() => { const d = enrollment.student_details as any; return d?.first_name ? `${d.first_name} ${d.last_name || ""}`.trim() : (enrollment.applicant_email || "Unknown"); })()}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {enrollment.offering?.title}

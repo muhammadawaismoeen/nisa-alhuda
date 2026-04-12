@@ -29,6 +29,7 @@ export interface Profile {
   role: UserRole;
   phone: string | null;
   is_suspended: boolean;
+  must_change_password: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -93,7 +94,8 @@ export interface Resource {
 }
 
 export interface StudentDetails {
-  full_name: string;
+  first_name: string;
+  last_name: string;
   phone: string;
   city: string;
   age: string;
@@ -104,10 +106,11 @@ export interface StudentDetails {
 
 export interface Enrollment {
   id: string;
-  student_id: string;
+  student_id: string | null;
   offering_id: string;
+  applicant_email: string;
   status: EnrollmentStatus;
-  payment_receipt_url: string;
+  payment_receipt_url: string | null;
   payment_amount: number;
   payment_method: string;
   student_details: StudentDetails | null;

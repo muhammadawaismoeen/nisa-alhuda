@@ -1,18 +1,18 @@
 /**
- * Enrollment Wizard — multi-step form for enrolling in any offering.
+ * Enrollment Wizard — smart multi-step form with 3 user paths.
  *
- * Steps:
- *   1. Personal Details — name, phone, city, age, education, referral
- *   2. Payment — bank details shown, receipt upload
- *   3. Confirmation — success message
+ * PATH 1 (Express):   Logged in → pre-filled details, confirm + pay → done
+ * PATH 2 (Returning): Email found → prompt login or continue as guest
+ * PATH 3 (New):       Full form → pay → done
  *
- * Generic: works for programs, courses, and workshops.
+ * Free offerings (price=0) skip the payment step entirely.
  */
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Mail,
   User,
   CreditCard,
   CheckCircle,
@@ -22,16 +22,26 @@ import {
   FileImage,
   X,
   Loader2,
+  LogIn,
+  Sparkles,
+  Heart,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 import { formatPriceWithFee, APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
+import {
+  checkEmail,
+  checkExistingEnrollment,
+  submitGuestEnrollment,
+  submitLoggedInEnrollment,
+} from "./actions";
 import type { OfferingType, FeeType, StudentDetails } from "@/lib/types/database";
+
+// ─── Types ─────────────────────────────────────────────────
 
 interface EnrollmentWizardProps {
   offeringId: string;
@@ -39,16 +49,23 @@ interface EnrollmentWizardProps {
   offeringType: OfferingType;
   offeringPrice: number;
   offeringFeeType: FeeType;
-  userId: string;
-  userName: string;
-  userPhone: string;
+  offeringSlug: string;
+  isLoggedIn: boolean;
+  userEmail: string;
+  prefill: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    city: string;
+    age: string;
+    educationLevel: string;
+    referralSource: string;
+  };
 }
 
-const STEPS = [
-  { icon: User, label: "Your Details" },
-  { icon: CreditCard, label: "Payment" },
-  { icon: CheckCircle, label: "Confirmation" },
-];
+type WizardPath = "express" | "returning" | "new" | null;
+
+// ─── Constants ─────────────────────────────────────────────
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_TYPES = [
@@ -75,52 +92,140 @@ const REFERRAL_OPTIONS = [
   "Other",
 ];
 
+// ─── Component ─────────────────────────────────────────────
+
 export function EnrollmentWizard({
   offeringId,
   offeringTitle,
   offeringType,
   offeringPrice,
   offeringFeeType,
-  userId,
-  userName,
-  userPhone,
+  offeringSlug,
+  isLoggedIn,
+  userEmail,
+  prefill,
 }: EnrollmentWizardProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFree = offeringPrice === 0;
 
-  // Step state
+  // ─── Wizard State ────────────────────────────────────────
+
+  // For logged-in users, skip email step → go straight to details (step 0)
+  const [path, setPath] = useState<WizardPath>(isLoggedIn ? "express" : null);
   const [currentStep, setCurrentStep] = useState(0);
+
+  // Step 0: Email
+  const [email, setEmail] = useState(userEmail);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [returningFirstName, setReturningFirstName] = useState("");
 
   // Step 1: Personal details
   const [details, setDetails] = useState<StudentDetails>({
-    full_name: userName,
-    phone: userPhone,
-    city: "",
-    age: "",
-    education_level: "",
-    referral_source: "",
+    first_name: prefill.firstName,
+    last_name: prefill.lastName,
+    phone: prefill.phone,
+    city: prefill.city,
+    age: prefill.age,
+    education_level: prefill.educationLevel,
+    referral_source: prefill.referralSource,
     message: "",
   });
 
-  // Step 2: Payment
+  // Step 2: Payment (skipped for free offerings)
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [senderName, setSenderName] = useState(userName);
-  const [submitting, setSubmitting] = useState(false);
+  const [senderName, setSenderName] = useState(
+    prefill.firstName ? `${prefill.firstName} ${prefill.lastName}`.trim() : ""
+  );
 
-  // ─── Helpers ───────────────────────────────────────────
+  // Submission
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [uploadedReceiptPath, setUploadedReceiptPath] = useState<string | null>(null);
+
+  // ─── Dynamic Steps ───────────────────────────────────────
+
+  const steps = [
+    ...(isLoggedIn ? [] : [{ icon: Mail, label: "Email" }]),
+    { icon: User, label: "Your Details" },
+    ...(isFree ? [] : [{ icon: CreditCard, label: "Payment" }]),
+    { icon: CheckCircle, label: "Done" },
+  ];
+
+  // ─── Helpers ─────────────────────────────────────────────
 
   function updateDetail(key: keyof StudentDetails, value: string) {
     setDetails((prev) => ({ ...prev, [key]: value }));
   }
 
-  function validateStep1(): boolean {
-    if (!details.full_name.trim()) {
-      toast.error("Please enter your full name.");
+  // ─── Step 0: Email Check ─────────────────────────────────
+
+  async function handleEmailSubmit() {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setCheckingEmail(true);
+    try {
+      // Check if already enrolled in this offering
+      const enrollmentCheck = await checkExistingEnrollment(trimmed, offeringId);
+      if (enrollmentCheck.exists) {
+        if (enrollmentCheck.status === "pending") {
+          toast.error("You've already applied for this offering. Your application is under review.");
+        } else if (enrollmentCheck.status === "approved") {
+          toast.error("You're already enrolled in this offering!");
+        } else {
+          // Rejected — allow re-apply, continue to form
+        }
+        if (enrollmentCheck.status !== "rejected") {
+          setCheckingEmail(false);
+          return;
+        }
+      }
+
+      // Check if email exists in our system
+      const result = await checkEmail(trimmed);
+
+      if (result.exists) {
+        setPath("returning");
+        setReturningFirstName(result.firstName || "");
+      } else {
+        setPath("new");
+        goToStep(1);
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setCheckingEmail(false);
+    }
+  }
+
+  function handleContinueAsGuest() {
+    setPath("new");
+    goToStep(1);
+  }
+
+  function handleLoginRedirect() {
+    // Redirect to login with return URL back to this enrollment
+    router.push(`/login?redirect=/offerings/${offeringSlug}/enroll`);
+  }
+
+  // ─── Step 1: Validation ──────────────────────────────────
+
+  function validateDetails(): boolean {
+    if (!details.first_name.trim()) {
+      toast.error("Please enter your first name.");
+      return false;
+    }
+    if (!details.last_name.trim()) {
+      toast.error("Please enter your last name.");
       return false;
     }
     if (!details.phone.trim()) {
-      toast.error("Please enter your phone number.");
+      toast.error("Please enter your WhatsApp number.");
       return false;
     }
     if (!details.city.trim()) {
@@ -130,18 +235,32 @@ export function EnrollmentWizard({
     return true;
   }
 
-  function goNext() {
-    if (currentStep === 0 && !validateStep1()) return;
-    setCurrentStep((prev) => Math.min(prev + 1, STEPS.length - 1));
+  // ─── Navigation ──────────────────────────────────────────
+
+  function goToStep(step: number) {
+    setCurrentStep(step);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goNext() {
+    // From details step
+    const detailsStepIndex = isLoggedIn ? 0 : 1;
+    if (currentStep === detailsStepIndex && !validateDetails()) return;
+
+    if (isFree && currentStep === detailsStepIndex) {
+      // Free offering: skip payment, submit directly
+      handleSubmit();
+      return;
+    }
+
+    goToStep(currentStep + 1);
   }
 
   function goBack() {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    goToStep(Math.max(currentStep - 1, 0));
   }
 
-  // ─── File handling ─────────────────────────────────────
+  // ─── File Handling ───────────────────────────────────────
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
@@ -173,14 +292,25 @@ export function EnrollmentWizard({
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  // ─── Submit ────────────────────────────────────────────
+  // ─── Convert file to base64 for server action ───────────
+
+  const fileToBase64 = useCallback(async (f: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    });
+  }, []);
+
+  // ─── Submit ──────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!file) {
+    if (!isFree && !file) {
       toast.error("Please upload your payment receipt.");
       return;
     }
-    if (!senderName.trim()) {
+    if (!isFree && !senderName.trim()) {
       toast.error("Please enter the sender name on the payment.");
       return;
     }
@@ -188,64 +318,57 @@ export function EnrollmentWizard({
     setSubmitting(true);
 
     try {
-      const supabase = createClient();
-
-      // 1. Upload receipt
-      const fileExt = file.name.split(".").pop();
-      const filePath = `${userId}/${offeringId}-${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("payment-receipts")
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw new Error(`Upload failed: ${uploadError.message}`);
+      let receiptBase64: string | null = null;
+      if (file) {
+        receiptBase64 = await fileToBase64(file);
       }
 
-      // 2. Create enrollment with student details
-      const { error: enrollError } = await supabase.from("enrollments").insert({
-        student_id: userId,
-        offering_id: offeringId,
-        payment_receipt_url: filePath,
-        payment_amount: offeringPrice,
-        payment_method: "bank_transfer",
-        student_details: details,
-      });
+      const input = {
+        offeringId,
+        email: email.trim().toLowerCase(),
+        details,
+        paymentAmount: offeringPrice,
+        receiptBase64,
+        receiptFileName: file?.name || null,
+        senderName: senderName || null,
+        existingReceiptPath: uploadedReceiptPath,
+      };
 
-      if (enrollError) {
-        await supabase.storage.from("payment-receipts").remove([filePath]);
-        throw new Error(`Enrollment failed: ${enrollError.message}`);
+      const result = isLoggedIn
+        ? await submitLoggedInEnrollment(input)
+        : await submitGuestEnrollment(input);
+
+      if (!result.success) {
+        // Save uploaded receipt path so retry doesn't re-upload
+        if (result.uploadedReceiptPath) {
+          setUploadedReceiptPath(result.uploadedReceiptPath);
+        }
+        toast.error(result.error || "Something went wrong.");
+        return;
       }
 
-      // 3. Update profile with phone if empty
-      if (!userPhone && details.phone) {
-        await supabase
-          .from("profiles")
-          .update({ phone: details.phone })
-          .eq("id", userId);
-      }
-
-      // Move to confirmation step
-      setCurrentStep(2);
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again."
-      );
+      // Move to success step
+      setSubmitted(true);
+      goToStep(steps.length - 1);
+    } catch {
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  // ─── Step Indicator ────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  //   RENDER SECTIONS
+  // ═══════════════════════════════════════════════════════════
+
+  // ─── Step Indicator ────────────────────────────────────────
 
   function StepIndicator() {
     return (
       <div className="flex items-center justify-center gap-0 mb-10">
-        {STEPS.map((step, index) => {
+        {steps.map((step, index) => {
           const isActive = index === currentStep;
-          const isCompleted = index < currentStep;
+          const isCompleted = index < currentStep || submitted;
           const StepIcon = step.icon;
 
           return (
@@ -260,14 +383,14 @@ export function EnrollmentWizard({
                         : "bg-secondary text-muted-foreground"
                   }`}
                 >
-                  {isCompleted ? (
+                  {isCompleted && !isActive ? (
                     <CheckCircle className="h-5 w-5" />
                   ) : (
                     <StepIcon className="h-5 w-5" />
                   )}
                 </div>
                 <span
-                  className={`text-xs font-medium ${
+                  className={`text-xs font-medium hidden sm:block ${
                     isActive || isCompleted
                       ? "text-foreground"
                       : "text-muted-foreground"
@@ -277,10 +400,9 @@ export function EnrollmentWizard({
                 </span>
               </div>
 
-              {/* Connector line */}
-              {index < STEPS.length - 1 && (
+              {index < steps.length - 1 && (
                 <div
-                  className={`h-0.5 w-12 sm:w-20 mx-2 mb-6 ${
+                  className={`h-0.5 w-8 sm:w-16 mx-1.5 sm:mx-2 mb-0 sm:mb-6 ${
                     isCompleted ? "bg-primary" : "bg-border"
                   }`}
                 />
@@ -292,38 +414,174 @@ export function EnrollmentWizard({
     );
   }
 
-  // ─── STEP 1: Personal Details ──────────────────────────
+  // ─── STEP 0: Email Entry (guests only) ─────────────────────
 
-  function PersonalDetailsStep() {
+  function EmailStep() {
+    // PATH 2: Email found — show "Welcome back" card
+    if (path === "returning") {
+      return (
+        <Card className="glass">
+          <CardContent className="p-6 md:p-8">
+            <div className="text-center max-w-md mx-auto">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Sparkles className="h-8 w-8 text-primary" />
+              </div>
+
+              <h2 className="font-heading font-semibold text-xl mb-2">
+                Welcome back{returningFirstName ? `, ${returningFirstName}` : ""}!
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                We found your account. Log in for a faster enrollment experience
+                with your details pre-filled.
+              </p>
+
+              <div className="space-y-3">
+                <Button
+                  size="lg"
+                  className="w-full press"
+                  onClick={handleLoginRedirect}
+                >
+                  <LogIn className="h-4 w-4 mr-2" />
+                  Log In for Express Enrollment
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={handleContinueAsGuest}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
+                >
+                  Continue as a new application instead
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+
+    // Default: email input
     return (
       <Card className="glass">
         <CardContent className="p-6 md:p-8">
-          <h2 className="font-heading font-semibold text-lg mb-1">
-            Tell Us About Yourself
-          </h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            This helps us personalize your learning experience.
-          </p>
+          <div className="max-w-md mx-auto">
+            <h2 className="font-heading font-semibold text-lg mb-1">
+              Let&apos;s Get Started
+            </h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Enter your email address to begin your enrollment.
+            </p>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">
+                  Email Address <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your.email@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleEmailSubmit();
+                    }
+                  }}
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  We&apos;ll use this to send you enrollment updates and account credentials.
+                </p>
+              </div>
+
+              <Button
+                size="lg"
+                className="w-full press"
+                onClick={handleEmailSubmit}
+                disabled={checkingEmail}
+              >
+                {checkingEmail ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    Continue
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // ─── STEP 1: Personal Details ──────────────────────────────
+
+  function PersonalDetailsStep() {
+    const isExpress = path === "express";
+
+    return (
+      <Card className="glass">
+        <CardContent className="p-6 md:p-8">
+          {isExpress ? (
+            <>
+              <h2 className="font-heading font-semibold text-lg mb-1">
+                Confirm Your Details
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                Please verify your information is up to date, then continue.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="font-heading font-semibold text-lg mb-1">
+                Tell Us About Yourself
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                This helps us personalize your learning experience.
+              </p>
+            </>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Full Name */}
+            {/* First Name */}
             <div className="space-y-2">
-              <Label htmlFor="fullName">
-                Full Name <span className="text-destructive">*</span>
+              <Label htmlFor="firstName">
+                First Name <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="fullName"
-                placeholder="Your full name"
-                value={details.full_name}
-                onChange={(e) => updateDetail("full_name", e.target.value)}
+                id="firstName"
+                placeholder="e.g. Fatima"
+                value={details.first_name}
+                onChange={(e) => updateDetail("first_name", e.target.value)}
                 required
               />
             </div>
 
-            {/* Phone */}
+            {/* Last Name */}
+            <div className="space-y-2">
+              <Label htmlFor="lastName">
+                Last Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="lastName"
+                placeholder="e.g. Ahmed"
+                value={details.last_name}
+                onChange={(e) => updateDetail("last_name", e.target.value)}
+                required
+              />
+            </div>
+
+            {/* WhatsApp */}
             <div className="space-y-2">
               <Label htmlFor="phone">
-                Phone / WhatsApp <span className="text-destructive">*</span>
+                WhatsApp Number <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="phone"
@@ -366,9 +624,7 @@ export function EnrollmentWizard({
                 id="education"
                 className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
                 value={details.education_level}
-                onChange={(e) =>
-                  updateDetail("education_level", e.target.value)
-                }
+                onChange={(e) => updateDetail("education_level", e.target.value)}
               >
                 <option value="">Select...</option>
                 {EDUCATION_OPTIONS.map((opt) => (
@@ -386,9 +642,7 @@ export function EnrollmentWizard({
                 id="referral"
                 className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
                 value={details.referral_source}
-                onChange={(e) =>
-                  updateDetail("referral_source", e.target.value)
-                }
+                onChange={(e) => updateDetail("referral_source", e.target.value)}
               >
                 <option value="">Select...</option>
                 {REFERRAL_OPTIONS.map((opt) => (
@@ -414,19 +668,43 @@ export function EnrollmentWizard({
             </div>
           </div>
 
-          {/* Next Button */}
-          <div className="flex justify-end mt-8">
-            <Button size="lg" onClick={goNext} className="press">
-              Continue to Payment
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+          {/* Navigation */}
+          <div className="flex justify-between mt-8">
+            {!isLoggedIn && (
+              <Button variant="outline" onClick={goBack} className="press">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+            )}
+            <div className={isLoggedIn ? "ml-auto" : ""}>
+              <Button size="lg" onClick={goNext} className="press">
+                {isFree ? (
+                  submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      Submit Application
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )
+                ) : (
+                  <>
+                    Continue to Payment
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  // ─── STEP 2: Payment & Upload ──────────────────────────
+  // ─── STEP 2: Payment & Upload (paid offerings only) ────────
 
   function PaymentStep() {
     return (
@@ -455,15 +733,11 @@ export function EnrollmentWizard({
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Account Title
-                    </p>
+                    <p className="text-sm text-muted-foreground">Account Title</p>
                     <p className="font-medium">{APP_NAME}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Account Number
-                    </p>
+                    <p className="text-sm text-muted-foreground">Account Number</p>
                     <p className="font-medium font-mono">0300-1234567</p>
                   </div>
                 </div>
@@ -471,7 +745,7 @@ export function EnrollmentWizard({
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                   <p className="text-xs text-muted-foreground">
                     <strong>Important:</strong> Please include your full name in
-                    the payment reference so we can match it to your account.
+                    the payment reference so we can match it to your application.
                   </p>
                 </div>
               </div>
@@ -577,7 +851,7 @@ export function EnrollmentWizard({
               </>
             ) : (
               <>
-                Submit Enrollment
+                Submit Application
                 <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
@@ -585,67 +859,102 @@ export function EnrollmentWizard({
         </div>
 
         <p className="text-xs text-center text-muted-foreground">
-          Your enrollment will be reviewed within 24–48 hours.
+          Your application will be reviewed within 24 hours.
         </p>
       </div>
     );
   }
 
-  // ─── STEP 3: Confirmation ──────────────────────────────
+  // ─── SUCCESS STEP: Beautiful motivational message ──────────
 
-  function ConfirmationStep() {
+  function SuccessStep() {
     return (
-      <Card className="glass">
+      <Card className="glass overflow-hidden">
+        {/* Decorative gradient header */}
+        <div className="h-2 bg-gradient-to-r from-primary via-amber-400 to-primary" />
+
         <CardContent className="p-8 md:p-12 text-center">
-          <div className="h-20 w-20 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+          <div className="h-20 w-20 rounded-full bg-green-50 dark:bg-green-950/30 flex items-center justify-center mx-auto mb-6">
+            <Heart className="h-10 w-10 text-green-600 fill-green-600" />
           </div>
 
-          <h2 className="font-heading text-2xl font-bold mb-2">
-            Enrollment Submitted!
+          <h2 className="font-heading text-2xl md:text-3xl font-bold mb-3">
+            Application Received!
           </h2>
-          <p className="text-muted-foreground mb-2 max-w-md mx-auto">
-            Thank you for enrolling in <strong>{offeringTitle}</strong>. Your
-            payment receipt has been submitted for review.
-          </p>
-          <p className="text-sm text-muted-foreground mb-8">
-            We&apos;ll review your payment and approve your enrollment within
-            24–48 hours. You&apos;ll be able to see the status on your
-            dashboard.
-          </p>
+
+          <div className="max-w-lg mx-auto space-y-4 mb-8">
+            <p className="text-muted-foreground">
+              Jazakillahu Khairan for applying to{" "}
+              <strong className="text-foreground">{offeringTitle}</strong>. We&apos;re
+              delighted to have you on this journey of knowledge.
+            </p>
+
+            <div className="p-4 rounded-xl bg-secondary/60 text-sm space-y-2">
+              <p className="font-medium text-foreground">What happens next?</p>
+              <ul className="text-muted-foreground space-y-1.5 text-left">
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <span>Our team will review your application within <strong>24 hours</strong></span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <span>
+                    You&apos;ll receive an email at <strong>{email}</strong> with your
+                    enrollment status and login credentials
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <span>Keep checking your inbox (and spam folder, just in case!)</span>
+                </li>
+              </ul>
+            </div>
+
+            <p className="text-sm text-muted-foreground italic">
+              &ldquo;Seeking knowledge is an obligation upon every Muslim.&rdquo;
+            </p>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button
-              onClick={() => {
-                router.push("/dashboard/student");
-                router.refresh();
-              }}
-              className="press"
-            >
-              Go to Dashboard
-            </Button>
             <Button
               variant="outline"
               onClick={() => router.push("/catalog")}
               className="press"
             >
-              Browse More Programs
+              Explore More Programs
             </Button>
+            {isLoggedIn && (
+              <Button
+                onClick={() => {
+                  router.push("/dashboard/student");
+                  router.refresh();
+                }}
+                className="press"
+              >
+                Go to Dashboard
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  // ─── Render ────────────────────────────────────────────
+  // ─── Main Render ───────────────────────────────────────────
+
+  // Build step-to-content mapping aligned with the steps array.
+  // Each entry here corresponds to the step at the same index.
+  const stepContent: React.ReactNode[] = [
+    ...(isLoggedIn ? [] : [<EmailStep key="email" />]),
+    <PersonalDetailsStep key="details" />,
+    ...(isFree ? [] : [<PaymentStep key="payment" />]),
+    submitted ? <SuccessStep key="success" /> : null,
+  ];
 
   return (
     <div>
       <StepIndicator />
-
-      {currentStep === 0 && <PersonalDetailsStep />}
-      {currentStep === 1 && <PaymentStep />}
-      {currentStep === 2 && <ConfirmationStep />}
+      {stepContent[currentStep]}
     </div>
   );
 }

@@ -38,58 +38,37 @@ export default async function StudentDashboardPage() {
   const approved = enrollments?.filter((e) => e.status === "approved") || [];
   const pending = enrollments?.filter((e) => e.status === "pending") || [];
 
-  // For approved enrollments, count published lessons per offering
+  // Fetch lessons, progress, and live sessions in parallel
   const approvedOfferingIds = approved.map((e) => e.offering_id);
   let lessonCounts: Record<string, number> = {};
-
-  if (approvedOfferingIds.length > 0) {
-    const { data: lessons } = await supabase
-      .from("lessons")
-      .select("offering_id")
-      .in("offering_id", approvedOfferingIds)
-      .eq("is_published", true);
-
-    if (lessons) {
-      lessonCounts = lessons.reduce(
-        (acc, l) => {
-          acc[l.offering_id] = (acc[l.offering_id] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-    }
-  }
-
-  // Fetch completed lesson counts per offering
   let completedCounts: Record<string, number> = {};
-
-  if (approvedOfferingIds.length > 0) {
-    const { data: progressData } = await supabase
-      .from("lesson_progress")
-      .select("offering_id")
-      .eq("student_id", user.id)
-      .in("offering_id", approvedOfferingIds);
-
-    if (progressData) {
-      completedCounts = progressData.reduce(
-        (acc, p: { offering_id: string }) => {
-          acc[p.offering_id] = (acc[p.offering_id] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
-    }
-  }
-
-  // Fetch live sessions (RLS filters to enrolled offerings)
   let liveSessions: (LiveSession & {
     instructor: ProfileType;
     offering: Offering;
   })[] = [];
 
-  try {
-    const now = new Date();
-    const { data: sessionsData } = await supabase
+  const now = new Date();
+
+  // Run all independent queries in parallel
+  const [lessonsResult, progressResult, sessionsResult] = await Promise.all([
+    // Lessons count per offering
+    approvedOfferingIds.length > 0
+      ? supabase
+          .from("lessons")
+          .select("offering_id")
+          .in("offering_id", approvedOfferingIds)
+          .eq("is_published", true)
+      : Promise.resolve({ data: null }),
+    // Completed lessons per offering
+    approvedOfferingIds.length > 0
+      ? supabase
+          .from("lesson_progress")
+          .select("offering_id")
+          .eq("student_id", user.id)
+          .in("offering_id", approvedOfferingIds)
+      : Promise.resolve({ data: null }),
+    // Live sessions
+    supabase
       .from("live_sessions")
       .select(
         "*, instructor:profiles!live_sessions_instructor_id_fkey(*), offering:offerings!live_sessions_offering_id_fkey(*)"
@@ -98,19 +77,39 @@ export default async function StudentDashboardPage() {
         "scheduled_at",
         new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString()
       )
-      .order("scheduled_at", { ascending: true });
+      .order("scheduled_at", { ascending: true })
+      .then((res) => res)
+      .catch(() => ({ data: null })),
+  ]);
 
-    if (sessionsData) {
-      liveSessions = (sessionsData as typeof liveSessions).filter((s) => {
-        const start = new Date(s.scheduled_at);
-        const end = new Date(
-          start.getTime() + s.duration_minutes * 60 * 1000
-        );
-        return now >= start && now <= end;
-      });
-    }
-  } catch {
-    // Table may not exist before migration
+  if (lessonsResult.data) {
+    lessonCounts = lessonsResult.data.reduce(
+      (acc, l: { offering_id: string }) => {
+        acc[l.offering_id] = (acc[l.offering_id] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }
+
+  if (progressResult.data) {
+    completedCounts = progressResult.data.reduce(
+      (acc, p: { offering_id: string }) => {
+        acc[p.offering_id] = (acc[p.offering_id] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }
+
+  if (sessionsResult.data) {
+    liveSessions = (sessionsResult.data as typeof liveSessions).filter((s) => {
+      const start = new Date(s.scheduled_at);
+      const end = new Date(
+        start.getTime() + s.duration_minutes * 60 * 1000
+      );
+      return now >= start && now <= end;
+    });
   }
 
   return (

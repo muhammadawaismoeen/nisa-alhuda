@@ -27,7 +27,7 @@ import { toast } from "sonner";
 interface EnrollmentActionsProps {
   enrollmentId: string;
   status: string;
-  receiptPath: string;
+  receiptPath: string | null;
 }
 
 export function EnrollmentActions({
@@ -126,7 +126,8 @@ export function EnrollmentActions({
 
   return (
     <div className="flex items-center gap-2">
-      {/* View Receipt */}
+      {/* View Receipt — only show if receipt exists */}
+      {receiptPath && (
       <Dialog>
         <DialogTrigger
           className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border bg-background hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 text-[0.8rem] font-medium transition-all"
@@ -169,6 +170,7 @@ export function EnrollmentActions({
           </div>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Approve / Reject — only show for pending */}
       {status === "pending" && (

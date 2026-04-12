@@ -1,14 +1,15 @@
 /**
  * Enrollment Management — admin view with manual enroll/remove capabilities.
- * Shows all enrollments with options to manually add or remove students.
+ * Shows all enrollments (including guest) with email, student details, and actions.
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/constants";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Mail, User } from "lucide-react";
 import { EnrollmentActions } from "./enrollment-actions";
 import { ManualEnrollment } from "./manual-enrollment";
+import type { StudentDetails } from "@/lib/types/database";
 
 const statusConfig = {
   pending: { label: "Pending", variant: "outline" as const },
@@ -106,6 +107,13 @@ export default async function AdminEnrollmentsPage() {
           {enrollments.map((enrollment: any) => {
             const config =
               statusConfig[enrollment.status as keyof typeof statusConfig];
+            const details = enrollment.student_details as StudentDetails | null;
+            const applicantName =
+              (details?.first_name || details?.last_name)
+                ? `${details.first_name || ""} ${details.last_name || ""}`.trim()
+                : enrollment.student?.full_name || enrollment.applicant_email || "Unknown";
+            const isGuest = !enrollment.student_id;
+
             return (
               <Card
                 key={enrollment.id}
@@ -116,19 +124,33 @@ export default async function AdminEnrollmentsPage() {
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-semibold truncate">
-                          {enrollment.student?.full_name || "Unknown Student"}
+                          {applicantName}
                         </h3>
                         <Badge variant={config.variant}>{config.label}</Badge>
+                        {isGuest && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-400">
+                            Guest
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
                         {enrollment.offering?.title || "Unknown Offering"}
                       </p>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
-                        <span>{formatPrice(enrollment.payment_amount)}</span>
-                        {enrollment.student?.phone && (
-                          <span>{enrollment.student.phone}</span>
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {enrollment.applicant_email}
+                        </span>
+                        {enrollment.payment_amount > 0 && (
+                          <span>{formatPrice(enrollment.payment_amount)}</span>
+                        )}
+                        {enrollment.payment_amount === 0 && (
+                          <span className="text-green-600 font-medium">Free</span>
+                        )}
+                        {details?.phone && (
+                          <span>{details.phone}</span>
                         )}
                         <span>
                           {new Date(enrollment.created_at).toLocaleDateString(
