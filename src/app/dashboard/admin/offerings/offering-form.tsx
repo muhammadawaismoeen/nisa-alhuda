@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { Offering, Subject, OfferingType, OfferingStatus, FeeType } from "@/lib/types/database";
+import type { Offering, Subject, OfferingType, OfferingStatus, FeeType, OfferingMode } from "@/lib/types/database";
 
 interface SubjectDraft {
   id?: string; // existing subjects have an id
@@ -76,6 +76,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
   );
   const [scheduleEnd, setScheduleEnd] = useState(offering?.schedule_end || "");
   const [feeType, setFeeType] = useState<FeeType>(offering?.fee_type || "one_time");
+  const [mode, setMode] = useState<OfferingMode>(offering?.mode || "online");
   // Subjects (for programs)
   const [subjects, setSubjects] = useState<SubjectDraft[]>(
     existingSubjects.map((s) => ({
@@ -165,6 +166,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
         type,
         price: parseInt(price) || 0,
         fee_type: feeType,
+        mode,
         status,
         schedule_start: scheduleStart || null,
         schedule_end: scheduleEnd || null,
@@ -334,6 +336,21 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
                 <option value="archived">Archived</option>
+              </select>
+            </div>
+
+            {/* Mode */}
+            <div className="space-y-2">
+              <Label htmlFor="mode">Mode</Label>
+              <select
+                id="mode"
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
+                value={mode}
+                onChange={(e) => setMode(e.target.value as OfferingMode)}
+              >
+                <option value="online">Online</option>
+                <option value="onsite">Onsite</option>
+                <option value="hybrid">Hybrid</option>
               </select>
             </div>
 

@@ -10,6 +10,7 @@
 export type UserRole = "admin" | "instructor" | "student";
 export type OfferingType = "program" | "course" | "workshop" | "class";
 export type FeeType = "one_time" | "monthly";
+export type OfferingMode = "online" | "onsite" | "hybrid";
 export type OfferingStatus = "draft" | "published" | "archived";
 export type EnrollmentStatus = "pending" | "approved" | "rejected";
 export type NotificationType =
@@ -45,6 +46,7 @@ export interface Offering {
   instructor_id: string | null;
   schedule_start: string | null;
   fee_type: FeeType;
+  mode: OfferingMode;
   schedule_end: string | null;
   live_class_link: string | null;
   is_featured: boolean;

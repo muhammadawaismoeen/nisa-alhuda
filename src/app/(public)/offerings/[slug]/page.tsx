@@ -5,7 +5,7 @@
  */
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Calendar, Clock, Users, BookOpen, ArrowRight } from "lucide-react";
+import { Calendar, Clock, Users, BookOpen, ArrowRight, MapPin, Wifi } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +98,10 @@ export default async function OfferingDetailPage({
                   Age 12+
                 </Badge>
               )}
+              <Badge variant="outline">
+                {offering.mode === "onsite" ? <MapPin className="h-3 w-3 mr-1" /> : <Wifi className="h-3 w-3 mr-1" />}
+                {offering.mode === "onsite" ? "Onsite" : offering.mode === "hybrid" ? "Hybrid" : "Online"}
+              </Badge>
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               {offering.title}
@@ -219,6 +223,10 @@ export default async function OfferingDetailPage({
                     <span>{subjects.length} subjects included</span>
                   </div>
                 )}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  {offering.mode === "onsite" ? <MapPin className="h-4 w-4" /> : <Wifi className="h-4 w-4" />}
+                  <span>{offering.mode === "onsite" ? "Onsite" : offering.mode === "hybrid" ? "Hybrid" : "Online"}</span>
+                </div>
               </div>
 
               {/* Enroll CTA */}
