@@ -33,9 +33,9 @@ export function OfferingCard({ offering }: { offering: Offering }) {
   const ModeIcon = modeInfo.icon;
 
   return (
-    <Card className="flex flex-col hover-lift glass overflow-hidden">
+    <Card className={`flex flex-col hover-lift glass overflow-hidden ${offering.is_new ? "ring-2 ring-amber-400/70 shadow-lg shadow-amber-100/50" : ""}`}>
       {/* Thumbnail */}
-      <div className="aspect-[16/10] bg-secondary rounded-t-lg flex items-center justify-center kufic-pattern">
+      <div className="aspect-[16/10] bg-secondary rounded-t-lg flex items-center justify-center kufic-pattern relative">
         {offering.thumbnail_url ? (
           <img
             src={offering.thumbnail_url}
@@ -44,6 +44,11 @@ export function OfferingCard({ offering }: { offering: Offering }) {
           />
         ) : (
           <BookOpen className="h-10 w-10 text-primary/20" />
+        )}
+        {offering.is_new && (
+          <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-md">
+            New
+          </span>
         )}
       </div>
 
@@ -61,11 +66,6 @@ export function OfferingCard({ offering }: { offering: Offering }) {
             <ModeIcon className="h-2.5 w-2.5 mr-0.5" />
             {modeInfo.label}
           </Badge>
-          {offering.is_new && (
-            <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 hover:bg-amber-500 text-white">
-              New
-            </Badge>
-          )}
         </div>
         <h3 className="font-semibold text-base leading-tight line-clamp-2">
           {offering.title}

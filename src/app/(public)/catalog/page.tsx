@@ -28,6 +28,7 @@ export default async function CatalogPage({
     .from("offerings")
     .select("*")
     .eq("status", isArchived ? "archived" : "published")
+    .order("is_new", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) {
