@@ -143,6 +143,7 @@ export function EnrollmentWizard({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [uploadedReceiptPath, setUploadedReceiptPath] = useState<string | null>(null);
+  const [paymentRegion, setPaymentRegion] = useState<"pk" | "in">("pk");
 
   // ─── Dynamic Steps ───────────────────────────────────────
 
@@ -725,22 +726,63 @@ export function EnrollmentWizard({
                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Bank Name</p>
-                    <p className="font-medium">
-                      JazzCash / EasyPaisa / Bank Transfer
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Account Title</p>
-                    <p className="font-medium">{APP_NAME}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Account Number</p>
-                    <p className="font-medium font-mono">0300-1234567</p>
-                  </div>
+                {/* Region Toggle */}
+                <div className="flex rounded-lg bg-secondary p-1 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentRegion("pk")}
+                    className={`flex-1 text-sm font-medium py-2 rounded-md transition-colors ${paymentRegion === "pk" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    🇵🇰 Pakistan / International
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentRegion("in")}
+                    className={`flex-1 text-sm font-medium py-2 rounded-md transition-colors ${paymentRegion === "in" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    🇮🇳 India
+                  </button>
                 </div>
+
+                {paymentRegion === "pk" ? (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Bank Name</p>
+                      <p className="font-medium">Bank Alfalah</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Name</p>
+                      <p className="font-medium">Sana Ahmed</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Number</p>
+                      <p className="font-medium font-mono">56185002604899</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">IBAN</p>
+                      <p className="font-medium font-mono text-xs sm:text-sm">PK81ALFH5618005002604899</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Bank Name</p>
+                      <p className="font-medium">HDFC Bank</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Name</p>
+                      <p className="font-medium">Kareemunnisa Shaik</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Number</p>
+                      <p className="font-medium font-mono">50100433613784</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">IFSC Code</p>
+                      <p className="font-medium font-mono">HDFC0009377</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                   <p className="text-xs text-muted-foreground">
