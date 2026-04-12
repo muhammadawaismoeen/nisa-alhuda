@@ -142,8 +142,8 @@ export default async function OfferingDetailPage({
             </div>
           )}
 
-          {/* Instructor (for courses/workshops) */}
-          {instructor && (
+          {/* Instructor (for courses/workshops only — programs show per-subject instructors) */}
+          {instructor && offering.type !== "program" && (
             <div>
               <h2 className="text-xl font-semibold mb-4">Your Instructor</h2>
               <div className="flex items-center gap-4">
