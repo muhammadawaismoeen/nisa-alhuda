@@ -29,7 +29,7 @@ export default async function CatalogPage({
     .select("*")
     .eq("status", isArchived ? "archived" : "published")
     .order("is_new", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("schedule_start", { ascending: false, nullsFirst: false });
 
   if (error) {
     console.error("Error fetching offerings:", error);
