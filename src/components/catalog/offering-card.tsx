@@ -61,6 +61,11 @@ export function OfferingCard({ offering }: { offering: Offering }) {
             <ModeIcon className="h-2.5 w-2.5 mr-0.5" />
             {modeInfo.label}
           </Badge>
+          {offering.is_new && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-amber-500 hover:bg-amber-500 text-white">
+              New
+            </Badge>
+          )}
         </div>
         <h3 className="font-semibold text-base leading-tight line-clamp-2">
           {offering.title}

@@ -77,6 +77,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
   const [scheduleEnd, setScheduleEnd] = useState(offering?.schedule_end || "");
   const [feeType, setFeeType] = useState<FeeType>(offering?.fee_type || "one_time");
   const [mode, setMode] = useState<OfferingMode>(offering?.mode || "online");
+  const [isNew, setIsNew] = useState(offering?.is_new || false);
   // Subjects (for programs)
   const [subjects, setSubjects] = useState<SubjectDraft[]>(
     existingSubjects.map((s) => ({
@@ -167,6 +168,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
         price: parseInt(price) || 0,
         fee_type: feeType,
         mode,
+        is_new: isNew,
         status,
         schedule_start: scheduleStart || null,
         schedule_end: scheduleEnd || null,
@@ -352,6 +354,20 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
                 <option value="onsite">Onsite</option>
                 <option value="hybrid">Hybrid</option>
               </select>
+            </div>
+
+            {/* Mark as New */}
+            <div className="space-y-2 flex items-end gap-2">
+              <label htmlFor="isNew" className="flex items-center gap-2 cursor-pointer h-8">
+                <input
+                  id="isNew"
+                  type="checkbox"
+                  checked={isNew}
+                  onChange={(e) => setIsNew(e.target.checked)}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm font-medium">Show &quot;New&quot; badge</span>
+              </label>
             </div>
 
             {/* Short Description */}

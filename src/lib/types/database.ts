@@ -50,6 +50,7 @@ export interface Offering {
   schedule_end: string | null;
   live_class_link: string | null;
   is_featured: boolean;
+  is_new: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -49,7 +49,7 @@ export default async function OfferingDetailPage({
     .from("offerings")
     .select("*")
     .eq("slug", slug)
-    .eq("status", "published")
+    .in("status", ["published", "archived"])
     .single<Offering>();
 
   if (!offering) notFound();
@@ -102,6 +102,9 @@ export default async function OfferingDetailPage({
                 {offering.mode === "onsite" ? <MapPin className="h-3 w-3 mr-1" /> : <Wifi className="h-3 w-3 mr-1" />}
                 {offering.mode === "onsite" ? "Onsite" : offering.mode === "hybrid" ? "Hybrid" : "Online"}
               </Badge>
+              {offering.is_new && (
+                <Badge className="bg-amber-500 hover:bg-amber-500 text-white">New</Badge>
+              )}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               {offering.title}
