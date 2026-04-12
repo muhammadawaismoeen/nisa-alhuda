@@ -29,15 +29,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { formatPrice, APP_NAME } from "@/lib/constants";
+import { formatPriceWithFee, APP_NAME } from "@/lib/constants";
 import { toast } from "sonner";
-import type { OfferingType, StudentDetails } from "@/lib/types/database";
+import type { OfferingType, FeeType, StudentDetails } from "@/lib/types/database";
 
 interface EnrollmentWizardProps {
   offeringId: string;
   offeringTitle: string;
   offeringType: OfferingType;
   offeringPrice: number;
+  offeringFeeType: FeeType;
   userId: string;
   userName: string;
   userPhone: string;
@@ -79,6 +80,7 @@ export function EnrollmentWizard({
   offeringTitle,
   offeringType,
   offeringPrice,
+  offeringFeeType,
   userId,
   userName,
   userPhone,
@@ -441,7 +443,7 @@ export function EnrollmentWizard({
                 <div className="p-4 rounded-xl bg-secondary/60">
                   <p className="text-sm text-muted-foreground mb-1">Amount</p>
                   <p className="text-2xl font-bold text-primary">
-                    {formatPrice(offeringPrice)}
+                    {formatPriceWithFee(offeringPrice, offeringFeeType)}
                   </p>
                 </div>
 

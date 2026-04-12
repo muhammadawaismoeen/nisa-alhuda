@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
-import { formatPrice } from "@/lib/constants";
+import { formatPriceWithFee } from "@/lib/constants";
 import { Plus, BookOpen, Pencil } from "lucide-react";
 import { DeleteOffering } from "./delete-offering";
 import { OfferingToggles } from "./offering-toggles";
@@ -22,6 +22,7 @@ const typeLabels = {
   program: "Program",
   course: "Course",
   workshop: "Workshop",
+  class: "Class",
 };
 
 export default async function AdminOfferingsPage() {
@@ -135,7 +136,7 @@ export default async function AdminOfferingsPage() {
                         {offering.short_description || offering.description}
                       </p>
                       <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                        <span>{formatPrice(offering.price)}</span>
+                        <span>{formatPriceWithFee(offering.price, offering.fee_type)}</span>
                         {offering.schedule_start && (
                           <span>
                             Starts{" "}

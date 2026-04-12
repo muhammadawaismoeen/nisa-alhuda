@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
-import { formatPrice } from "@/lib/constants";
+import { formatPriceWithFee } from "@/lib/constants";
 import type { Offering } from "@/lib/types/database";
 
 // Map offering types to display labels and colors
@@ -18,6 +18,7 @@ const typeConfig = {
   program: { label: "Program", variant: "default" as const },
   course: { label: "Course", variant: "secondary" as const },
   workshop: { label: "Workshop", variant: "outline" as const },
+  class: { label: "Class", variant: "secondary" as const },
 };
 
 export function OfferingCard({ offering }: { offering: Offering }) {
@@ -70,7 +71,7 @@ export function OfferingCard({ offering }: { offering: Offering }) {
 
       <CardFooter className="flex items-center justify-between">
         <span className="font-bold text-primary text-lg">
-          {formatPrice(offering.price)}
+          {formatPriceWithFee(offering.price, offering.fee_type)}
         </span>
         <LinkButton size="sm" href={`/offerings/${offering.slug}`}>View Details</LinkButton>
       </CardFooter>

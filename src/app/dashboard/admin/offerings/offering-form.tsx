@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { Offering, Subject, OfferingType, OfferingStatus } from "@/lib/types/database";
+import type { Offering, Subject, OfferingType, OfferingStatus, FeeType } from "@/lib/types/database";
 
 interface SubjectDraft {
   id?: string; // existing subjects have an id
@@ -75,6 +75,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
     offering?.schedule_start || ""
   );
   const [scheduleEnd, setScheduleEnd] = useState(offering?.schedule_end || "");
+  const [feeType, setFeeType] = useState<FeeType>(offering?.fee_type || "one_time");
   // Subjects (for programs)
   const [subjects, setSubjects] = useState<SubjectDraft[]>(
     existingSubjects.map((s) => ({
@@ -163,6 +164,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
         description: description.trim(),
         type,
         price: parseInt(price) || 0,
+        fee_type: feeType,
         status,
         schedule_start: scheduleStart || null,
         schedule_end: scheduleEnd || null,
@@ -316,6 +318,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
                 <option value="program">Program</option>
                 <option value="course">Course</option>
                 <option value="workshop">Workshop</option>
+                <option value="class">Class</option>
               </select>
             </div>
 
@@ -370,7 +373,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
             Pricing & Schedule
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Price */}
             <div className="space-y-2">
               <Label htmlFor="price">Price (PKR)</Label>
@@ -382,6 +385,20 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
               />
+            </div>
+
+            {/* Fee Type */}
+            <div className="space-y-2">
+              <Label htmlFor="feeType">Fee Type</Label>
+              <select
+                id="feeType"
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
+                value={feeType}
+                onChange={(e) => setFeeType(e.target.value as FeeType)}
+              >
+                <option value="one_time">One-time</option>
+                <option value="monthly">Per Month</option>
+              </select>
             </div>
 
             {/* Start Date */}

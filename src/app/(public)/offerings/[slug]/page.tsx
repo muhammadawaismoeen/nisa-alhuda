@@ -11,7 +11,7 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { formatPrice } from "@/lib/constants";
+import { formatPriceWithFee } from "@/lib/constants";
 import type { Offering, Subject, Profile } from "@/lib/types/database";
 
 // Generate dynamic metadata for SEO
@@ -81,6 +81,7 @@ export default async function OfferingDetailPage({
     program: "Program",
     course: "Course",
     workshop: "Workshop",
+    class: "Class",
   };
 
   return (
@@ -178,8 +179,13 @@ export default async function OfferingDetailPage({
             <CardContent className="p-6 space-y-4">
               {/* Price */}
               <div className="text-3xl font-bold text-primary">
-                {formatPrice(offering.price)}
+                {formatPriceWithFee(offering.price, offering.fee_type)}
               </div>
+              {offering.fee_type === "monthly" && offering.price > 0 && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Billed monthly
+                </p>
+              )}
 
               {/* Key Details */}
               <div className="space-y-3 text-sm">

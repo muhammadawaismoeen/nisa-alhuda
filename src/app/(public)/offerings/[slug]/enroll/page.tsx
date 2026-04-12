@@ -21,6 +21,7 @@ const typeLabels = {
   program: "Program",
   course: "Course",
   workshop: "Workshop",
+  class: "Class",
 };
 
 export default async function EnrollPage({
@@ -131,6 +132,7 @@ export default async function EnrollPage({
         offeringTitle={offering.title}
         offeringType={offering.type}
         offeringPrice={offering.price}
+        offeringFeeType={offering.fee_type}
         userId={user.id}
         userName={profile?.full_name || ""}
         userPhone={profile?.phone || ""}

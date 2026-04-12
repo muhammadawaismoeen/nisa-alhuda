@@ -24,6 +24,17 @@ export function formatPrice(amount: number): string {
   return `${CURRENCY.symbol} ${amount.toLocaleString(CURRENCY.locale)}`;
 }
 
+/**
+ * Format price with fee type suffix.
+ * formatPriceWithFee(2000, "monthly") → "Rs. 2,000/mo"
+ * formatPriceWithFee(5000, "one_time") → "Rs. 5,000"
+ */
+export function formatPriceWithFee(amount: number, feeType: string): string {
+  if (amount === 0) return "Free";
+  const base = `${CURRENCY.symbol} ${amount.toLocaleString(CURRENCY.locale)}`;
+  return feeType === "monthly" ? `${base}/mo` : base;
+}
+
 export const ROLES = {
   ADMIN: "admin",
   INSTRUCTOR: "instructor",
@@ -36,6 +47,7 @@ export const OFFERING_TYPES = {
   PROGRAM: "program",
   COURSE: "course",
   WORKSHOP: "workshop",
+  CLASS: "class",
 } as const;
 
 export type OfferingType = (typeof OFFERING_TYPES)[keyof typeof OFFERING_TYPES];
