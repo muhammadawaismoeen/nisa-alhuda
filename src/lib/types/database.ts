@@ -44,6 +44,8 @@ export interface Offering {
   short_description: string | null;
   type: OfferingType;
   price: number;
+  /** International USD fee. When set, the wizard surfaces a 3rd payment region. */
+  price_usd: number | null;
   thumbnail_url: string | null;
   status: OfferingStatus;
   instructor_id: string | null;
@@ -115,6 +117,8 @@ export interface Enrollment {
   payment_receipt_url: string | null;
   payment_amount: number;
   payment_method: string;
+  /** Currency the student paid in: 'PKR' | 'INR' | 'USD'. Defaults to 'PKR'. */
+  payment_currency: string;
   student_details: StudentDetails | null;
   rejection_reason: string | null;
   reviewed_by: string | null;

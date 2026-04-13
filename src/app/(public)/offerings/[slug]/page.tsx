@@ -193,6 +193,15 @@ export default async function OfferingDetailPage({
                   Billed monthly
                 </p>
               )}
+              {offering.price_usd && offering.price_usd > 0 && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  🌍 International: ${Number(offering.price_usd).toLocaleString(
+                    "en-US",
+                    { minimumFractionDigits: 0, maximumFractionDigits: 2 }
+                  )} USD
+                  {offering.fee_type === "monthly" ? "/mo" : ""}
+                </p>
+              )}
 
               {/* Key Details */}
               <div className="space-y-3 text-sm">

@@ -35,6 +35,31 @@ export function formatPriceWithFee(amount: number, feeType: string): string {
   return feeType === "monthly" ? `${base}/mo` : base;
 }
 
+/**
+ * Format a paid amount using the currency the student actually paid in.
+ * Used on admin dashboards where a single enrollment list mixes PKR / INR / USD payments.
+ * formatPaidAmount(15, "USD") → "$15"
+ * formatPaidAmount(2000, "INR") → "₹2,000"
+ * formatPaidAmount(5000, "PKR") → "Rs. 5,000"
+ */
+export function formatPaidAmount(
+  amount: number,
+  currency: string | null | undefined
+): string {
+  if (amount === 0) return "Free";
+  const code = (currency || "PKR").toUpperCase();
+  if (code === "USD") {
+    return `$${amount.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })}`;
+  }
+  if (code === "INR") {
+    return `₹${amount.toLocaleString("en-IN")}`;
+  }
+  return `Rs. ${amount.toLocaleString("en-PK")}`;
+}
+
 export const ROLES = {
   ADMIN: "admin",
   INSTRUCTOR: "instructor",

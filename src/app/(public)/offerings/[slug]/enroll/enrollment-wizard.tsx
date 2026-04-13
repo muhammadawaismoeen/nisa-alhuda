@@ -48,6 +48,8 @@ interface EnrollmentWizardProps {
   offeringTitle: string;
   offeringType: OfferingType;
   offeringPrice: number;
+  /** International USD fee — when set, a 3rd "International" payment region is shown */
+  offeringPriceUsd: number | null;
   offeringFeeType: FeeType;
   offeringSlug: string;
   isLoggedIn: boolean;
@@ -99,6 +101,7 @@ export function EnrollmentWizard({
   offeringTitle,
   offeringType,
   offeringPrice,
+  offeringPriceUsd,
   offeringFeeType,
   offeringSlug,
   isLoggedIn,
@@ -143,7 +146,8 @@ export function EnrollmentWizard({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [uploadedReceiptPath, setUploadedReceiptPath] = useState<string | null>(null);
-  const [paymentRegion, setPaymentRegion] = useState<"pk" | "in">("pk");
+  const [paymentRegion, setPaymentRegion] = useState<"pk" | "in" | "intl">("pk");
+  const hasIntlPrice = (offeringPriceUsd ?? 0) > 0;
 
   // Financial Assistance state
   const [paymentMode, setPaymentMode] = useState<"full" | "fa">("full");
@@ -349,11 +353,25 @@ export function EnrollmentWizard({
         receiptBase64 = await fileToBase64(file);
       }
 
+      // Derive paymentAmount + paymentCurrency based on selected region.
+      // INTL → charge the USD fee; PK/IN → charge the PKR fee (same value).
+      // FA flow always uses PKR (the offered amount is captured in faOfferedAmount).
+      const useIntl = !isFA && paymentRegion === "intl" && hasIntlPrice;
+      const paymentAmount = useIntl ? (offeringPriceUsd ?? 0) : offeringPrice;
+      const paymentCurrency: "PKR" | "INR" | "USD" = isFA
+        ? "PKR"
+        : paymentRegion === "intl"
+          ? "USD"
+          : paymentRegion === "in"
+            ? "INR"
+            : "PKR";
+
       const input = {
         offeringId,
         email: email.trim().toLowerCase(),
         details,
-        paymentAmount: offeringPrice,
+        paymentAmount,
+        paymentCurrency,
         receiptBase64: isFA ? null : receiptBase64,
         receiptFileName: isFA ? null : (file?.name || null),
         senderName: isFA ? null : (senderName || null),
@@ -858,29 +876,40 @@ export function EnrollmentWizard({
                 <div className="p-4 rounded-xl bg-secondary/60">
                   <p className="text-sm text-muted-foreground mb-1">Amount</p>
                   <p className="text-2xl font-bold text-primary">
-                    {formatPriceWithFee(offeringPrice, offeringFeeType)}
+                    {paymentRegion === "intl"
+                      ? `$${(offeringPriceUsd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD${offeringFeeType === "monthly" ? "/mo" : ""}`
+                      : formatPriceWithFee(offeringPrice, offeringFeeType)}
                   </p>
                 </div>
 
                 {/* Region Toggle */}
-                <div className="flex rounded-lg bg-secondary p-1 gap-1">
+                <div className={`grid gap-1 rounded-lg bg-secondary p-1 ${hasIntlPrice ? "grid-cols-3" : "grid-cols-2"}`}>
                   <button
                     type="button"
                     onClick={() => setPaymentRegion("pk")}
-                    className={`flex-1 text-sm font-medium py-2 rounded-md transition-colors ${paymentRegion === "pk" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    className={`text-sm font-medium py-2 rounded-md transition-colors ${paymentRegion === "pk" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                   >
-                    🇵🇰 Pakistan / International
+                    🇵🇰 Pakistan
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentRegion("in")}
-                    className={`flex-1 text-sm font-medium py-2 rounded-md transition-colors ${paymentRegion === "in" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    className={`text-sm font-medium py-2 rounded-md transition-colors ${paymentRegion === "in" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     🇮🇳 India
                   </button>
+                  {hasIntlPrice && (
+                    <button
+                      type="button"
+                      onClick={() => setPaymentRegion("intl")}
+                      className={`text-sm font-medium py-2 rounded-md transition-colors ${paymentRegion === "intl" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      🌍 International
+                    </button>
+                  )}
                 </div>
 
-                {paymentRegion === "pk" ? (
+                {paymentRegion === "pk" && (
                   <div className="space-y-3">
                     <div>
                       <p className="text-sm text-muted-foreground">Bank Name</p>
@@ -899,7 +928,9 @@ export function EnrollmentWizard({
                       <p className="font-medium font-mono text-xs sm:text-sm">PK81ALFH5618005002604899</p>
                     </div>
                   </div>
-                ) : (
+                )}
+
+                {paymentRegion === "in" && (
                   <div className="space-y-3">
                     <div>
                       <p className="text-sm text-muted-foreground">Bank Name</p>
@@ -916,6 +947,35 @@ export function EnrollmentWizard({
                     <div>
                       <p className="text-sm text-muted-foreground">IFSC Code</p>
                       <p className="font-medium font-mono">HDFC0009377</p>
+                    </div>
+                  </div>
+                )}
+
+                {paymentRegion === "intl" && (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Bank Name</p>
+                      <p className="font-medium">Bank Alfalah</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Name</p>
+                      <p className="font-medium">Sana Ahmed</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Account Number</p>
+                      <p className="font-medium font-mono">56185002604899</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">IBAN</p>
+                      <p className="font-medium font-mono text-xs sm:text-sm">PK81ALFH5618005002604899</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">SWIFT / BIC</p>
+                      <p className="font-medium font-mono">ALFHPKKA</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Bank Address</p>
+                      <p className="font-medium text-xs sm:text-sm">Bank Alfalah Limited, Karachi, Pakistan</p>
                     </div>
                   </div>
                 )}

@@ -5,7 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/constants";
+import { formatPaidAmount } from "@/lib/constants";
 import { ClipboardList, Mail, HeartHandshake } from "lucide-react";
 import { EnrollmentActions } from "./enrollment-actions";
 import { ManualEnrollment } from "./manual-enrollment";
@@ -170,7 +170,7 @@ export default async function AdminEnrollmentsPage() {
                                 {enrollment.applicant_email}
                               </span>
                               <span>
-                                Original: {formatPrice(enrollment.offering?.price || 0)}
+                                Original: {formatPaidAmount(enrollment.offering?.price || 0, "PKR")}
                               </span>
                               <span className="text-amber-700 dark:text-amber-400 font-medium">
                                 Offered: {enrollment.fa_offered_amount}
@@ -257,7 +257,12 @@ export default async function AdminEnrollmentsPage() {
                                 {enrollment.applicant_email}
                               </span>
                               {enrollment.payment_amount > 0 && (
-                                <span>{formatPrice(enrollment.payment_amount)}</span>
+                                <span>
+                                  {formatPaidAmount(
+                                    enrollment.payment_amount,
+                                    enrollment.payment_currency
+                                  )}
+                                </span>
                               )}
                               {enrollment.payment_amount === 0 && (
                                 <span className="text-green-600 font-medium">

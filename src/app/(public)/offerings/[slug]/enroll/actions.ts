@@ -61,6 +61,8 @@ export interface SubmitEnrollmentInput {
   email: string;
   details: StudentDetails;
   paymentAmount: number;
+  /** Currency the student is paying in: 'PKR' | 'INR' | 'USD'. Defaults to PKR. */
+  paymentCurrency?: "PKR" | "INR" | "USD";
   /** Base64-encoded file data for receipt (null for free offerings) */
   receiptBase64: string | null;
   receiptFileName: string | null;
@@ -145,6 +147,7 @@ export async function submitGuestEnrollment(
     status: "pending",
     payment_receipt_url: receiptPath,
     payment_amount: input.paymentAmount,
+    payment_currency: input.paymentCurrency || "PKR",
     payment_method: input.faRequested ? "financial_assistance" : receiptPath ? "bank_transfer" : "free",
     student_details: {
       ...input.details,
@@ -257,6 +260,7 @@ export async function submitLoggedInEnrollment(
     status: "pending",
     payment_receipt_url: receiptPath,
     payment_amount: input.paymentAmount,
+    payment_currency: input.paymentCurrency || "PKR",
     payment_method: input.faRequested ? "financial_assistance" : receiptPath ? "bank_transfer" : "free",
     student_details: {
       ...input.details,

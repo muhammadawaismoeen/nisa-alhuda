@@ -5,7 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/constants";
+import { formatPaidAmount } from "@/lib/constants";
 import { DollarSign, Clock, CheckCircle, XCircle } from "lucide-react";
 import { PaymentActions } from "./payment-actions";
 
@@ -42,15 +42,20 @@ export default async function PaymentLedgerPage() {
   const approved = (enrollments || []).filter((e) => e.status === "approved");
   const rejected = (enrollments || []).filter((e) => e.status === "rejected");
 
-  // Revenue stats
-  const totalRevenue = approved.reduce(
-    (sum, e) => sum + (e.payment_amount || 0),
-    0
-  );
-  const pendingAmount = pending.reduce(
-    (sum, e) => sum + (e.payment_amount || 0),
-    0
-  );
+  // Revenue stats — totals are PKR-equivalent only (PKR + INR counted at face value,
+  // USD excluded from the totals so the headline number isn't misleading).
+  // USD revenue is tracked separately below.
+  const isPkrLike = (c: string | null | undefined) =>
+    !c || c.toUpperCase() === "PKR" || c.toUpperCase() === "INR";
+  const totalRevenue = approved
+    .filter((e) => isPkrLike(e.payment_currency))
+    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
+  const pendingAmount = pending
+    .filter((e) => isPkrLike(e.payment_currency))
+    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
+  const totalRevenueUsd = approved
+    .filter((e) => (e.payment_currency || "").toUpperCase() === "USD")
+    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
 
   return (
     <div>
@@ -94,7 +99,14 @@ export default async function PaymentLedgerPage() {
               <p className="text-2xl font-bold">
                 Rs. {totalRevenue.toLocaleString()}
               </p>
-              <p className="text-xs text-muted-foreground">Total Revenue</p>
+              <p className="text-xs text-muted-foreground">
+                Total Revenue
+                {totalRevenueUsd > 0 && (
+                  <span className="ml-1">
+                    + ${totalRevenueUsd.toLocaleString()}
+                  </span>
+                )}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -148,7 +160,10 @@ export default async function PaymentLedgerPage() {
                       </p>
                       <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">
-                          {formatPrice(enrollment.payment_amount)}
+                          {formatPaidAmount(
+                            enrollment.payment_amount,
+                            enrollment.payment_currency
+                          )}
                         </span>
                         {enrollment.student?.phone && (
                           <span>{enrollment.student.phone}</span>
@@ -232,7 +247,10 @@ export default async function PaymentLedgerPage() {
                       {enrollment.offering?.title}
                     </td>
                     <td className="py-3 whitespace-nowrap">
-                      {formatPrice(enrollment.payment_amount)}
+                      {formatPaidAmount(
+                        enrollment.payment_amount,
+                        enrollment.payment_currency
+                      )}
                     </td>
                     <td className="py-3 text-muted-foreground whitespace-nowrap">
                       {new Date(enrollment.created_at).toLocaleDateString(

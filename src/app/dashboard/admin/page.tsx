@@ -17,7 +17,6 @@ import {
   CheckCircle,
   UserPlus,
 } from "lucide-react";
-import { formatPrice } from "@/lib/constants";
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
@@ -48,7 +47,7 @@ export default async function AdminDashboardPage() {
       .eq("status", "pending"),
     supabase
       .from("enrollments")
-      .select("payment_amount")
+      .select("payment_amount, payment_currency")
       .eq("status", "approved"),
     supabase
       .from("lessons")
@@ -67,11 +66,18 @@ export default async function AdminDashboardPage() {
   const totalOfferings = offeringsRes.count || 0;
   const totalUsers = profilesRes.count || 0;
 
-  // Calculate total revenue
-  const totalRevenue = (revenueRes.data || []).reduce(
-    (sum, e) => sum + (e.payment_amount || 0),
-    0
-  );
+  // Calculate total revenue — sum PKR + INR (shown together), track USD separately
+  const totalRevenue = (revenueRes.data || [])
+    .filter(
+      (e) =>
+        !e.payment_currency ||
+        e.payment_currency.toUpperCase() === "PKR" ||
+        e.payment_currency.toUpperCase() === "INR"
+    )
+    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
+  const totalRevenueUsd = (revenueRes.data || [])
+    .filter((e) => (e.payment_currency || "").toUpperCase() === "USD")
+    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
 
   // Active live sessions: lessons scheduled within ±1 hour of now
   const now = new Date();
@@ -145,6 +151,11 @@ export default async function AdminDashboardPage() {
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               from approved enrollments
+              {totalRevenueUsd > 0 && (
+                <span className="ml-1">
+                  + ${totalRevenueUsd.toLocaleString()}
+                </span>
+              )}
             </p>
           </CardContent>
         </Card>

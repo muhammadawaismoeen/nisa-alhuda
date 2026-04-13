@@ -163,6 +163,7 @@ export default async function EnrollPage({
         offeringTitle={offering.title}
         offeringType={offering.type}
         offeringPrice={offering.price}
+        offeringPriceUsd={offering.price_usd}
         offeringFeeType={offering.fee_type}
         offeringSlug={offering.slug}
         isLoggedIn={!!user}

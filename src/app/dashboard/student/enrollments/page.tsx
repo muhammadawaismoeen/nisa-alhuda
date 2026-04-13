@@ -16,6 +16,7 @@ import {
   HeartHandshake,
 } from "lucide-react";
 import type { Offering } from "@/lib/types/database";
+import { formatPaidAmount } from "@/lib/constants";
 import { FaReceiptUpload } from "./fa-receipt-upload";
 
 const statusConfig = {
@@ -184,8 +185,10 @@ export default async function StudentEnrollmentsPage() {
                         </span>
                         {enrollment.payment_amount > 0 && (
                           <span>
-                            Rs.{" "}
-                            {Number(enrollment.payment_amount).toLocaleString()}
+                            {formatPaidAmount(
+                              Number(enrollment.payment_amount),
+                              enrollment.payment_currency
+                            )}
                           </span>
                         )}
                         {offering?.type && (
