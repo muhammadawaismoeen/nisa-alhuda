@@ -16,6 +16,8 @@ export type EnrollmentStatus = "pending" | "approved" | "rejected";
 export type NotificationType =
   | "enrollment_approved"
   | "enrollment_rejected"
+  | "fa_approved"
+  | "fa_rejected"
   | "new_lesson"
   | "new_announcement"
   | "general";
@@ -117,6 +119,14 @@ export interface Enrollment {
   rejection_reason: string | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  // Financial Assistance fields
+  fa_requested: boolean;
+  fa_reason: string | null;
+  fa_income_range: string | null;
+  fa_offered_amount: number | null;
+  fa_approved_amount: number | null;
+  fa_decision_note: string | null;
+  fa_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 }

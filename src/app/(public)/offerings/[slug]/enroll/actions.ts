@@ -67,6 +67,11 @@ export interface SubmitEnrollmentInput {
   senderName: string | null;
   /** Previously uploaded receipt path — used on retry to skip re-upload */
   existingReceiptPath?: string | null;
+  // Financial Assistance fields
+  faRequested?: boolean;
+  faReason?: string | null;
+  faIncomeRange?: string | null;
+  faOfferedAmount?: number | null;
 }
 
 export interface SubmitEnrollmentResult {
@@ -140,11 +145,16 @@ export async function submitGuestEnrollment(
     status: "pending",
     payment_receipt_url: receiptPath,
     payment_amount: input.paymentAmount,
-    payment_method: receiptPath ? "bank_transfer" : "free",
+    payment_method: input.faRequested ? "financial_assistance" : receiptPath ? "bank_transfer" : "free",
     student_details: {
       ...input.details,
       sender_name: input.senderName || undefined,
     },
+    // Financial Assistance fields
+    fa_requested: input.faRequested || false,
+    fa_reason: input.faReason || null,
+    fa_income_range: input.faIncomeRange || null,
+    fa_offered_amount: input.faOfferedAmount ?? null,
   });
 
   if (insertError) {
@@ -247,11 +257,16 @@ export async function submitLoggedInEnrollment(
     status: "pending",
     payment_receipt_url: receiptPath,
     payment_amount: input.paymentAmount,
-    payment_method: receiptPath ? "bank_transfer" : "free",
+    payment_method: input.faRequested ? "financial_assistance" : receiptPath ? "bank_transfer" : "free",
     student_details: {
       ...input.details,
       sender_name: input.senderName || undefined,
     },
+    // Financial Assistance fields
+    fa_requested: input.faRequested || false,
+    fa_reason: input.faReason || null,
+    fa_income_range: input.faIncomeRange || null,
+    fa_offered_amount: input.faOfferedAmount ?? null,
   });
 
   if (insertError) {

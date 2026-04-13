@@ -1,6 +1,6 @@
 /**
  * Student Enrollments Page — shows all enrollments with status tracking.
- * Covers pending, approved, and rejected enrollments.
+ * Covers pending, approved, rejected, and Financial Assistance states.
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +13,10 @@ import {
   ClipboardList,
   ArrowRight,
   AlertTriangle,
+  HeartHandshake,
 } from "lucide-react";
 import type { Offering } from "@/lib/types/database";
+import { FaReceiptUpload } from "./fa-receipt-upload";
 
 const statusConfig = {
   pending: {
@@ -80,29 +82,92 @@ export default async function StudentEnrollmentsPage() {
       ) : (
         <div className="space-y-3">
           {enrollments.map((enrollment: any) => {
-            const config =
-              statusConfig[enrollment.status as keyof typeof statusConfig];
-            const StatusIcon = config.icon;
             const offering = enrollment.offering as Offering;
 
+            // ── FA state derivations ──
+            const faRequested = !!enrollment.fa_requested;
+            const faPendingReview =
+              faRequested &&
+              enrollment.fa_approved_amount === null &&
+              enrollment.status === "pending";
+            const faRejected =
+              faRequested && enrollment.status === "rejected";
+            const faFullWaiver =
+              faRequested &&
+              enrollment.fa_approved_amount === 0 &&
+              enrollment.status === "approved";
+            const faPartialApproved =
+              faRequested &&
+              enrollment.fa_approved_amount !== null &&
+              enrollment.fa_approved_amount > 0;
+            const faAwaitingReceipt =
+              faPartialApproved &&
+              enrollment.status === "pending" &&
+              !enrollment.payment_receipt_url;
+            const faReceiptUnderReview =
+              faPartialApproved &&
+              enrollment.status === "pending" &&
+              !!enrollment.payment_receipt_url;
+
+            // Derive display status: FA pending has its own look
+            let displayLabel: string;
+            let displayIcon = Clock;
+            let displayColor = "text-amber-600";
+            let displayBg = "bg-amber-50 dark:bg-amber-950/20";
+            let displayVariant: "default" | "outline" | "destructive" = "outline";
+
+            if (faPendingReview) {
+              displayLabel = "FA Under Review";
+              displayIcon = HeartHandshake;
+            } else if (faAwaitingReceipt) {
+              displayLabel = "FA Approved — Upload Receipt";
+              displayIcon = HeartHandshake;
+            } else if (faReceiptUnderReview) {
+              displayLabel = "Receipt Under Review";
+              displayIcon = Clock;
+            } else if (faFullWaiver) {
+              displayLabel = "FA Fully Waived";
+              displayIcon = CheckCircle;
+              displayColor = "text-green-600";
+              displayBg = "bg-green-50 dark:bg-green-950/20";
+              displayVariant = "default";
+            } else {
+              const config =
+                statusConfig[enrollment.status as keyof typeof statusConfig];
+              displayLabel = config.label;
+              displayIcon = config.icon;
+              displayColor = config.color;
+              displayBg = config.bg;
+              displayVariant = config.variant;
+            }
+
+            const StatusIcon = displayIcon;
+
             return (
-              <Card key={enrollment.id}>
+              <Card
+                key={enrollment.id}
+                className={
+                  faAwaitingReceipt
+                    ? "border-amber-400 bg-amber-50/30 dark:bg-amber-950/10"
+                    : ""
+                }
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {/* Status icon */}
                     <div
-                      className={`h-12 w-12 rounded-xl ${config.bg} flex items-center justify-center shrink-0`}
+                      className={`h-12 w-12 rounded-xl ${displayBg} flex items-center justify-center shrink-0`}
                     >
-                      <StatusIcon className={`h-5 w-5 ${config.color}`} />
+                      <StatusIcon className={`h-5 w-5 ${displayColor}`} />
                     </div>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="font-semibold truncate">
                           {offering?.title}
                         </h3>
-                        <Badge variant={config.variant}>{config.label}</Badge>
+                        <Badge variant={displayVariant}>{displayLabel}</Badge>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
@@ -134,6 +199,53 @@ export default async function StudentEnrollmentsPage() {
                         )}
                       </div>
 
+                      {/* FA approval info for partial waiver */}
+                      {faAwaitingReceipt && (
+                        <div className="mt-3 p-3 rounded-lg bg-amber-100/70 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700">
+                          <p className="text-sm text-amber-900 dark:text-amber-200">
+                            <strong>
+                              Your FA was approved for Rs.{" "}
+                              {Number(
+                                enrollment.fa_approved_amount
+                              ).toLocaleString()}
+                            </strong>
+                            . Please transfer this amount and upload your receipt
+                            to complete enrollment.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* FA receipt under review */}
+                      {faReceiptUnderReview && (
+                        <div className="mt-2 p-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            Your receipt has been received and is being verified.
+                            You&apos;ll be notified once approved.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* FA under review */}
+                      {faPendingReview && (
+                        <div className="mt-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                          <p className="text-xs text-amber-700 dark:text-amber-300">
+                            Your Financial Assistance application is being
+                            reviewed. You&apos;ll be notified of the decision
+                            shortly.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* FA fully waived */}
+                      {faFullWaiver && (
+                        <div className="mt-2 p-2 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                          <p className="text-xs text-green-700 dark:text-green-300">
+                            Great news! Your fee has been fully waived. You can
+                            start learning right away.
+                          </p>
+                        </div>
+                      )}
+
                       {/* Rejection reason */}
                       {enrollment.status === "rejected" &&
                         enrollment.rejection_reason && (
@@ -141,14 +253,21 @@ export default async function StudentEnrollmentsPage() {
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="h-3.5 w-3.5 text-red-500 mt-0.5 shrink-0" />
                               <p className="text-xs text-red-700 dark:text-red-300">
-                                {enrollment.rejection_reason}
+                                {faRejected ? (
+                                  <>
+                                    <strong>Financial Assistance declined:</strong>{" "}
+                                    {enrollment.rejection_reason}
+                                  </>
+                                ) : (
+                                  enrollment.rejection_reason
+                                )}
                               </p>
                             </div>
                           </div>
                         )}
 
                       {/* Review info */}
-                      {enrollment.reviewed_at && (
+                      {enrollment.reviewed_at && !faAwaitingReceipt && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Reviewed on{" "}
                           {new Date(enrollment.reviewed_at).toLocaleDateString(
@@ -165,7 +284,13 @@ export default async function StudentEnrollmentsPage() {
 
                     {/* Action */}
                     <div className="shrink-0">
-                      {enrollment.status === "approved" ? (
+                      {faAwaitingReceipt ? (
+                        <FaReceiptUpload
+                          enrollmentId={enrollment.id}
+                          approvedAmount={enrollment.fa_approved_amount || 0}
+                          offeringTitle={offering?.title || "this offering"}
+                        />
+                      ) : enrollment.status === "approved" ? (
                         <LinkButton
                           size="sm"
                           href={`/dashboard/student/offerings/${offering?.id}`}
@@ -175,7 +300,7 @@ export default async function StudentEnrollmentsPage() {
                         </LinkButton>
                       ) : enrollment.status === "pending" ? (
                         <span className="text-xs text-muted-foreground italic">
-                          Under review...
+                          {faPendingReview ? "FA review in progress…" : "Under review…"}
                         </span>
                       ) : (
                         <LinkButton
@@ -183,7 +308,7 @@ export default async function StudentEnrollmentsPage() {
                           variant="outline"
                           href={`/offerings/${offering?.slug}/enroll`}
                         >
-                          Re-apply
+                          {faRejected ? "Re-apply for FA" : "Re-apply"}
                         </LinkButton>
                       )}
                     </div>

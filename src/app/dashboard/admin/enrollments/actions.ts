@@ -57,6 +57,112 @@ export async function manualEnroll(
   return { success: true };
 }
 
+// ─── Financial Assistance: Approve ───
+// If approvedAmount is 0, the enrollment is immediately approved (full waiver).
+// Otherwise, enrollment stays in "pending" with new reduced amount — student
+// must upload a receipt for the reduced amount.
+export async function approveFinancialAssistance(
+  enrollmentId: string,
+  approvedAmount: number,
+  decisionNote?: string | null
+): Promise<{ success: boolean; error?: string }> {
+  if (approvedAmount < 0 || !Number.isFinite(approvedAmount)) {
+    return { success: false, error: "Invalid amount." };
+  }
+
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "admin") {
+    return { success: false, error: "Not authorized." };
+  }
+
+  // If full waiver (0), approve the enrollment outright.
+  // Otherwise, reduce payment_amount to the approved amount and keep as pending
+  // — student still needs to upload receipt for the reduced fee.
+  const updatePayload: Record<string, unknown> = {
+    fa_approved_amount: approvedAmount,
+    fa_decision_note: decisionNote?.trim() || null,
+    fa_reviewed_at: new Date().toISOString(),
+    payment_amount: approvedAmount,
+  };
+
+  if (approvedAmount === 0) {
+    updatePayload.status = "approved";
+    updatePayload.reviewed_by = user.id;
+    updatePayload.reviewed_at = new Date().toISOString();
+    updatePayload.payment_method = "waiver";
+  }
+
+  const { error } = await admin
+    .from("enrollments")
+    .update(updatePayload)
+    .eq("id", enrollmentId);
+
+  if (error) {
+    console.error("FA approval error:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+// ─── Financial Assistance: Reject ───
+export async function rejectFinancialAssistance(
+  enrollmentId: string,
+  reason: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!reason?.trim()) {
+    return { success: false, error: "Please provide a reason." };
+  }
+
+  const supabase = await createClient();
+  const admin = createAdminClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "admin") {
+    return { success: false, error: "Not authorized." };
+  }
+
+  const { error } = await admin
+    .from("enrollments")
+    .update({
+      status: "rejected",
+      rejection_reason: reason.trim(),
+      fa_decision_note: reason.trim(),
+      fa_reviewed_at: new Date().toISOString(),
+      reviewed_by: user.id,
+      reviewed_at: new Date().toISOString(),
+    })
+    .eq("id", enrollmentId);
+
+  if (error) {
+    console.error("FA rejection error:", error);
+    return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
 export async function removeEnrollment(
   studentId: string,
   offeringId: string

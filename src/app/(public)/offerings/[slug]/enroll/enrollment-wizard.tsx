@@ -145,6 +145,12 @@ export function EnrollmentWizard({
   const [uploadedReceiptPath, setUploadedReceiptPath] = useState<string | null>(null);
   const [paymentRegion, setPaymentRegion] = useState<"pk" | "in">("pk");
 
+  // Financial Assistance state
+  const [paymentMode, setPaymentMode] = useState<"full" | "fa">("full");
+  const [faReason, setFaReason] = useState("");
+  const [faIncomeRange, setFaIncomeRange] = useState("");
+  const [faOfferedAmount, setFaOfferedAmount] = useState("");
+
   // ─── Dynamic Steps ───────────────────────────────────────
 
   const steps = [
@@ -307,20 +313,39 @@ export function EnrollmentWizard({
   // ─── Submit ──────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!isFree && !file) {
-      toast.error("Please upload your payment receipt.");
-      return;
-    }
-    if (!isFree && !senderName.trim()) {
-      toast.error("Please enter the sender name on the payment.");
-      return;
+    const isFA = !isFree && paymentMode === "fa";
+
+    // Validate FA fields
+    if (isFA) {
+      if (!faReason.trim()) {
+        toast.error("Please share why you need financial assistance.");
+        return;
+      }
+      if (!faIncomeRange) {
+        toast.error("Please select your household income range.");
+        return;
+      }
+      if (faOfferedAmount === "" || isNaN(Number(faOfferedAmount)) || Number(faOfferedAmount) < 0) {
+        toast.error("Please enter a valid amount you can pay (0 or more).");
+        return;
+      }
+    } else if (!isFree) {
+      // Regular payment flow
+      if (!file) {
+        toast.error("Please upload your payment receipt.");
+        return;
+      }
+      if (!senderName.trim()) {
+        toast.error("Please enter the sender name on the payment.");
+        return;
+      }
     }
 
     setSubmitting(true);
 
     try {
       let receiptBase64: string | null = null;
-      if (file) {
+      if (file && !isFA) {
         receiptBase64 = await fileToBase64(file);
       }
 
@@ -329,10 +354,15 @@ export function EnrollmentWizard({
         email: email.trim().toLowerCase(),
         details,
         paymentAmount: offeringPrice,
-        receiptBase64,
-        receiptFileName: file?.name || null,
-        senderName: senderName || null,
-        existingReceiptPath: uploadedReceiptPath,
+        receiptBase64: isFA ? null : receiptBase64,
+        receiptFileName: isFA ? null : (file?.name || null),
+        senderName: isFA ? null : (senderName || null),
+        existingReceiptPath: isFA ? null : uploadedReceiptPath,
+        // FA fields
+        faRequested: isFA,
+        faReason: isFA ? faReason.trim() : null,
+        faIncomeRange: isFA ? faIncomeRange : null,
+        faOfferedAmount: isFA ? Number(faOfferedAmount) : null,
       };
 
       const result = isLoggedIn
@@ -710,6 +740,112 @@ export function EnrollmentWizard({
   function PaymentStep() {
     return (
       <div className="space-y-6">
+        {/* Payment Mode Toggle */}
+        <Card className="glass">
+          <CardContent className="p-5">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div>
+                <p className="font-heading font-semibold text-base mb-1">How would you like to proceed?</p>
+                <p className="text-xs text-muted-foreground">
+                  Financial assistance is available for those in need.
+                </p>
+              </div>
+              <div className="flex rounded-lg bg-secondary p-1 gap-1 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("full")}
+                  className={`flex-1 sm:flex-none text-sm font-medium py-2 px-4 rounded-md transition-colors ${paymentMode === "full" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Pay Full Fee
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode("fa")}
+                  className={`flex-1 sm:flex-none text-sm font-medium py-2 px-4 rounded-md transition-colors ${paymentMode === "fa" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Request Financial Assistance
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {paymentMode === "fa" ? (
+          <Card className="glass">
+            <CardContent className="p-6">
+              <h2 className="font-heading font-semibold text-lg mb-1">
+                Financial Assistance Application
+              </h2>
+              <p className="text-sm text-muted-foreground mb-5">
+                Share a bit about your situation. Our team will review your request confidentially within 24&ndash;48 hours.
+              </p>
+
+              <div className="space-y-5">
+                {/* Reason */}
+                <div className="space-y-2">
+                  <Label htmlFor="faReason">
+                    Why do you need financial assistance? <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="faReason"
+                    placeholder="Briefly describe your situation (e.g., student, unemployed, single parent, etc.)"
+                    rows={4}
+                    value={faReason}
+                    onChange={(e) => setFaReason(e.target.value)}
+                    required
+                  />
+                </div>
+
+                {/* Income Range */}
+                <div className="space-y-2">
+                  <Label htmlFor="faIncomeRange">
+                    Household Monthly Income <span className="text-destructive">*</span>
+                  </Label>
+                  <select
+                    id="faIncomeRange"
+                    value={faIncomeRange}
+                    onChange={(e) => setFaIncomeRange(e.target.value)}
+                    required
+                    className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">Select income range</option>
+                    <option value="0-25k">Less than 25,000 PKR / 10,000 INR</option>
+                    <option value="25-50k">25,000&ndash;50,000 PKR / 10,000&ndash;20,000 INR</option>
+                    <option value="50-100k">50,000&ndash;100,000 PKR / 20,000&ndash;40,000 INR</option>
+                    <option value="100-200k">100,000&ndash;200,000 PKR / 40,000&ndash;80,000 INR</option>
+                    <option value="200k+">More than 200,000 PKR / 80,000 INR</option>
+                    <option value="no-income">No income currently</option>
+                  </select>
+                </div>
+
+                {/* Amount Offered */}
+                <div className="space-y-2">
+                  <Label htmlFor="faOfferedAmount">
+                    How much can you pay? <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="faOfferedAmount"
+                    type="number"
+                    min="0"
+                    placeholder="e.g., 1000"
+                    value={faOfferedAmount}
+                    onChange={(e) => setFaOfferedAmount(e.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the amount (in PKR or INR — whichever applies) you&apos;re able to contribute. Use <strong>0</strong> if you cannot pay anything.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Note:</strong> All applications are reviewed confidentially. Only the admin team can see your financial details.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Bank Details */}
           <Card className="glass">
@@ -873,6 +1009,7 @@ export function EnrollmentWizard({
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Navigation */}
         <div className="flex justify-between">
@@ -883,7 +1020,7 @@ export function EnrollmentWizard({
           <Button
             size="lg"
             onClick={handleSubmit}
-            disabled={!file || submitting}
+            disabled={submitting || (paymentMode === "full" && !file) || (paymentMode === "fa" && (!faReason.trim() || !faIncomeRange || faOfferedAmount === ""))}
             className="press"
           >
             {submitting ? (
@@ -893,7 +1030,7 @@ export function EnrollmentWizard({
               </>
             ) : (
               <>
-                Submit Application
+                {paymentMode === "fa" ? "Submit Application" : "Submit Application"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
