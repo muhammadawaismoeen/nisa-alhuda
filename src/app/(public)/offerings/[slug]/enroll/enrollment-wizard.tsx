@@ -48,6 +48,8 @@ interface EnrollmentWizardProps {
   offeringTitle: string;
   offeringType: OfferingType;
   offeringPrice: number;
+  /** India INR fee — when set, the 🇮🇳 India region charges this amount (INR) instead of the PKR fee */
+  offeringPriceInr: number | null;
   /** International USD fee — when set, a 3rd "International" payment region is shown */
   offeringPriceUsd: number | null;
   offeringFeeType: FeeType;
@@ -101,6 +103,7 @@ export function EnrollmentWizard({
   offeringTitle,
   offeringType,
   offeringPrice,
+  offeringPriceInr,
   offeringPriceUsd,
   offeringFeeType,
   offeringSlug,
@@ -147,6 +150,7 @@ export function EnrollmentWizard({
   const [submitted, setSubmitted] = useState(false);
   const [uploadedReceiptPath, setUploadedReceiptPath] = useState<string | null>(null);
   const [paymentRegion, setPaymentRegion] = useState<"pk" | "in" | "intl">("pk");
+  const hasInrPrice = (offeringPriceInr ?? 0) > 0;
   const hasIntlPrice = (offeringPriceUsd ?? 0) > 0;
 
   // Financial Assistance state
@@ -354,10 +358,16 @@ export function EnrollmentWizard({
       }
 
       // Derive paymentAmount + paymentCurrency based on selected region.
-      // INTL → charge the USD fee; PK/IN → charge the PKR fee (same value).
+      // INTL → charge the USD fee; IN → charge the INR fee (if set, else PKR fallback);
+      // PK → charge the PKR fee.
       // FA flow always uses PKR (the offered amount is captured in faOfferedAmount).
       const useIntl = !isFA && paymentRegion === "intl" && hasIntlPrice;
-      const paymentAmount = useIntl ? (offeringPriceUsd ?? 0) : offeringPrice;
+      const useInr = !isFA && paymentRegion === "in" && hasInrPrice;
+      const paymentAmount = useIntl
+        ? (offeringPriceUsd ?? 0)
+        : useInr
+          ? (offeringPriceInr ?? 0)
+          : offeringPrice;
       const paymentCurrency: "PKR" | "INR" | "USD" = isFA
         ? "PKR"
         : paymentRegion === "intl"
@@ -878,7 +888,9 @@ export function EnrollmentWizard({
                   <p className="text-2xl font-bold text-primary">
                     {paymentRegion === "intl"
                       ? `$${(offeringPriceUsd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD${offeringFeeType === "monthly" ? "/mo" : ""}`
-                      : formatPriceWithFee(offeringPrice, offeringFeeType)}
+                      : paymentRegion === "in" && hasInrPrice
+                        ? `₹${(offeringPriceInr ?? 0).toLocaleString("en-IN")}${offeringFeeType === "monthly" ? "/mo" : ""}`
+                        : formatPriceWithFee(offeringPrice, offeringFeeType)}
                   </p>
                 </div>
 

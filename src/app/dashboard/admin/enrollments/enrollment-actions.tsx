@@ -11,6 +11,7 @@ import {
   XCircle,
   Eye,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,22 +24,30 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { deleteEnrollment } from "./actions";
 
 interface EnrollmentActionsProps {
   enrollmentId: string;
   status: string;
   receiptPath: string | null;
+  /**
+   * "delete-only" hides approve/reject/receipt so the row only shows the delete button.
+   * Useful next to FaActions, which owns its own approve/reject flow.
+   */
+  mode?: "full" | "delete-only";
 }
 
 export function EnrollmentActions({
   enrollmentId,
   status,
   receiptPath,
+  mode = "full",
 }: EnrollmentActionsProps) {
   const router = useRouter();
-  const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
+  const [loading, setLoading] = useState<"approve" | "reject" | "delete" | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
 
@@ -89,6 +98,22 @@ export function EnrollmentActions({
     }
   }
 
+  async function handleDelete() {
+    setLoading("delete");
+    try {
+      const result = await deleteEnrollment(enrollmentId);
+      if (!result.success) {
+        toast.error(result.error || "Failed to delete enrollment.");
+        return;
+      }
+      toast.success("Enrollment deleted.");
+      setShowDeleteDialog(false);
+      router.refresh();
+    } finally {
+      setLoading(null);
+    }
+  }
+
   async function handleReject() {
     if (!rejectReason.trim()) {
       toast.error("Please provide a reason for rejection.");
@@ -124,10 +149,12 @@ export function EnrollmentActions({
     }
   }
 
+  const fullMode = mode === "full";
+
   return (
     <div className="flex items-center gap-2">
       {/* View Receipt — only show if receipt exists */}
-      {receiptPath && (
+      {fullMode && receiptPath && (
       <Dialog>
         <DialogTrigger
           className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border bg-background hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 text-[0.8rem] font-medium transition-all"
@@ -173,7 +200,7 @@ export function EnrollmentActions({
       )}
 
       {/* Approve / Reject — only show for pending */}
-      {status === "pending" && (
+      {fullMode && status === "pending" && (
         <>
           <Button
             size="sm"
@@ -234,6 +261,51 @@ export function EnrollmentActions({
           </Dialog>
         </>
       )}
+
+      {/* Delete — always available to admin */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogTrigger
+          className="inline-flex shrink-0 items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 h-7 gap-1 px-2.5 text-[0.8rem] font-medium transition-all disabled:pointer-events-none disabled:opacity-50"
+          disabled={loading !== null}
+          aria-label="Delete enrollment"
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="ml-1.5 hidden sm:inline">Delete</span>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Enrollment?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-muted-foreground">
+              This permanently removes the enrollment record and any uploaded
+              receipt. The student will no longer see this enrollment in their
+              dashboard. This action cannot be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={loading === "delete"}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={loading === "delete"}
+              >
+                {loading === "delete" ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                Confirm Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

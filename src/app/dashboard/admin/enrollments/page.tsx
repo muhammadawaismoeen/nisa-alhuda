@@ -188,6 +188,12 @@ export default async function AdminEnrollmentsPage() {
                               originalPrice={enrollment.offering?.price || 0}
                               applicantName={applicantName}
                             />
+                            <EnrollmentActions
+                              enrollmentId={enrollment.id}
+                              status={enrollment.status}
+                              receiptPath={enrollment.payment_receipt_url}
+                              mode="delete-only"
+                            />
                           </div>
                         </div>
                       </CardContent>

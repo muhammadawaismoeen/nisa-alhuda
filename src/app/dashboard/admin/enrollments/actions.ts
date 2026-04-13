@@ -197,3 +197,63 @@ export async function removeEnrollment(
 
   return { success: true };
 }
+
+// ─── Delete enrollment by id (handles guest + logged-in) ───
+// Cleans the receipt file from storage too so we don't leak private uploads.
+export async function deleteEnrollment(
+  enrollmentId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: "Not authenticated." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "admin") {
+    return { success: false, error: "Not authorized." };
+  }
+
+  const admin = createAdminClient();
+
+  // Fetch the enrollment to find the receipt path (if any).
+  const { data: enrollment, error: fetchError } = await admin
+    .from("enrollments")
+    .select("payment_receipt_url")
+    .eq("id", enrollmentId)
+    .single();
+
+  if (fetchError) {
+    console.error("Delete enrollment fetch error:", fetchError);
+    return { success: false, error: "Enrollment not found." };
+  }
+
+  // Delete the enrollment row first — if storage cleanup later fails,
+  // the user's intent (removing the record) is still honoured.
+  const { error: deleteError } = await admin
+    .from("enrollments")
+    .delete()
+    .eq("id", enrollmentId);
+
+  if (deleteError) {
+    console.error("Delete enrollment error:", deleteError);
+    return { success: false, error: deleteError.message };
+  }
+
+  // Best-effort receipt cleanup; log (but don't fail) on error.
+  if (enrollment?.payment_receipt_url) {
+    const { error: storageError } = await admin.storage
+      .from("payment-receipts")
+      .remove([enrollment.payment_receipt_url]);
+    if (storageError) {
+      console.warn("Receipt storage cleanup failed:", storageError);
+    }
+  }
+
+  return { success: true };
+}

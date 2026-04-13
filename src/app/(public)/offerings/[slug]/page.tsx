@@ -193,6 +193,12 @@ export default async function OfferingDetailPage({
                   Billed monthly
                 </p>
               )}
+              {offering.price_inr && offering.price_inr > 0 && (
+                <p className="text-xs text-muted-foreground -mt-2">
+                  🇮🇳 India: ₹{Number(offering.price_inr).toLocaleString("en-IN")}
+                  {offering.fee_type === "monthly" ? "/mo" : ""}
+                </p>
+              )}
               {offering.price_usd && offering.price_usd > 0 && (
                 <p className="text-xs text-muted-foreground -mt-2">
                   🌍 International: ${Number(offering.price_usd).toLocaleString(

@@ -44,6 +44,8 @@ export interface Offering {
   short_description: string | null;
   type: OfferingType;
   price: number;
+  /** India INR fee. When set, the 🇮🇳 India region charges this amount instead of PKR. */
+  price_inr: number | null;
   /** International USD fee. When set, the wizard surfaces a 3rd payment region. */
   price_usd: number | null;
   thumbnail_url: string | null;
