@@ -80,6 +80,17 @@ export function AnnouncementManager({
       if (error) throw new Error(error.message);
 
       toast.success("Announcement posted! Notifications sent to students.");
+      // Fire-and-forget email to enrolled students
+      fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "announcement",
+          announcementTitle: title.trim(),
+          announcementBody: body.trim(),
+          offeringId: offeringId || null,
+        }),
+      }).catch(() => {});
       setOpen(false);
       resetForm();
       router.refresh();

@@ -90,6 +90,12 @@ export function EnrollmentActions({
       if (error) throw error;
 
       toast.success("Enrollment approved!");
+      // Fire-and-forget email
+      fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "enrollment_approved", enrollmentId }),
+      }).catch(() => {});
       router.refresh();
     } catch (error) {
       toast.error("Failed to approve enrollment.");
@@ -140,6 +146,16 @@ export function EnrollmentActions({
       if (error) throw error;
 
       toast.success("Enrollment rejected.");
+      // Fire-and-forget email
+      fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "enrollment_rejected",
+          enrollmentId,
+          reason: rejectReason,
+        }),
+      }).catch(() => {});
       setShowRejectDialog(false);
       router.refresh();
     } catch (error) {

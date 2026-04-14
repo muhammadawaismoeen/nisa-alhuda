@@ -6,6 +6,11 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  sendEnrollmentApprovedEmail,
+  sendFaApprovedEmail,
+  sendFaRejectedEmail,
+} from "@/lib/email";
 
 export async function manualEnroll(
   studentId: string,
@@ -52,6 +57,26 @@ export async function manualEnroll(
   if (error) {
     console.error("Manual enrollment error:", error);
     return { success: false, error: error.message };
+  }
+
+  // Fire-and-forget email for manual enrollment (always approved)
+  const { data: studentProfile } = await admin
+    .from("profiles")
+    .select("full_name")
+    .eq("id", studentId)
+    .single();
+  const { data: offering } = await admin
+    .from("offerings")
+    .select("title")
+    .eq("id", offeringId)
+    .single();
+  if (offering) {
+    sendEnrollmentApprovedEmail(
+      authUser.user.email,
+      studentProfile?.full_name || "",
+      offering.title,
+      offeringId
+    ).catch(() => {});
   }
 
   return { success: true };
@@ -114,6 +139,40 @@ export async function approveFinancialAssistance(
     return { success: false, error: error.message };
   }
 
+  // Fire-and-forget FA approval email
+  const { data: enrollment } = await admin
+    .from("enrollments")
+    .select("applicant_email, student_id, offering_id, offerings(title)")
+    .eq("id", enrollmentId)
+    .single();
+  if (enrollment) {
+    let email = enrollment.applicant_email;
+    let studentName = "";
+    if (enrollment.student_id) {
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", enrollment.student_id)
+        .single();
+      studentName = prof?.full_name || "";
+      const { data: authUser } = await admin.auth.admin.getUserById(
+        enrollment.student_id
+      );
+      if (authUser?.user?.email) email = authUser.user.email;
+    }
+    const offeringTitle = (enrollment.offerings as unknown as { title: string })
+      ?.title || "";
+    if (email) {
+      sendFaApprovedEmail(
+        email,
+        studentName,
+        offeringTitle,
+        approvedAmount,
+        approvedAmount === 0
+      ).catch(() => {});
+    }
+  }
+
   return { success: true };
 }
 
@@ -158,6 +217,36 @@ export async function rejectFinancialAssistance(
   if (error) {
     console.error("FA rejection error:", error);
     return { success: false, error: error.message };
+  }
+
+  // Fire-and-forget FA rejection email
+  const { data: enrollment } = await admin
+    .from("enrollments")
+    .select("applicant_email, student_id, offering_id, offerings(title)")
+    .eq("id", enrollmentId)
+    .single();
+  if (enrollment) {
+    let email = enrollment.applicant_email;
+    let studentName = "";
+    if (enrollment.student_id) {
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", enrollment.student_id)
+        .single();
+      studentName = prof?.full_name || "";
+      const { data: authUser } = await admin.auth.admin.getUserById(
+        enrollment.student_id
+      );
+      if (authUser?.user?.email) email = authUser.user.email;
+    }
+    const offeringTitle = (enrollment.offerings as unknown as { title: string })
+      ?.title || "";
+    if (email) {
+      sendFaRejectedEmail(email, studentName, offeringTitle, reason).catch(
+        () => {}
+      );
+    }
   }
 
   return { success: true };
