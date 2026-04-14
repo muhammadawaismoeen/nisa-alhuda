@@ -39,8 +39,7 @@ function wrap(body: string): string {
         <!-- Header -->
         <tr>
           <td style="background:#8b1a4a;padding:24px 32px;text-align:center;">
-            <img src="${SITE_URL}/logo-white.png" alt="${APP_NAME}" width="140" height="81" style="display:block;margin:0 auto 8px;width:140px;height:auto;" />
-            <span style="color:#e8c4c4;font-size:12px;letter-spacing:1px;">WOMEN OF GUIDANCE</span>
+            <img src="${SITE_URL}/logo-white.png" alt="${APP_NAME}" width="140" height="81" style="display:block;margin:0 auto;width:140px;height:auto;" />
           </td>
         </tr>
         <!-- Body -->
@@ -102,8 +101,7 @@ function heartWrap(body: string, accentColor = "#8b1a4a"): string {
         <!-- Decorative Top -->
         <tr>
           <td style="background:linear-gradient(135deg,${accentColor} 0%,#a0325e 50%,#d4a574 100%);padding:32px;text-align:center;">
-            <img src="${SITE_URL}/logo-white.png" alt="${APP_NAME}" width="160" height="93" style="display:block;margin:0 auto 10px;width:160px;height:auto;" />
-            <span style="color:#f0d5c0;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Women of Guidance</span>
+            <img src="${SITE_URL}/logo-white.png" alt="${APP_NAME}" width="160" height="93" style="display:block;margin:0 auto;width:160px;height:auto;" />
           </td>
         </tr>
         <!-- Body -->
