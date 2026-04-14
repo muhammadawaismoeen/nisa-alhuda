@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
@@ -58,8 +58,7 @@ export function PasswordForm() {
         {/* New Password */}
         <div className="space-y-2">
           <Label>New Password</Label>
-          <Input
-            type="password"
+          <PasswordInput
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             placeholder="Minimum 6 characters"
@@ -69,8 +68,7 @@ export function PasswordForm() {
         {/* Confirm Password */}
         <div className="space-y-2">
           <Label>Confirm New Password</Label>
-          <Input
-            type="password"
+          <PasswordInput
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             placeholder="Re-enter new password"

@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -87,10 +88,9 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           placeholder="At least 6 characters"
           required
           minLength={6}
@@ -99,10 +99,9 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <Label htmlFor="confirm_password">Confirm Password</Label>
-        <Input
+        <PasswordInput
           id="confirm_password"
           name="confirm_password"
-          type="password"
           placeholder="Repeat your password"
           required
           minLength={6}

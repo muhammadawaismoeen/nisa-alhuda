@@ -58,6 +58,8 @@ export interface Offering {
   live_class_link: string | null;
   is_featured: boolean;
   is_new: boolean;
+  /** Marks a class that is already running but still accepting new joiners — renders an "On-going" badge. */
+  is_ongoing: boolean;
   created_at: string;
   updated_at: string;
 }

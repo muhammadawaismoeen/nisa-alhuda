@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -51,10 +51,9 @@ export function ResetPasswordForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="password">New Password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           placeholder="At least 8 characters"
           required
           autoFocus
@@ -64,10 +63,9 @@ export function ResetPasswordForm() {
 
       <div className="space-y-2">
         <Label htmlFor="confirm">Confirm New Password</Label>
-        <Input
+        <PasswordInput
           id="confirm"
           name="confirm"
-          type="password"
           placeholder="Confirm your new password"
           required
           minLength={8}

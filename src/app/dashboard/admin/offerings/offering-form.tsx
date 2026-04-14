@@ -7,7 +7,7 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2,
@@ -15,6 +15,8 @@ import {
   Trash2,
   GripVertical,
   ArrowLeft,
+  ImagePlus,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +80,14 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
   const [feeType, setFeeType] = useState<FeeType>(offering?.fee_type || "one_time");
   const [mode, setMode] = useState<OfferingMode>(offering?.mode || "online");
   const [isNew, setIsNew] = useState(offering?.is_new || false);
+  const [isOngoing, setIsOngoing] = useState(offering?.is_ongoing || false);
+  // Poster / thumbnail
+  const posterInputRef = useRef<HTMLInputElement>(null);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [posterPreview, setPosterPreview] = useState<string | null>(null);
+  const [existingPosterUrl] = useState<string | null>(offering?.thumbnail_url || null);
+  const [removePoster, setRemovePoster] = useState(false);
+
   // Subjects (for programs)
   const [subjects, setSubjects] = useState<SubjectDraft[]>(
     existingSubjects.map((s) => ({
@@ -98,6 +108,33 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
     if (!isEditing) {
       setSlug(generateSlug(value));
     }
+  }
+
+  // ─── Poster Handling ───────────────────────────────────
+
+  function handlePosterSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (JPG, PNG, or WebP).");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+    setPosterFile(file);
+    setRemovePoster(false);
+    const reader = new FileReader();
+    reader.onload = () => setPosterPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  function clearPoster() {
+    setPosterFile(null);
+    setPosterPreview(null);
+    setRemovePoster(true);
+    if (posterInputRef.current) posterInputRef.current.value = "";
   }
 
   // ─── Subject Management ────────────────────────────────
@@ -169,6 +206,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
         fee_type: feeType,
         mode,
         is_new: isNew,
+        is_ongoing: isOngoing,
         status,
         schedule_start: scheduleStart || null,
         schedule_end: scheduleEnd || null,
@@ -242,6 +280,34 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
             await supabase.from("subjects").insert(subjectData);
           }
         }
+      }
+
+      // Handle poster upload / removal
+      if (posterFile) {
+        const ext = posterFile.name.split(".").pop();
+        const filePath = `offerings/${offeringId}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("thumbnails")
+          .upload(filePath, posterFile, { upsert: true });
+        if (uploadError) throw new Error(`Poster upload failed: ${uploadError.message}`);
+        const { data: urlData } = supabase.storage.from("thumbnails").getPublicUrl(filePath);
+        await supabase
+          .from("offerings")
+          .update({ thumbnail_url: urlData.publicUrl })
+          .eq("id", offeringId);
+      } else if (removePoster && existingPosterUrl) {
+        // Remove old poster from storage if it's a storage path
+        if (!existingPosterUrl.startsWith("http")) {
+          await supabase.storage.from("thumbnails").remove([existingPosterUrl]);
+        } else {
+          // Extract path from full URL: ...thumbnails/offerings/id.ext
+          const match = existingPosterUrl.match(/thumbnails\/(.+)$/);
+          if (match) await supabase.storage.from("thumbnails").remove([match[1]]);
+        }
+        await supabase
+          .from("offerings")
+          .update({ thumbnail_url: null })
+          .eq("id", offeringId);
       }
 
       toast.success(
@@ -370,6 +436,20 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
               </label>
             </div>
 
+            {/* Mark as On-going */}
+            <div className="space-y-2 flex items-end gap-2">
+              <label htmlFor="isOngoing" className="flex items-center gap-2 cursor-pointer h-8">
+                <input
+                  id="isOngoing"
+                  type="checkbox"
+                  checked={isOngoing}
+                  onChange={(e) => setIsOngoing(e.target.checked)}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm font-medium">Show &quot;On-going&quot; badge</span>
+              </label>
+            </div>
+
             {/* Short Description */}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="shortDesc">Short Description</Label>
@@ -396,6 +476,63 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ─── Poster / Thumbnail ──────────────────────────── */}
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <h2 className="font-heading font-semibold text-lg">Poster</h2>
+          <p className="text-sm text-muted-foreground">
+            Upload an image that will appear on the catalog card and offering page.
+          </p>
+
+          {(posterPreview || (existingPosterUrl && !removePoster)) ? (
+            <div className="relative w-full max-w-md">
+              <img
+                src={posterPreview || existingPosterUrl!}
+                alt="Poster preview"
+                className="w-full rounded-lg border object-cover aspect-[16/10]"
+              />
+              <button
+                type="button"
+                onClick={clearPoster}
+                className="absolute top-2 right-2 h-7 w-7 rounded-full bg-black/60 hover:bg-black/80 flex items-center justify-center transition-colors"
+              >
+                <X className="h-4 w-4 text-white" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => posterInputRef.current?.click()}
+              className="w-full max-w-md aspect-[16/10] rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <ImagePlus className="h-8 w-8 text-muted-foreground/50" />
+              <span className="text-sm text-muted-foreground">Click to upload poster</span>
+              <span className="text-xs text-muted-foreground/60">JPG, PNG or WebP — max 5MB</span>
+            </button>
+          )}
+
+          {(posterPreview || (existingPosterUrl && !removePoster)) && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => posterInputRef.current?.click()}
+            >
+              <ImagePlus className="h-3.5 w-3.5 mr-1.5" />
+              Replace Poster
+            </Button>
+          )}
+
+          <input
+            ref={posterInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handlePosterSelect}
+            className="hidden"
+          />
         </CardContent>
       </Card>
 

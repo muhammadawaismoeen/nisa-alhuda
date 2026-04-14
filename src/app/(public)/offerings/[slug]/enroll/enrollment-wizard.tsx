@@ -609,6 +609,22 @@ export function EnrollmentWizard({
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* Email — shown so the student can see / verify which address is on file */}
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="email">
+                Email <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="e.g. fatima@example.com"
+                value={email}
+                onChange={(e) => !isLoggedIn && setEmail(e.target.value)}
+                readOnly={isLoggedIn}
+                className={isLoggedIn ? "bg-muted cursor-default" : ""}
+              />
+            </div>
+
             {/* First Name */}
             <div className="space-y-2">
               <Label htmlFor="firstName">

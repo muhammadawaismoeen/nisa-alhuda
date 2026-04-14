@@ -105,6 +105,12 @@ export default async function OfferingDetailPage({
               {offering.is_new && (
                 <Badge className="bg-amber-500 hover:bg-amber-500 text-white">New</Badge>
               )}
+              {offering.is_ongoing && (
+                <Badge className="bg-teal-600 hover:bg-teal-600 text-white inline-flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                  On-going
+                </Badge>
+              )}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-4">
               {offering.title}

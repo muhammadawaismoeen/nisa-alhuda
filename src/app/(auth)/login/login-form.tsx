@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -82,10 +83,9 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
             Forgot password?
           </a>
         </div>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           placeholder="Your password"
           required
         />

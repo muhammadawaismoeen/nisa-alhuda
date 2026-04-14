@@ -33,7 +33,15 @@ export function OfferingCard({ offering }: { offering: Offering }) {
   const ModeIcon = modeInfo.icon;
 
   return (
-    <Card className={`flex flex-col hover-lift glass overflow-hidden ${offering.is_new ? "ring-2 ring-amber-400/70 shadow-lg shadow-amber-100/50" : ""}`}>
+    <Card
+      className={`flex flex-col hover-lift glass overflow-hidden ${
+        offering.is_new
+          ? "ring-2 ring-amber-400/70 shadow-lg shadow-amber-100/50"
+          : offering.is_ongoing
+            ? "ring-2 ring-teal-400/60 shadow-lg shadow-teal-100/40"
+            : ""
+      }`}
+    >
       {/* Thumbnail */}
       <div className="aspect-[16/10] bg-secondary rounded-t-lg flex items-center justify-center kufic-pattern relative">
         {offering.thumbnail_url ? (
@@ -48,6 +56,12 @@ export function OfferingCard({ offering }: { offering: Offering }) {
         {offering.is_new && (
           <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-md">
             New
+          </span>
+        )}
+        {!offering.is_new && offering.is_ongoing && (
+          <span className="absolute top-2 right-2 bg-teal-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+            On-going
           </span>
         )}
       </div>
