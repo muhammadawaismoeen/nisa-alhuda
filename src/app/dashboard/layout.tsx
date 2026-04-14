@@ -14,6 +14,7 @@ import {
   FileText,
   BarChart3,
   Megaphone,
+  Mail,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
@@ -31,6 +32,7 @@ const iconMap = {
   GraduationCap,
   Users,
   Megaphone,
+  Mail,
   Settings,
   Video,
   FileText,
@@ -139,6 +141,7 @@ function getNavItems(role: string) {
       { href: "/dashboard/admin/payments", label: "Payments", icon: ClipboardList },
       { href: "/dashboard/admin/enrollments", label: "Enrollments", icon: GraduationCap },
       { href: "/dashboard/admin/users", label: "Users", icon: Users },
+      { href: "/dashboard/admin/emails", label: "Emails", icon: Mail },
       { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
       { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ];

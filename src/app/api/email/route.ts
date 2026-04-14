@@ -14,6 +14,9 @@ import {
   sendEnrollmentApprovedEmail,
   sendEnrollmentRejectedEmail,
   sendAnnouncementEmail,
+  sendTemplateEmail,
+  EMAIL_TEMPLATES,
+  type EmailTemplateKey,
 } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
@@ -179,6 +182,64 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ ok: true });
+    }
+
+    // ─── Broadcast: send a template email to selected audience ───
+    if (type === "broadcast") {
+      const { templateKey, customMessage, audience, offeringId: targetOfferingId } = body;
+
+      if (!templateKey || !(templateKey in EMAIL_TEMPLATES)) {
+        return NextResponse.json(
+          { error: "Invalid template key" },
+          { status: 400 }
+        );
+      }
+
+      let recipientIds: string[] = [];
+
+      if (audience === "offering" && targetOfferingId) {
+        // Only approved enrolled students of a specific offering
+        const { data: enrollments } = await admin
+          .from("enrollments")
+          .select("student_id")
+          .eq("offering_id", targetOfferingId)
+          .eq("status", "approved")
+          .not("student_id", "is", null);
+
+        recipientIds =
+          enrollments
+            ?.map((e) => e.student_id)
+            .filter((id): id is string => !!id) || [];
+      } else {
+        // All users
+        const { data: profiles } = await admin
+          .from("profiles")
+          .select("id");
+
+        recipientIds = profiles?.map((p) => p.id) || [];
+      }
+
+      let sent = 0;
+      for (const userId of recipientIds) {
+        const { data: authUser } = await admin.auth.admin.getUserById(userId);
+        const { data: prof } = await admin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", userId)
+          .single();
+
+        if (authUser?.user?.email) {
+          await sendTemplateEmail(
+            templateKey as EmailTemplateKey,
+            authUser.user.email,
+            prof?.full_name || "",
+            customMessage || undefined
+          );
+          sent++;
+        }
+      }
+
+      return NextResponse.json({ ok: true, sent });
     }
 
     return NextResponse.json({ error: "Unknown type" }, { status: 400 });
