@@ -16,7 +16,9 @@ import {
   Video,
   CheckCircle,
   ExternalLink,
+  AlertCircle,
 } from "lucide-react";
+import { firstOfMonth } from "@/lib/monthly-payments";
 import type { Offering, LiveSession, Profile as ProfileType } from "@/lib/types/database";
 
 export default async function StudentDashboardPage() {
@@ -49,37 +51,63 @@ export default async function StudentDashboardPage() {
 
   const now = new Date();
 
+  // Current cycle (YYYY-MM-01) — used to flag enrollments that are missing a
+  // receipt or had one rejected for this month.
+  const currentCycle = firstOfMonth();
+
   // Run all independent queries in parallel
-  const [lessonsResult, progressResult, sessionsResult] = await Promise.all([
-    // Lessons count per offering
-    approvedOfferingIds.length > 0
-      ? supabase
-          .from("lessons")
-          .select("offering_id")
-          .in("offering_id", approvedOfferingIds)
-          .eq("is_published", true)
-      : Promise.resolve({ data: null }),
-    // Completed lessons per offering
-    approvedOfferingIds.length > 0
-      ? supabase
-          .from("lesson_progress")
-          .select("offering_id")
-          .eq("student_id", user.id)
-          .in("offering_id", approvedOfferingIds)
-      : Promise.resolve({ data: null }),
-    // Live sessions
-    supabase
-      .from("live_sessions")
-      .select(
-        "*, instructor:profiles!live_sessions_instructor_id_fkey(*), offering:offerings!live_sessions_offering_id_fkey(*)"
-      )
-      .gte(
-        "scheduled_at",
-        new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString()
-      )
-      .order("scheduled_at", { ascending: true })
-      .then((res) => res as { data: typeof liveSessions | null }),
-  ]);
+  const [lessonsResult, progressResult, sessionsResult, monthlyPayResult] =
+    await Promise.all([
+      // Lessons count per offering
+      approvedOfferingIds.length > 0
+        ? supabase
+            .from("lessons")
+            .select("offering_id")
+            .in("offering_id", approvedOfferingIds)
+            .eq("is_published", true)
+        : Promise.resolve({ data: null }),
+      // Completed lessons per offering
+      approvedOfferingIds.length > 0
+        ? supabase
+            .from("lesson_progress")
+            .select("offering_id")
+            .eq("student_id", user.id)
+            .in("offering_id", approvedOfferingIds)
+        : Promise.resolve({ data: null }),
+      // Live sessions
+      supabase
+        .from("live_sessions")
+        .select(
+          "*, instructor:profiles!live_sessions_instructor_id_fkey(*), offering:offerings!live_sessions_offering_id_fkey(*)"
+        )
+        .gte(
+          "scheduled_at",
+          new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString()
+        )
+        .order("scheduled_at", { ascending: true })
+        .then((res) => res as { data: typeof liveSessions | null }),
+      // Monthly payment status for the current cycle (only the cycle the
+      // student needs to act on right now)
+      approvedOfferingIds.length > 0
+        ? supabase
+            .from("monthly_payments")
+            .select("enrollment_id, status")
+            .eq("student_id", user.id)
+            .eq("cycle_month", currentCycle)
+        : Promise.resolve({ data: null }),
+    ]);
+
+  // Map enrollment_id -> status for the current cycle so we can flag cards
+  // that need action.
+  const currentCycleByEnrollment: Record<string, string> = {};
+  if (monthlyPayResult.data) {
+    for (const row of monthlyPayResult.data as Array<{
+      enrollment_id: string;
+      status: string;
+    }>) {
+      currentCycleByEnrollment[row.enrollment_id] = row.status;
+    }
+  }
 
   if (lessonsResult.data) {
     lessonCounts = lessonsResult.data.reduce(
@@ -227,6 +255,12 @@ export default async function StudentDashboardPage() {
             const completed = completedCounts[offering.id] || 0;
             const pct = count > 0 ? Math.round((completed / count) * 100) : 0;
 
+            // Monthly subscription: is the current cycle unpaid or rejected?
+            const monthlyStatus = currentCycleByEnrollment[enrollment.id];
+            const monthlyDue =
+              offering.fee_type === "monthly" &&
+              (monthlyStatus === undefined || monthlyStatus === "rejected");
+
             return (
               <Card key={enrollment.id} className="hover-lift">
                 <CardContent className="p-5">
@@ -234,7 +268,18 @@ export default async function StudentDashboardPage() {
                     <div className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center">
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
-                    <Badge variant="default">Enrolled</Badge>
+                    <div className="flex items-center gap-2">
+                      {monthlyDue && (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-300 text-amber-700 dark:text-amber-400"
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Payment due
+                        </Badge>
+                      )}
+                      <Badge variant="default">Enrolled</Badge>
+                    </div>
                   </div>
 
                   <h3 className="font-heading font-semibold text-lg mb-1">
