@@ -81,6 +81,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
   const [mode, setMode] = useState<OfferingMode>(offering?.mode || "online");
   const [isNew, setIsNew] = useState(offering?.is_new || false);
   const [isOngoing, setIsOngoing] = useState(offering?.is_ongoing || false);
+  const [whatsappLink, setWhatsappLink] = useState(offering?.whatsapp_link || "");
   // Poster / thumbnail
   const posterInputRef = useRef<HTMLInputElement>(null);
   const [posterFile, setPosterFile] = useState<File | null>(null);
@@ -207,6 +208,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
         mode,
         is_new: isNew,
         is_ongoing: isOngoing,
+        whatsapp_link: whatsappLink.trim() || null,
         status,
         schedule_start: scheduleStart || null,
         schedule_end: scheduleEnd || null,
@@ -592,6 +594,22 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
                 onChange={(e) => setScheduleEnd(e.target.value)}
               />
             </div>
+          </div>
+
+          {/* WhatsApp Group Link */}
+          <div className="space-y-2">
+            <Label htmlFor="whatsappLink">WhatsApp Group Link</Label>
+            <Input
+              id="whatsappLink"
+              type="url"
+              placeholder="https://chat.whatsapp.com/..."
+              value={whatsappLink}
+              onChange={(e) => setWhatsappLink(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Paste the WhatsApp group invite link. Enrolled students will see a
+              &ldquo;Join WhatsApp Group&rdquo; button at the top of this offering&rsquo;s page.
+            </p>
           </div>
         </CardContent>
       </Card>

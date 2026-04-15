@@ -15,9 +15,18 @@ import {
   Video,
   Clock,
   CheckCircle,
+  MessageCircle,
 } from "lucide-react";
 import { SubjectAccordion } from "./subject-accordion";
-import type { Subject, Lesson } from "@/lib/types/database";
+import { MonthlyPaymentCard } from "./monthly-payment-card";
+import { monthlyAmountForEnrollment } from "@/lib/monthly-payments";
+import type {
+  Subject,
+  Lesson,
+  MonthlyPayment,
+  Offering,
+  Enrollment,
+} from "@/lib/types/database";
 
 export default async function StudentLearningHubPage({
   params,
@@ -33,13 +42,16 @@ export default async function StudentLearningHubPage({
 
   if (!user) redirect("/login");
 
-  // Verify student has an approved enrollment for this offering
+  // Verify student has an approved enrollment for this offering. We also
+  // pull payment_currency + created_at because the monthly-payment card
+  // needs them to compute due cycles and the renewal amount in the right
+  // currency.
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, status")
+    .select("id, status, payment_currency, created_at")
     .eq("student_id", user.id)
     .eq("offering_id", id)
-    .single();
+    .single<Pick<Enrollment, "id" | "status" | "payment_currency" | "created_at">>();
 
   if (!enrollment || enrollment.status !== "approved") {
     notFound();
@@ -50,9 +62,22 @@ export default async function StudentLearningHubPage({
     .from("offerings")
     .select("*")
     .eq("id", id)
-    .single();
+    .single<Offering>();
 
   if (!offering) notFound();
+
+  // Monthly subscription: pull every cycle payment on this enrollment so the
+  // card can render status per month. Only fetched for monthly-fee offerings.
+  let monthlyPayments: MonthlyPayment[] = [];
+  if (offering.fee_type === "monthly") {
+    const { data: mp } = await supabase
+      .from("monthly_payments")
+      .select("*")
+      .eq("enrollment_id", enrollment.id)
+      .order("cycle_month", { ascending: false });
+    monthlyPayments = (mp as MonthlyPayment[]) || [];
+  }
+  const monthly = monthlyAmountForEnrollment(offering, enrollment);
 
   // Fetch subjects for this offering with instructor info
   const { data: subjects } = await supabase
@@ -110,6 +135,38 @@ export default async function StudentLearningHubPage({
         <ArrowLeft className="h-4 w-4 mr-1.5" />
         Back to My Learning
       </LinkButton>
+
+      {/* WhatsApp Group — prominent top banner for enrolled students */}
+      {offering.whatsapp_link && (
+        <a
+          href={offering.whatsapp_link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-5 flex items-center gap-3 rounded-xl border border-[#25D366]/30 bg-gradient-to-r from-[#25D366]/10 via-[#128C7E]/5 to-transparent px-4 py-3 transition-all hover:border-[#25D366]/60 hover:shadow-sm press"
+        >
+          <div className="h-10 w-10 rounded-full bg-[#25D366] flex items-center justify-center shrink-0">
+            <MessageCircle className="h-5 w-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#128C7E]">Join WhatsApp Group</p>
+            <p className="text-xs text-muted-foreground truncate">
+              Stay connected with your sisters and instructor in our class group.
+            </p>
+          </div>
+          <span className="text-xs font-medium text-[#128C7E] shrink-0">Open →</span>
+        </a>
+      )}
+
+      {/* Monthly subscription card — renders only for monthly-fee offerings */}
+      {offering.fee_type === "monthly" && (
+        <MonthlyPaymentCard
+          enrollmentId={enrollment.id}
+          enrolledAt={enrollment.created_at}
+          monthlyAmount={monthly.amount}
+          currency={monthly.currency}
+          payments={monthlyPayments}
+        />
+      )}
 
       {/* Offering Header */}
       <div className="mb-6">

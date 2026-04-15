@@ -174,6 +174,7 @@ export default async function EnrollPage({
           lastName: previousDetails?.last_name || lastName,
           phone: previousDetails?.phone || profile?.phone || "",
           city: previousDetails?.city || "",
+          country: previousDetails?.country || "Pakistan",
           age: previousDetails?.age || "",
           educationLevel: previousDetails?.education_level || "",
           referralSource: previousDetails?.referral_source || "",

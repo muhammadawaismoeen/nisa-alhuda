@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { formatPriceWithFee } from "@/lib/constants";
-import { Plus, BookOpen, Pencil } from "lucide-react";
+import { Plus, BookOpen, Pencil, Users } from "lucide-react";
 import { DeleteOffering } from "./delete-offering";
 import { OfferingToggles } from "./offering-toggles";
 import type { Offering } from "@/lib/types/database";
@@ -36,6 +36,17 @@ export default async function AdminOfferingsPage() {
   if (error) {
     console.error("Error fetching offerings:", error);
   }
+
+  // Fetch approved enrollment counts per offering
+  const { data: enrollmentCounts } = await supabase
+    .from("enrollments")
+    .select("offering_id")
+    .eq("status", "approved");
+
+  const countByOffering: Record<string, number> = {};
+  (enrollmentCounts || []).forEach((e: { offering_id: string }) => {
+    countByOffering[e.offering_id] = (countByOffering[e.offering_id] || 0) + 1;
+  });
 
   const published = (offerings || []).filter((o: any) => o.status === "published").length;
   const featured = (offerings || []).filter((o: any) => o.is_featured).length;
@@ -137,6 +148,10 @@ export default async function AdminOfferingsPage() {
                       </p>
                       <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                         <span>{formatPriceWithFee(offering.price, offering.fee_type)}</span>
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {countByOffering[offering.id] || 0} enrolled
+                        </span>
                         {offering.schedule_start && (
                           <span>
                             Starts{" "}
@@ -154,12 +169,20 @@ export default async function AdminOfferingsPage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <OfferingToggles
                         offeringId={offering.id}
                         isFeatured={offering.is_featured || false}
                         status={offering.status}
                       />
+                      <LinkButton
+                        variant="outline"
+                        size="sm"
+                        href={`/dashboard/admin/offerings/${offering.id}/students`}
+                      >
+                        <Users className="h-3.5 w-3.5 mr-1.5" />
+                        Students
+                      </LinkButton>
                       <LinkButton
                         variant="outline"
                         size="sm"

@@ -205,9 +205,71 @@ export async function sendFaApprovedEmail(
   approvedAmount: number,
   isFullWaiver: boolean
 ) {
-  const message = isFullWaiver
-    ? "Your financial assistance request has been approved with a <strong>full fee waiver</strong>. You are now enrolled and can start learning immediately."
-    : `Your financial assistance request has been approved. Your reduced fee is <strong>Rs. ${approvedAmount.toLocaleString("en-PK")}</strong>. Please upload your payment receipt to complete enrollment.`;
+  // Full waiver → go straight to the dashboard to start learning.
+  // Partial waiver → land on My Enrollments where the pay-fee card is waiting.
+  const ctaUrl = isFullWaiver
+    ? `${SITE_URL}/dashboard/student`
+    : `${SITE_URL}/dashboard/student/enrollments`;
+  const ctaLabel = isFullWaiver ? "Start Learning Now" : "Pay Fee & Upload Receipt";
+
+  const body = isFullWaiver
+    ? `
+      <h2 style="margin:0 0 4px;color:#1a1a1a;font-size:22px;text-align:center;">Alhamdulillah — Your Fee Is Fully Waived!</h2>
+      <p style="margin:0 0 20px;color:#8b1a4a;font-size:15px;text-align:center;">${studentName ? `Dear ${studentName}` : "Dear Sister"}</p>
+
+      <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.8;">
+        We are delighted to let you know that your financial assistance request
+        for <strong>${offeringTitle}</strong> has been approved with a
+        <strong>full fee waiver</strong>. You are now enrolled and can begin
+        your learning journey immediately.
+      </p>
+
+      ${quoteBlock(
+        "Whoever removes a hardship from a believer in this world, Allah will remove one of his hardships on the Day of Judgment.",
+        "Sahih Muslim"
+      )}
+
+      <p style="margin:16px 0;color:#555;font-size:15px;line-height:1.8;">
+        Seek knowledge with sincerity, and let your learning be a means of du'a for those who supported this journey.
+      </p>
+
+      ${btn(ctaUrl, ctaLabel)}
+
+      <p style="margin:0;color:#8b1a4a;font-size:14px;text-align:center;font-style:italic;">
+        May Allah bless your journey of seeking knowledge.
+      </p>
+    `
+    : `
+      <h2 style="margin:0 0 4px;color:#1a1a1a;font-size:22px;text-align:center;">Your Financial Assistance Is Approved</h2>
+      <p style="margin:0 0 20px;color:#8b1a4a;font-size:15px;text-align:center;">${studentName ? `Dear ${studentName}` : "Dear Sister"}</p>
+
+      <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.8;">
+        Alhamdulillah — your financial assistance request for
+        <strong>${offeringTitle}</strong> has been approved. You&rsquo;re just one
+        step away from starting your learning journey.
+      </p>
+
+      <div style="margin:20px 0;padding:18px 20px;background:linear-gradient(135deg,#fdf6f0 0%,#f5ebe0 100%);border-radius:12px;border-left:4px solid #d4a574;text-align:center;">
+        <p style="margin:0 0 4px;color:#8c7e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Reduced Fee</p>
+        <p style="margin:0;color:#8b1a4a;font-size:26px;font-weight:700;">Rs. ${approvedAmount.toLocaleString("en-PK")}</p>
+      </div>
+
+      <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.8;">
+        To complete your enrollment, please transfer the reduced fee to our
+        bank account, then tap the button below to upload your payment receipt.
+        Our team will verify and approve your enrollment shortly after.
+      </p>
+
+      ${btn(ctaUrl, ctaLabel)}
+
+      <p style="margin:16px 0 0;color:#888;font-size:13px;text-align:center;">
+        You&rsquo;ll find the bank details on the receipt upload page.
+      </p>
+
+      <p style="margin:16px 0 0;color:#8b1a4a;font-size:14px;text-align:center;font-style:italic;">
+        May Allah ease your path to knowledge.
+      </p>
+    `;
 
   try {
     const resend = getResend();
@@ -215,17 +277,10 @@ export async function sendFaApprovedEmail(
     await resend.emails.send({
       from: FROM,
       to,
-      subject: `Financial Assistance Approved — ${offeringTitle}`,
-      html: wrap(`
-        <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:20px;">Assalamu Alaykum${studentName ? ` ${studentName}` : ""}!</h2>
-        <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.6;">
-          ${message}
-        </p>
-        ${btn(`${SITE_URL}/dashboard/student/enrollments`, "View My Enrollments")}
-        <p style="margin:0;color:#888;font-size:13px;">
-          May Allah ease your path to knowledge.
-        </p>
-      `),
+      subject: isFullWaiver
+        ? `Financial Assistance Approved — ${offeringTitle}`
+        : `Pay Reduced Fee to Complete Enrollment — ${offeringTitle}`,
+      html: heartWrap(body),
     });
   } catch (err) {
     console.error("[Email] FA approved email failed:", err);

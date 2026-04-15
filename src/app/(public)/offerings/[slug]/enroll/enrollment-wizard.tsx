@@ -61,6 +61,7 @@ interface EnrollmentWizardProps {
     lastName: string;
     phone: string;
     city: string;
+    country: string;
     age: string;
     educationLevel: string;
     referralSource: string;
@@ -95,6 +96,66 @@ const REFERRAL_OPTIONS = [
   "Search engine (Google)",
   "Other",
 ];
+
+// Country list. "Pakistan" → PKR, "India" → INR, everything else → USD.
+// Kept reasonably comprehensive so admins see a real country name in reports.
+const COUNTRY_OPTIONS = [
+  "Pakistan",
+  "India",
+  "Afghanistan",
+  "Algeria",
+  "Australia",
+  "Bahrain",
+  "Bangladesh",
+  "Belgium",
+  "Canada",
+  "China",
+  "Egypt",
+  "France",
+  "Germany",
+  "Indonesia",
+  "Iran",
+  "Iraq",
+  "Italy",
+  "Japan",
+  "Jordan",
+  "Kenya",
+  "Kuwait",
+  "Lebanon",
+  "Malaysia",
+  "Maldives",
+  "Morocco",
+  "Netherlands",
+  "New Zealand",
+  "Nigeria",
+  "Oman",
+  "Philippines",
+  "Qatar",
+  "Saudi Arabia",
+  "Singapore",
+  "South Africa",
+  "Spain",
+  "Sri Lanka",
+  "Sudan",
+  "Sweden",
+  "Switzerland",
+  "Syria",
+  "Thailand",
+  "Tunisia",
+  "Turkey",
+  "United Arab Emirates",
+  "United Kingdom",
+  "United States",
+  "Yemen",
+  "Other",
+];
+
+// Map a country name to our paymentRegion key.
+function countryToRegion(country: string): "pk" | "in" | "intl" {
+  if (country === "Pakistan") return "pk";
+  if (country === "India") return "in";
+  return "intl";
+}
 
 // ─── Component ─────────────────────────────────────────────
 
@@ -132,6 +193,7 @@ export function EnrollmentWizard({
     last_name: prefill.lastName,
     phone: prefill.phone,
     city: prefill.city,
+    country: prefill.country || "Pakistan",
     age: prefill.age,
     education_level: prefill.educationLevel,
     referral_source: prefill.referralSource,
@@ -149,7 +211,9 @@ export function EnrollmentWizard({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [uploadedReceiptPath, setUploadedReceiptPath] = useState<string | null>(null);
-  const [paymentRegion, setPaymentRegion] = useState<"pk" | "in" | "intl">("pk");
+  const [paymentRegion, setPaymentRegion] = useState<"pk" | "in" | "intl">(
+    countryToRegion(prefill.country || "Pakistan")
+  );
   const hasInrPrice = (offeringPriceInr ?? 0) > 0;
   const hasIntlPrice = (offeringPriceUsd ?? 0) > 0;
 
@@ -172,6 +236,17 @@ export function EnrollmentWizard({
 
   function updateDetail(key: keyof StudentDetails, value: string) {
     setDetails((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // Country drives payment region — keep them in sync.
+  function handleCountryChange(value: string) {
+    setDetails((prev) => ({ ...prev, country: value }));
+    const region = countryToRegion(value);
+    // Only snap to the region if the offering actually supports that currency;
+    // otherwise fall back to PKR.
+    if (region === "in" && !hasInrPrice) setPaymentRegion("pk");
+    else if (region === "intl" && !hasIntlPrice) setPaymentRegion("pk");
+    else setPaymentRegion(region);
   }
 
   // ─── Step 0: Email Check ─────────────────────────────────
@@ -245,6 +320,10 @@ export function EnrollmentWizard({
     }
     if (!details.city.trim()) {
       toast.error("Please enter your city.");
+      return false;
+    }
+    if (!details.country || !details.country.trim()) {
+      toast.error("Please select your country.");
       return false;
     }
     return true;
@@ -665,6 +744,29 @@ export function EnrollmentWizard({
                 onChange={(e) => updateDetail("phone", e.target.value)}
                 required
               />
+            </div>
+
+            {/* Country */}
+            <div className="space-y-2">
+              <Label htmlFor="country">
+                Country <span className="text-destructive">*</span>
+              </Label>
+              <select
+                id="country"
+                className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
+                value={details.country || "Pakistan"}
+                onChange={(e) => handleCountryChange(e.target.value)}
+                required
+              >
+                {COUNTRY_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                We&rsquo;ll show fees in your local currency based on your country.
+              </p>
             </div>
 
             {/* City */}

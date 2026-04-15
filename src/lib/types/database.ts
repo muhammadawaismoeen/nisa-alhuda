@@ -7,7 +7,7 @@
  * For now, we define them manually to match our migration.
  */
 
-export type UserRole = "admin" | "instructor" | "student";
+export type UserRole = "admin" | "instructor" | "student" | "treasurer";
 export type OfferingType = "program" | "course" | "workshop" | "class";
 export type FeeType = "one_time" | "monthly";
 export type OfferingMode = "online" | "onsite" | "hybrid";
@@ -60,6 +60,8 @@ export interface Offering {
   is_new: boolean;
   /** Marks a class that is already running but still accepting new joiners — renders an "On-going" badge. */
   is_ongoing: boolean;
+  /** WhatsApp group invite link — displayed prominently to enrolled students on the offering page. */
+  whatsapp_link: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +108,8 @@ export interface StudentDetails {
   last_name: string;
   phone: string;
   city: string;
+  /** Country name (ISO-ish). Drives auto currency selection: Pakistan → PKR, India → INR, other → USD. */
+  country?: string;
   age: string;
   education_level: string;
   referral_source: string;
@@ -195,6 +199,27 @@ export interface LiveSession {
   meeting_url: string;
   scheduled_at: string;
   duration_minutes: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MonthlyPaymentStatus = "pending" | "approved" | "rejected";
+
+export interface MonthlyPayment {
+  id: string;
+  enrollment_id: string;
+  student_id: string;
+  offering_id: string;
+  /** First-of-month date the cycle covers (e.g. "2026-04-01"). */
+  cycle_month: string;
+  amount: number;
+  currency: string;
+  payment_method: string;
+  receipt_url: string | null;
+  status: MonthlyPaymentStatus;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
   created_at: string;
   updated_at: string;
 }
