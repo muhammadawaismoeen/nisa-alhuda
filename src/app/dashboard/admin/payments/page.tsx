@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPaidAmount } from "@/lib/constants";
-import { DollarSign, Clock, CheckCircle, XCircle } from "lucide-react";
+import { DollarSign, Clock, CheckCircle, XCircle, CalendarDays } from "lucide-react";
 import { PaymentActions } from "./payment-actions";
+import { MonthlyPaymentActions } from "./monthly-payment-actions";
+import { formatCycleMonth, formatMonthlyAmount } from "@/lib/monthly-payments";
 
 export default async function PaymentLedgerPage() {
   const supabase = await createClient();
@@ -22,7 +24,8 @@ export default async function PaymentLedgerPage() {
     .eq("id", user?.id)
     .single();
 
-  if (profile?.role !== "admin") {
+  // Admin and treasurer both manage the payment queue; everyone else is blocked.
+  if (profile?.role !== "admin" && profile?.role !== "treasurer") {
     return (
       <div className="text-center py-20">
         <p className="text-destructive font-medium">Access denied.</p>
@@ -41,6 +44,18 @@ export default async function PaymentLedgerPage() {
   const pending = (enrollments || []).filter((e) => e.status === "pending");
   const approved = (enrollments || []).filter((e) => e.status === "approved");
   const rejected = (enrollments || []).filter((e) => e.status === "rejected");
+
+  // Fetch monthly renewal payments — pending first so treasurers land on
+  // actionable work.
+  const { data: monthlyPaymentsRaw } = await supabase
+    .from("monthly_payments")
+    .select(
+      "*, student:profiles!monthly_payments_student_id_fkey(full_name, phone), offering:offerings!monthly_payments_offering_id_fkey(title)"
+    )
+    .order("cycle_month", { ascending: false });
+
+  const monthlyPayments = (monthlyPaymentsRaw || []) as any[];
+  const monthlyPending = monthlyPayments.filter((p) => p.status === "pending");
 
   // Revenue stats — totals are PKR-equivalent only (PKR + INR counted at face value,
   // USD excluded from the totals so the headline number isn't misleading).
@@ -191,6 +206,147 @@ export default async function PaymentLedgerPage() {
                 </CardContent>
               </Card>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* Monthly Renewals — pending first, then history */}
+      {monthlyPayments.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-heading font-semibold text-lg mb-4 flex items-center gap-2">
+            <CalendarDays className="h-5 w-5 text-primary" />
+            Monthly Renewals
+            {monthlyPending.length > 0 && (
+              <Badge
+                variant="outline"
+                className="text-amber-600 border-amber-300"
+              >
+                {monthlyPending.length} pending
+              </Badge>
+            )}
+          </h2>
+
+          {/* Pending cycles — action-required card list */}
+          {monthlyPending.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {monthlyPending.map((payment: any) => (
+                <Card
+                  key={payment.id}
+                  className="border-amber-200 dark:border-amber-800"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col md:flex-row md:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold truncate">
+                            {payment.student?.full_name || "Unknown"}
+                          </h3>
+                          <Badge variant="outline" className="text-amber-600">
+                            {formatCycleMonth(payment.cycle_month)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {payment.offering?.title}
+                        </p>
+                        <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {formatMonthlyAmount(
+                              payment.amount,
+                              payment.currency
+                            )}
+                          </span>
+                          {payment.student?.phone && (
+                            <span>{payment.student.phone}</span>
+                          )}
+                          <span>
+                            Submitted{" "}
+                            {new Date(payment.created_at).toLocaleDateString(
+                              "en-PK",
+                              {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <MonthlyPaymentActions
+                        monthlyPaymentId={payment.id}
+                        status={payment.status}
+                        receiptPath={payment.receipt_url}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* History table */}
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
+                    Student
+                  </th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
+                    Offering
+                  </th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
+                    Cycle
+                  </th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
+                    Amount
+                  </th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
+                    Status
+                  </th>
+                  <th className="pb-3 font-medium text-muted-foreground whitespace-nowrap">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyPayments.map((payment: any) => (
+                  <tr key={payment.id} className="border-b last:border-0">
+                    <td className="py-3 font-medium">
+                      {payment.student?.full_name || "Unknown"}
+                    </td>
+                    <td className="py-3 text-muted-foreground">
+                      {payment.offering?.title}
+                    </td>
+                    <td className="py-3 text-muted-foreground whitespace-nowrap">
+                      {formatCycleMonth(payment.cycle_month)}
+                    </td>
+                    <td className="py-3 whitespace-nowrap">
+                      {formatMonthlyAmount(payment.amount, payment.currency)}
+                    </td>
+                    <td className="py-3">
+                      <Badge
+                        variant={
+                          payment.status === "approved"
+                            ? "default"
+                            : payment.status === "pending"
+                              ? "outline"
+                              : "destructive"
+                        }
+                      >
+                        {payment.status}
+                      </Badge>
+                    </td>
+                    <td className="py-3">
+                      <MonthlyPaymentActions
+                        monthlyPaymentId={payment.id}
+                        status={payment.status}
+                        receiptPath={payment.receipt_url}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}

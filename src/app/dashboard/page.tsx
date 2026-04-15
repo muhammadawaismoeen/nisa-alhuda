@@ -25,6 +25,9 @@ export default async function DashboardPage() {
   switch (profile?.role) {
     case "admin":
       redirect("/dashboard/admin");
+    case "treasurer":
+      // Treasurers only have access to the payment ledger.
+      redirect("/dashboard/admin/payments");
     case "instructor":
       redirect("/dashboard/instructor");
     default:

@@ -52,6 +52,7 @@ export default async function AdminUsersPage() {
 
   const roleStats = {
     admin: (profiles || []).filter((p: any) => p.role === "admin").length,
+    treasurer: (profiles || []).filter((p: any) => p.role === "treasurer").length,
     instructor: (profiles || []).filter((p: any) => p.role === "instructor").length,
     student: (profiles || []).filter((p: any) => p.role === "student").length,
   };
@@ -75,6 +76,9 @@ export default async function AdminUsersPage() {
         </Badge>
         <Badge variant="outline" className="text-sm py-1 px-3 text-blue-600 border-blue-300">
           {roleStats.instructor} instructors
+        </Badge>
+        <Badge variant="outline" className="text-sm py-1 px-3 text-amber-600 border-amber-300">
+          {roleStats.treasurer} treasurers
         </Badge>
         <Badge variant="outline" className="text-sm py-1 px-3 text-purple-600 border-purple-300">
           {roleStats.admin} admins

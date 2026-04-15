@@ -147,6 +147,16 @@ function getNavItems(role: string) {
     ];
   }
 
+  // Treasurers only see the payment ledger (plus base dashboard + settings).
+  // Their admin layout guard bounces them out of any other /dashboard/admin/* path.
+  if (role === "treasurer") {
+    return [
+      ...base,
+      { href: "/dashboard/admin/payments", label: "Payments", icon: ClipboardList },
+      { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    ];
+  }
+
   if (role === "instructor") {
     return [
       ...base,

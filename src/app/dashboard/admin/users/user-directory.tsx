@@ -19,6 +19,8 @@ import {
   Mail,
   Calendar,
   BookOpen,
+  Wallet,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,9 +45,12 @@ interface UserDirectoryProps {
 
 const roleConfig = {
   admin: { label: "Admin", color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-950/30", icon: Shield },
+  treasurer: { label: "Treasurer", color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-950/30", icon: Wallet },
   instructor: { label: "Instructor", color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-950/30", icon: BookOpen },
   student: { label: "Student", color: "text-green-600", bg: "bg-green-100 dark:bg-green-950/30", icon: User },
 };
+
+const ROLE_OPTIONS = ["student", "instructor", "treasurer", "admin"] as const;
 
 export function UserDirectory({
   profiles,
@@ -58,6 +63,9 @@ export function UserDirectory({
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [loginTarget, setLoginTarget] = useState<Profile | null>(null);
+  const [roleChangeTarget, setRoleChangeTarget] = useState<Profile | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string>("student");
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
   // Filter profiles
   const filtered = profiles.filter((p) => {
@@ -112,6 +120,41 @@ export function UserDirectory({
     setShowLoginDialog(true);
   }
 
+  function openRoleDialog(profile: Profile) {
+    setRoleChangeTarget(profile);
+    setSelectedRole(profile.role);
+  }
+
+  async function confirmRoleChange() {
+    if (!roleChangeTarget) return;
+    if (selectedRole === roleChangeTarget.role) {
+      setRoleChangeTarget(null);
+      return;
+    }
+
+    setUpdatingRoleId(roleChangeTarget.id);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ role: selectedRole })
+        .eq("id", roleChangeTarget.id);
+
+      if (error) throw error;
+      toast.success(
+        `${roleChangeTarget.full_name} is now ${
+          roleConfig[selectedRole as keyof typeof roleConfig]?.label || selectedRole
+        }.`
+      );
+      setRoleChangeTarget(null);
+      router.refresh();
+    } catch {
+      toast.error("Failed to update role.");
+    } finally {
+      setUpdatingRoleId(null);
+    }
+  }
+
   async function confirmLoginAs() {
     if (!loginTarget) return;
     // Open the login page in a new tab with the user's email pre-filled
@@ -145,7 +188,7 @@ export function UserDirectory({
           />
         </div>
         <div className="flex gap-2">
-          {["all", "student", "instructor", "admin"].map((role) => (
+          {["all", "student", "instructor", "treasurer", "admin"].map((role) => (
             <Button
               key={role}
               variant={roleFilter === role ? "default" : "outline"}
@@ -244,6 +287,21 @@ export function UserDirectory({
                     {/* Actions */}
                     {!isCurrentUser && (
                       <div className="flex items-center gap-1 shrink-0">
+                        {/* Change Role */}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => openRoleDialog(profile)}
+                          disabled={updatingRoleId === profile.id}
+                          title="Change role"
+                        >
+                          {updatingRoleId === profile.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <UserCog className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+
                         {/* Login As */}
                         <Button
                           variant="ghost"
@@ -288,6 +346,73 @@ export function UserDirectory({
           })}
         </div>
       )}
+
+      {/* Change Role Dialog */}
+      <Dialog
+        open={!!roleChangeTarget}
+        onOpenChange={(open) => !open && setRoleChangeTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Change role for {roleChangeTarget?.full_name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-muted-foreground">
+              Role changes apply immediately. Treasurers can only access the
+              Payment Ledger to approve/reject receipts — they cannot edit
+              courses, users, or other admin areas.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {ROLE_OPTIONS.map((r) => {
+                const cfg = roleConfig[r];
+                const RoleIcon = cfg.icon;
+                const isSelected = selectedRole === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setSelectedRole(r)}
+                    className={`flex items-center gap-2 rounded-lg border p-3 text-left transition-colors ${
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    <div
+                      className={`h-8 w-8 rounded-lg ${cfg.bg} flex items-center justify-center`}
+                    >
+                      <RoleIcon className={`h-4 w-4 ${cfg.color}`} />
+                    </div>
+                    <span className="font-medium text-sm">{cfg.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setRoleChangeTarget(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmRoleChange}
+                disabled={
+                  !!updatingRoleId ||
+                  selectedRole === roleChangeTarget?.role
+                }
+              >
+                {updatingRoleId && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                Save role
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Login As Dialog */}
       <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
