@@ -28,6 +28,7 @@ import {
   approveFinancialAssistance,
   rejectFinancialAssistance,
 } from "./actions";
+import { formatPaidAmount } from "@/lib/constants";
 import { toast } from "sonner";
 
 interface FaActionsProps {
@@ -35,7 +36,10 @@ interface FaActionsProps {
   faReason: string | null;
   faIncomeRange: string | null;
   faOfferedAmount: number | null;
+  /** Full price shown as "original fee" — should already be in paymentCurrency. */
   originalPrice: number;
+  /** Student's enrolled currency — drives every amount label/symbol in the dialog. */
+  paymentCurrency: "PKR" | "INR" | "USD";
   applicantName: string;
 }
 
@@ -45,11 +49,15 @@ export function FaActions({
   faIncomeRange,
   faOfferedAmount,
   originalPrice,
+  paymentCurrency,
   applicantName,
 }: FaActionsProps) {
+  const currencyLabel = paymentCurrency;
+  const currencySymbol =
+    paymentCurrency === "USD" ? "$" : paymentCurrency === "INR" ? "₹" : "Rs.";
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"view" | "approve" | "reject">("view");
+  const [mode, setMode] = useState<"main" | "reject">("main");
   const [approvedAmount, setApprovedAmount] = useState<string>(
     faOfferedAmount?.toString() || ""
   );
@@ -78,7 +86,7 @@ export function FaActions({
       toast.success(
         amount === 0
           ? "FA approved with full waiver. Student enrolled!"
-          : `FA approved. Student will be notified to pay ${amount}.`
+          : `FA approved. Student will be notified to pay ${formatPaidAmount(amount, paymentCurrency)}.`
       );
       setOpen(false);
       router.refresh();
@@ -121,7 +129,7 @@ export function FaActions({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setMode("view"); }}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setMode("main"); }}>
       <DialogTrigger
         render={<Button size="sm" variant="outline" className="gap-1.5" />}
       >
@@ -133,105 +141,183 @@ export function FaActions({
           <DialogTitle>Financial Assistance Request</DialogTitle>
         </DialogHeader>
 
-        {mode === "view" && (
+        {mode === "main" && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-secondary/50 p-4 space-y-3 text-sm">
+            {/* ── Applicant details (compact) ── */}
+            <div className="rounded-lg bg-secondary/50 p-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
                   Applicant
                 </p>
                 <p className="font-medium">{applicantName}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
                   Original Fee
                 </p>
-                <p className="font-medium">{originalPrice}</p>
+                <p className="font-medium">
+                  {formatPaidAmount(originalPrice, paymentCurrency)}
+                </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Amount Offered by Student
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                  Student Offered
                 </p>
                 <p className="font-medium text-primary">
-                  {faOfferedAmount !== null ? faOfferedAmount : "—"}
+                  {faOfferedAmount !== null
+                    ? formatPaidAmount(faOfferedAmount, paymentCurrency)
+                    : "—"}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Household Monthly Income
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                  Income
                 </p>
-                <p className="font-medium">
+                <p className="font-medium text-xs">
                   {(faIncomeRange && incomeLabels[faIncomeRange]) || faIncomeRange || "—"}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
-                  Reason
-                </p>
-                <p className="whitespace-pre-wrap">{faReason || "—"}</p>
+              {faReason && (
+                <div className="col-span-2">
+                  <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                    Reason
+                  </p>
+                  <p className="whitespace-pre-wrap text-xs">{faReason}</p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Approve with custom amount ── */}
+            <div className="space-y-2 border rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="approvedAmount" className="text-sm font-semibold">
+                  Approve Amount
+                </Label>
+                <span className="text-[10px] uppercase tracking-wider font-semibold rounded-md bg-primary/10 text-primary px-2 py-0.5">
+                  {currencyLabel}
+                </span>
               </div>
+
+              {/* Quick-select preset buttons */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setApprovedAmount("0")}
+                >
+                  Full Waiver
+                </Button>
+                {faOfferedAmount !== null && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setApprovedAmount(String(faOfferedAmount))}
+                  >
+                    Student&apos;s Offer ({formatPaidAmount(faOfferedAmount, paymentCurrency)})
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setApprovedAmount(String(Math.round(originalPrice / 2)))}
+                >
+                  50% Discount ({formatPaidAmount(Math.round(originalPrice / 2), paymentCurrency)})
+                </Button>
+              </div>
+
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                  {currencySymbol}
+                </span>
+                <Input
+                  id="approvedAmount"
+                  type="number"
+                  min="0"
+                  value={approvedAmount}
+                  onChange={(e) => setApprovedAmount(e.target.value)}
+                  placeholder={
+                    paymentCurrency === "USD"
+                      ? "e.g., 8"
+                      : paymentCurrency === "INR"
+                        ? "e.g., 400"
+                        : "e.g., 1500"
+                  }
+                  className={paymentCurrency === "PKR" ? "pl-10" : "pl-7"}
+                />
+              </div>
+
+              {/* Visual waiver indicator */}
+              {approvedAmount !== "" && Number.isFinite(Number(approvedAmount)) && Number(approvedAmount) >= 0 && (() => {
+                const amt = Number(approvedAmount);
+                if (amt === 0) {
+                  return (
+                    <p className="text-xs font-medium text-green-600">
+                      Full fee waiver &mdash; student pays nothing
+                    </p>
+                  );
+                }
+                if (amt > 0 && amt < originalPrice) {
+                  const discountPct = Math.round(((originalPrice - amt) / originalPrice) * 100);
+                  const savings = originalPrice - amt;
+                  return (
+                    <p className="text-xs font-medium text-amber-600">
+                      {discountPct}% discount (saves {formatPaidAmount(savings, paymentCurrency)})
+                    </p>
+                  );
+                }
+                if (amt === originalPrice) {
+                  return (
+                    <p className="text-xs text-muted-foreground">
+                      No discount &mdash; full fee applies
+                    </p>
+                  );
+                }
+                if (amt > originalPrice) {
+                  return (
+                    <p className="text-xs font-medium text-red-600">
+                      Amount exceeds original fee
+                    </p>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
-            <div className="flex gap-2 justify-end pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                onClick={() => setMode("reject")}
-              >
-                <XCircle className="h-4 w-4 mr-1.5" />
-                Reject
-              </Button>
-              <Button size="sm" onClick={() => setMode("approve")}>
-                <CheckCircle className="h-4 w-4 mr-1.5" />
-                Approve
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {mode === "approve" && (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Set the amount <strong>{applicantName}</strong> will be charged.
-              If the approved amount is greater than 0, they&apos;ll be notified
-              to upload a receipt for the reduced fee.
-            </p>
-
-            <div className="space-y-2">
-              <Label htmlFor="approvedAmount">Approved Amount</Label>
-              <Input
-                id="approvedAmount"
-                type="number"
-                min="0"
-                value={approvedAmount}
-                onChange={(e) => setApprovedAmount(e.target.value)}
-                placeholder="e.g., 1500"
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">
-                Student offered: {faOfferedAmount ?? "—"} &middot; Original: {originalPrice}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="decisionNote">Internal Note (optional)</Label>
+            {/* ── Internal note ── */}
+            <div className="space-y-1.5">
+              <Label htmlFor="decisionNote" className="text-xs">Internal Note (optional)</Label>
               <Textarea
                 id="decisionNote"
                 rows={2}
                 value={decisionNote}
                 onChange={(e) => setDecisionNote(e.target.value)}
                 placeholder="Notes for admin reference (not shown to student)"
+                className="text-sm"
               />
             </div>
 
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setMode("view")} disabled={loading}>
-                Back
+            {/* ── Action buttons ── */}
+            <div className="flex gap-2 justify-between pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={() => setMode("reject")}
+                disabled={loading}
+              >
+                <XCircle className="h-4 w-4 mr-1.5" />
+                Reject
               </Button>
               <Button onClick={handleApprove} disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                Confirm Approval
+                <CheckCircle className="h-4 w-4 mr-1.5" />
+                Approve &amp; Notify Student
               </Button>
             </div>
           </div>
@@ -256,7 +342,7 @@ export function FaActions({
             </div>
 
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setMode("view")} disabled={loading}>
+              <Button variant="outline" onClick={() => setMode("main")} disabled={loading}>
                 Back
               </Button>
               <Button variant="destructive" onClick={handleReject} disabled={loading}>

@@ -18,6 +18,27 @@ const statusConfig = {
   rejected: { label: "Rejected", variant: "destructive" as const },
 };
 
+/**
+ * Returns the offering's full fee in the same currency the student enrolled
+ * with. Mirrors the routing used by `monthlyAmountForEnrollment` for non-FA
+ * enrollments: USD → price_usd, INR → price_inr, else PKR. Falls back to the
+ * PKR price when the requested column is null.
+ */
+function originalFeeInCurrency(
+  offering: {
+    price?: number | null;
+    price_inr?: number | null;
+    price_usd?: number | null;
+  } | null,
+  currency: string | null | undefined
+): number {
+  if (!offering) return 0;
+  const c = (currency || "PKR").toUpperCase();
+  if (c === "USD" && offering.price_usd != null) return offering.price_usd;
+  if (c === "INR" && offering.price_inr != null) return offering.price_inr;
+  return offering.price || 0;
+}
+
 export default async function AdminEnrollmentsPage() {
   const supabase = await createClient();
 
@@ -169,11 +190,27 @@ export default async function AdminEnrollmentsPage() {
                                 <Mail className="h-3 w-3" />
                                 {enrollment.applicant_email}
                               </span>
+                              {/* Original fee rendered in student's enrolled
+                                  currency — uses the offering's matching price
+                                  column (price / price_inr / price_usd) */}
                               <span>
-                                Original: {formatPaidAmount(enrollment.offering?.price || 0, "PKR")}
+                                Original:{" "}
+                                {formatPaidAmount(
+                                  originalFeeInCurrency(
+                                    enrollment.offering,
+                                    enrollment.payment_currency
+                                  ),
+                                  enrollment.payment_currency || "PKR"
+                                )}
                               </span>
                               <span className="text-amber-700 dark:text-amber-400 font-medium">
-                                Offered: {enrollment.fa_offered_amount}
+                                Offered:{" "}
+                                {enrollment.fa_offered_amount != null
+                                  ? formatPaidAmount(
+                                      enrollment.fa_offered_amount,
+                                      enrollment.payment_currency || "PKR"
+                                    )
+                                  : "—"}
                               </span>
                               {details?.phone && <span>{details.phone}</span>}
                             </div>
@@ -185,7 +222,16 @@ export default async function AdminEnrollmentsPage() {
                               faReason={enrollment.fa_reason}
                               faIncomeRange={enrollment.fa_income_range}
                               faOfferedAmount={enrollment.fa_offered_amount}
-                              originalPrice={enrollment.offering?.price || 0}
+                              originalPrice={originalFeeInCurrency(
+                                enrollment.offering,
+                                enrollment.payment_currency
+                              )}
+                              paymentCurrency={
+                                (enrollment.payment_currency || "PKR") as
+                                  | "PKR"
+                                  | "INR"
+                                  | "USD"
+                              }
                               applicantName={applicantName}
                             />
                             <EnrollmentActions

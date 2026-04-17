@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Star, Archive, RotateCcw, Loader2 } from "lucide-react";
+import { Star, Archive, RotateCcw, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
@@ -15,16 +15,19 @@ interface OfferingTogglesProps {
   offeringId: string;
   isFeatured: boolean;
   status: string;
+  admissionClosed: boolean;
 }
 
 export function OfferingToggles({
   offeringId,
   isFeatured,
   status,
+  admissionClosed,
 }: OfferingTogglesProps) {
   const router = useRouter();
   const [loadingFeature, setLoadingFeature] = useState(false);
   const [loadingArchive, setLoadingArchive] = useState(false);
+  const [loadingAdmission, setLoadingAdmission] = useState(false);
 
   async function toggleFeatured() {
     setLoadingFeature(true);
@@ -73,6 +76,27 @@ export function OfferingToggles({
     }
   }
 
+  async function toggleAdmission() {
+    setLoadingAdmission(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("offerings")
+        .update({ admission_closed: !admissionClosed })
+        .eq("id", offeringId);
+
+      if (error) throw error;
+      toast.success(
+        admissionClosed ? "Admissions opened" : "Admissions closed"
+      );
+      router.refresh();
+    } catch {
+      toast.error("Failed to update.");
+    } finally {
+      setLoadingAdmission(false);
+    }
+  }
+
   return (
     <>
       {/* Feature toggle */}
@@ -90,6 +114,26 @@ export function OfferingToggles({
           ) : (
             <Star
               className={`h-3.5 w-3.5 ${isFeatured ? "fill-amber-400" : ""}`}
+            />
+          )}
+        </Button>
+      )}
+
+      {/* Admission Closed toggle */}
+      {status !== "archived" && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={toggleAdmission}
+          disabled={loadingAdmission}
+          title={admissionClosed ? "Open admissions" : "Close admissions"}
+          className={admissionClosed ? "text-destructive" : "text-muted-foreground"}
+        >
+          {loadingAdmission ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Lock
+              className={`h-3.5 w-3.5 ${admissionClosed ? "fill-destructive/20" : ""}`}
             />
           )}
         </Button>

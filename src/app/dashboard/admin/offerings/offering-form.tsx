@@ -81,6 +81,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
   const [mode, setMode] = useState<OfferingMode>(offering?.mode || "online");
   const [isNew, setIsNew] = useState(offering?.is_new || false);
   const [isOngoing, setIsOngoing] = useState(offering?.is_ongoing || false);
+  const [admissionClosed, setAdmissionClosed] = useState(offering?.admission_closed || false);
   const [whatsappLink, setWhatsappLink] = useState(offering?.whatsapp_link || "");
   // Poster / thumbnail
   const posterInputRef = useRef<HTMLInputElement>(null);
@@ -208,6 +209,7 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
         mode,
         is_new: isNew,
         is_ongoing: isOngoing,
+        admission_closed: admissionClosed,
         whatsapp_link: whatsappLink.trim() || null,
         status,
         schedule_start: scheduleStart || null,
@@ -449,6 +451,20 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 <span className="text-sm font-medium">Show &quot;On-going&quot; badge</span>
+              </label>
+            </div>
+
+            {/* Close Admissions */}
+            <div className="space-y-2 flex items-end gap-2">
+              <label htmlFor="admissionClosed" className="flex items-center gap-2 cursor-pointer h-8">
+                <input
+                  id="admissionClosed"
+                  type="checkbox"
+                  checked={admissionClosed}
+                  onChange={(e) => setAdmissionClosed(e.target.checked)}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm font-medium">Close admissions (show &quot;Admission Closed!&quot; label)</span>
               </label>
             </div>
 

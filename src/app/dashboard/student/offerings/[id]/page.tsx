@@ -43,15 +43,24 @@ export default async function StudentLearningHubPage({
   if (!user) redirect("/login");
 
   // Verify student has an approved enrollment for this offering. We also
-  // pull payment_currency + created_at because the monthly-payment card
-  // needs them to compute due cycles and the renewal amount in the right
-  // currency.
+  // pull payment_currency + created_at + fa_approved_amount because the
+  // monthly-payment card needs them to compute due cycles and the renewal
+  // amount — FA-approved students pay a reduced fee in the same currency.
   const { data: enrollment } = await supabase
     .from("enrollments")
-    .select("id, status, payment_currency, created_at")
+    .select("id, status, payment_currency, fa_approved_amount, created_at")
     .eq("student_id", user.id)
     .eq("offering_id", id)
-    .single<Pick<Enrollment, "id" | "status" | "payment_currency" | "created_at">>();
+    .single<
+      Pick<
+        Enrollment,
+        | "id"
+        | "status"
+        | "payment_currency"
+        | "fa_approved_amount"
+        | "created_at"
+      >
+    >();
 
   if (!enrollment || enrollment.status !== "approved") {
     notFound();

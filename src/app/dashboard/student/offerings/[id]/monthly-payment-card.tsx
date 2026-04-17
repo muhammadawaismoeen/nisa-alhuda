@@ -14,6 +14,7 @@ import {
   XCircle,
   CalendarDays,
   AlertCircle,
+  HeartHandshake,
 } from "lucide-react";
 import {
   cyclesBetween,
@@ -39,6 +40,14 @@ export function MonthlyPaymentCard({
   currency,
   payments,
 }: MonthlyPaymentCardProps) {
+  // Full-waiver branch: FA-approved with 0 reduced fee on a monthly offering.
+  // The student owes nothing — show a celebratory fee-waived card instead of
+  // the uploader + payment history, which would otherwise show "Rs. 0 per month"
+  // and an upload prompt for nothing.
+  if (monthlyAmount === 0) {
+    return <FullyWaivedCard />;
+  }
+
   const currentCycle = firstOfMonth();
   const cycles = cyclesBetween(enrolledAt).reverse(); // newest first
 
@@ -146,6 +155,44 @@ export function MonthlyPaymentCard({
             </div>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Rendered when the student has a full fee waiver on a monthly offering.
+ * No uploader, no payment history — just a warm acknowledgement that they
+ * owe nothing and can focus on learning.
+ */
+function FullyWaivedCard() {
+  return (
+    <Card className="mb-6 border-primary/30 bg-gradient-to-br from-primary/5 via-primary/0 to-transparent">
+      <CardContent className="p-4 md:p-5">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <HeartHandshake className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-heading font-semibold">
+                Monthly Subscription
+              </h2>
+              <Badge
+                variant="outline"
+                className="border-primary/40 text-primary"
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Fully waived
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Your financial assistance request was approved with a full waiver —
+              no monthly fee. Focus on your learning, and may Allah bless your
+              journey.
+            </p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { formatPriceWithFee } from "@/lib/constants";
-import { Plus, BookOpen, Pencil, Users } from "lucide-react";
+import { Plus, BookOpen, Pencil, Users, Lock } from "lucide-react";
 import { DeleteOffering } from "./delete-offering";
 import { OfferingToggles } from "./offering-toggles";
 import type { Offering } from "@/lib/types/database";
@@ -51,6 +51,7 @@ export default async function AdminOfferingsPage() {
   const published = (offerings || []).filter((o: any) => o.status === "published").length;
   const featured = (offerings || []).filter((o: any) => o.is_featured).length;
   const archived = (offerings || []).filter((o: any) => o.status === "archived").length;
+  const closed = (offerings || []).filter((o: any) => o.admission_closed).length;
 
   return (
     <div>
@@ -87,6 +88,15 @@ export default async function AdminOfferingsPage() {
         {archived > 0 && (
           <Badge variant="secondary" className="text-sm py-1 px-3">
             {archived} archived
+          </Badge>
+        )}
+        {closed > 0 && (
+          <Badge
+            variant="outline"
+            className="text-sm py-1 px-3 text-destructive border-destructive/30"
+          >
+            <Lock className="h-3 w-3 mr-1" />
+            {closed} closed
           </Badge>
         )}
       </div>
@@ -142,6 +152,14 @@ export default async function AdminOfferingsPage() {
                             Featured
                           </Badge>
                         )}
+                        {offering.admission_closed && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs text-destructive border-destructive/30"
+                          >
+                            Admission Closed
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
                         {offering.short_description || offering.description}
@@ -174,6 +192,7 @@ export default async function AdminOfferingsPage() {
                         offeringId={offering.id}
                         isFeatured={offering.is_featured || false}
                         status={offering.status}
+                        admissionClosed={offering.admission_closed || false}
                       />
                       <LinkButton
                         variant="outline"

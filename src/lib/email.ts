@@ -195,6 +195,18 @@ export async function sendEnrollmentRejectedEmail(
   }
 }
 
+/** Format an amount with the correct currency symbol and locale for emails. */
+function formatEmailAmount(
+  amount: number,
+  currency: "PKR" | "INR" | "USD"
+): string {
+  if (currency === "USD")
+    return `$${amount.toLocaleString("en-US")}`;
+  if (currency === "INR")
+    return `\u20B9${amount.toLocaleString("en-IN")}`;
+  return `Rs. ${amount.toLocaleString("en-PK")}`;
+}
+
 /**
  * Financial assistance approved — full waiver or reduced fee.
  */
@@ -203,7 +215,8 @@ export async function sendFaApprovedEmail(
   studentName: string,
   offeringTitle: string,
   approvedAmount: number,
-  isFullWaiver: boolean
+  isFullWaiver: boolean,
+  paymentCurrency: "PKR" | "INR" | "USD" = "PKR"
 ) {
   // Full waiver → go straight to the dashboard to start learning.
   // Partial waiver → land on My Enrollments where the pay-fee card is waiting.
@@ -251,7 +264,7 @@ export async function sendFaApprovedEmail(
 
       <div style="margin:20px 0;padding:18px 20px;background:linear-gradient(135deg,#fdf6f0 0%,#f5ebe0 100%);border-radius:12px;border-left:4px solid #d4a574;text-align:center;">
         <p style="margin:0 0 4px;color:#8c7e72;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Reduced Fee</p>
-        <p style="margin:0;color:#8b1a4a;font-size:26px;font-weight:700;">Rs. ${approvedAmount.toLocaleString("en-PK")}</p>
+        <p style="margin:0;color:#8b1a4a;font-size:26px;font-weight:700;">${formatEmailAmount(approvedAmount, paymentCurrency)}</p>
       </div>
 
       <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.8;">

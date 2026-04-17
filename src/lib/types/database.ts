@@ -62,6 +62,8 @@ export interface Offering {
   is_ongoing: boolean;
   /** WhatsApp group invite link — displayed prominently to enrolled students on the offering page. */
   whatsapp_link: string | null;
+  /** When true, new enrollments are blocked and an "Admission Closed!" label replaces "Enroll Now". */
+  admission_closed: boolean;
   created_at: string;
   updated_at: string;
 }

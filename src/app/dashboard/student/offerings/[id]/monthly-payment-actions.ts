@@ -36,11 +36,12 @@ export async function submitMonthlyPayment(
   if (!user) return { success: false, error: "Not authenticated." };
 
   // Pull the enrollment + offering so we can verify ownership, compute the
-  // amount, and ensure it's a monthly-fee offering.
+  // amount (including any FA-approved reduced fee), and ensure it's a
+  // monthly-fee offering.
   const { data: enrollment } = await supabase
     .from("enrollments")
     .select(
-      "id, student_id, offering_id, status, payment_currency, offering:offerings!enrollments_offering_id_fkey(id, price, price_inr, price_usd, fee_type, title)"
+      "id, student_id, offering_id, status, payment_currency, fa_approved_amount, offering:offerings!enrollments_offering_id_fkey(id, price, price_inr, price_usd, fee_type, title)"
     )
     .eq("id", input.enrollmentId)
     .single<

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPaidAmount } from "@/lib/constants";
-import { DollarSign, Clock, CheckCircle, XCircle, CalendarDays } from "lucide-react";
+import { DollarSign, Clock, CheckCircle, XCircle, CalendarDays, Globe } from "lucide-react";
 import { PaymentActions } from "./payment-actions";
 import { MonthlyPaymentActions } from "./monthly-payment-actions";
 import { formatCycleMonth, formatMonthlyAmount } from "@/lib/monthly-payments";
@@ -57,20 +57,58 @@ export default async function PaymentLedgerPage() {
   const monthlyPayments = (monthlyPaymentsRaw || []) as any[];
   const monthlyPending = monthlyPayments.filter((p) => p.status === "pending");
 
-  // Revenue stats — totals are PKR-equivalent only (PKR + INR counted at face value,
-  // USD excluded from the totals so the headline number isn't misleading).
-  // USD revenue is tracked separately below.
-  const isPkrLike = (c: string | null | undefined) =>
-    !c || c.toUpperCase() === "PKR" || c.toUpperCase() === "INR";
-  const totalRevenue = approved
-    .filter((e) => isPkrLike(e.payment_currency))
-    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
-  const pendingAmount = pending
-    .filter((e) => isPkrLike(e.payment_currency))
-    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
-  const totalRevenueUsd = approved
-    .filter((e) => (e.payment_currency || "").toUpperCase() === "USD")
-    .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
+  // Revenue stats — split by country/currency so admin sees each market separately.
+  // PKR → Pakistani students, INR → Indian students, USD → International students.
+  // Totals include both initial enrollment payments AND approved monthly renewals
+  // so recurring revenue is reflected.
+  const normalizeCurrency = (
+    c: string | null | undefined
+  ): "PKR" | "INR" | "USD" => {
+    const u = (c || "").toUpperCase();
+    if (u === "INR") return "INR";
+    if (u === "USD") return "USD";
+    return "PKR"; // default + legacy rows
+  };
+
+  const approvedMonthly = monthlyPayments.filter((p) => p.status === "approved");
+  const pendingMonthly = monthlyPayments.filter((p) => p.status === "pending");
+
+  const sumByCurrency = (
+    rows: { amount: number; currency: string | null | undefined }[],
+    target: "PKR" | "INR" | "USD"
+  ) =>
+    rows
+      .filter((r) => normalizeCurrency(r.currency) === target)
+      .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+  // Unified (amount, currency) rows across enrollments + monthly renewals.
+  const approvedRows = [
+    ...approved.map((e) => ({
+      amount: e.payment_amount || 0,
+      currency: e.payment_currency,
+    })),
+    ...approvedMonthly.map((p: any) => ({
+      amount: p.amount || 0,
+      currency: p.currency,
+    })),
+  ];
+  const pendingRows = [
+    ...pending.map((e) => ({
+      amount: e.payment_amount || 0,
+      currency: e.payment_currency,
+    })),
+    ...pendingMonthly.map((p: any) => ({
+      amount: p.amount || 0,
+      currency: p.currency,
+    })),
+  ];
+
+  const revenuePkr = sumByCurrency(approvedRows, "PKR");
+  const revenueInr = sumByCurrency(approvedRows, "INR");
+  const revenueUsd = sumByCurrency(approvedRows, "USD");
+  const pendingPkr = sumByCurrency(pendingRows, "PKR");
+  const pendingInr = sumByCurrency(pendingRows, "INR");
+  const pendingUsd = sumByCurrency(pendingRows, "USD");
 
   return (
     <div>
@@ -81,8 +119,8 @@ export default async function PaymentLedgerPage() {
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-8">
+      {/* Status counters */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center">
@@ -105,37 +143,74 @@ export default async function PaymentLedgerPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-green-50 dark:bg-green-950/20 flex items-center justify-center">
-              <DollarSign className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                Rs. {totalRevenue.toLocaleString()}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Total Revenue
-                {totalRevenueUsd > 0 && (
-                  <span className="ml-1">
-                    + ${totalRevenueUsd.toLocaleString()}
-                  </span>
-                )}
+      </div>
+
+      {/* Revenue by market — Pakistan (PKR) / India (INR) / International (USD).
+          Each card shows approved revenue + pending amount awaiting approval. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+        <Card className="border-green-200 dark:border-green-900/40">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg" aria-hidden>🇵🇰</span>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Pakistani Students
               </p>
             </div>
+            <p className="text-2xl font-bold text-green-700 dark:text-green-500">
+              Rs. {revenuePkr.toLocaleString("en-PK")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total approved (PKR)
+              {pendingPkr > 0 && (
+                <span className="block mt-0.5 text-amber-600">
+                  Rs. {pendingPkr.toLocaleString("en-PK")} pending
+                </span>
+              )}
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/20 flex items-center justify-center">
-              <DollarSign className="h-5 w-5 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">
-                Rs. {pendingAmount.toLocaleString()}
+
+        <Card className="border-orange-200 dark:border-orange-900/40">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg" aria-hidden>🇮🇳</span>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Indian Students
               </p>
-              <p className="text-xs text-muted-foreground">Pending Amount</p>
             </div>
+            <p className="text-2xl font-bold text-orange-700 dark:text-orange-500">
+              ₹{revenueInr.toLocaleString("en-IN")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total approved (INR)
+              {pendingInr > 0 && (
+                <span className="block mt-0.5 text-amber-600">
+                  ₹{pendingInr.toLocaleString("en-IN")} pending
+                </span>
+              )}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-blue-200 dark:border-blue-900/40">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Globe className="h-4 w-4 text-blue-600" aria-hidden />
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                International Students
+              </p>
+            </div>
+            <p className="text-2xl font-bold text-blue-700 dark:text-blue-500">
+              ${revenueUsd.toLocaleString("en-US")}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total approved (USD)
+              {pendingUsd > 0 && (
+                <span className="block mt-0.5 text-amber-600">
+                  ${pendingUsd.toLocaleString("en-US")} pending
+                </span>
+              )}
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -439,17 +439,23 @@ export function EnrollmentWizard({
       // Derive paymentAmount + paymentCurrency based on selected region.
       // INTL → charge the USD fee; IN → charge the INR fee (if set, else PKR fallback);
       // PK → charge the PKR fee.
-      // FA flow always uses PKR (the offered amount is captured in faOfferedAmount).
-      const useIntl = !isFA && paymentRegion === "intl" && hasIntlPrice;
-      const useInr = !isFA && paymentRegion === "in" && hasInrPrice;
-      const paymentAmount = useIntl
-        ? (offeringPriceUsd ?? 0)
-        : useInr
-          ? (offeringPriceInr ?? 0)
-          : offeringPrice;
-      const paymentCurrency: "PKR" | "INR" | "USD" = isFA
-        ? "PKR"
-        : paymentRegion === "intl"
+      //
+      // FA flow: paymentAmount is the student-offered amount (faOfferedAmount);
+      // paymentCurrency follows the student's country just like non-FA flow,
+      // so admins enter the approved reduced fee in the student's currency
+      // and the student sees the right symbol throughout (e.g. ₹400 for an
+      // Indian FA student, $8 for an International FA student).
+      const useIntl = paymentRegion === "intl" && hasIntlPrice;
+      const useInr = paymentRegion === "in" && hasInrPrice;
+      const paymentAmount = isFA
+        ? Number(faOfferedAmount) || 0
+        : useIntl
+          ? (offeringPriceUsd ?? 0)
+          : useInr
+            ? (offeringPriceInr ?? 0)
+            : offeringPrice;
+      const paymentCurrency: "PKR" | "INR" | "USD" =
+        paymentRegion === "intl"
           ? "USD"
           : paymentRegion === "in"
             ? "INR"
@@ -964,22 +970,46 @@ export function EnrollmentWizard({
                   </select>
                 </div>
 
-                {/* Amount Offered */}
+                {/* Amount Offered — always captured in the student's region currency */}
                 <div className="space-y-2">
                   <Label htmlFor="faOfferedAmount">
-                    How much can you pay? <span className="text-destructive">*</span>
+                    How much can you pay (in{" "}
+                    {paymentRegion === "intl"
+                      ? "USD"
+                      : paymentRegion === "in"
+                        ? "INR"
+                        : "PKR"}
+                    )? <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    id="faOfferedAmount"
-                    type="number"
-                    min="0"
-                    placeholder="e.g., 1000"
-                    value={faOfferedAmount}
-                    onChange={(e) => setFaOfferedAmount(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                      {paymentRegion === "intl"
+                        ? "$"
+                        : paymentRegion === "in"
+                          ? "₹"
+                          : "Rs."}
+                    </span>
+                    <Input
+                      id="faOfferedAmount"
+                      type="number"
+                      min="0"
+                      placeholder={
+                        paymentRegion === "intl"
+                          ? "e.g., 10"
+                          : paymentRegion === "in"
+                            ? "e.g., 400"
+                            : "e.g., 1000"
+                      }
+                      value={faOfferedAmount}
+                      onChange={(e) => setFaOfferedAmount(e.target.value)}
+                      required
+                      className={paymentRegion === "pk" ? "pl-10" : "pl-7"}
+                    />
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Enter the amount (in PKR or INR — whichever applies) you&apos;re able to contribute. Use <strong>0</strong> if you cannot pay anything.
+                    Enter the amount you&apos;re able to contribute each{" "}
+                    {/* Monthly offerings charge per month; one-off offerings charge once */}
+                    billing cycle. Use <strong>0</strong> if you cannot pay anything.
                   </p>
                 </div>
 

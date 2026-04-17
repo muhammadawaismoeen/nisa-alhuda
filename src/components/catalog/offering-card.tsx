@@ -1,7 +1,7 @@
 /**
  * Reusable card component for displaying an offering in the catalog grid.
  */
-import { Calendar, BookOpen, MapPin, Wifi } from "lucide-react";
+import { Calendar, BookOpen, MapPin, Wifi, Lock } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -62,6 +62,12 @@ export function OfferingCard({ offering }: { offering: Offering }) {
           <span className="absolute top-2 right-2 bg-teal-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
             On-going
+          </span>
+        )}
+        {offering.admission_closed && (
+          <span className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+            <Lock className="h-2.5 w-2.5" />
+            Closed
           </span>
         )}
       </div>

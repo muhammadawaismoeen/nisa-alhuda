@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EnrollmentWizard } from "./enrollment-wizard";
 import { Card, CardContent } from "@/components/ui/card";
-import { CheckCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock, Lock } from "lucide-react";
 import { LinkButton } from "@/components/ui/link-button";
 import type { Offering, Profile, StudentDetails } from "@/lib/types/database";
 
@@ -47,6 +47,26 @@ export default async function EnrollPage({
     .single<Offering>();
 
   if (!offering) notFound();
+
+  // If admission is closed, block enrollment
+  if (offering.admission_closed) {
+    return (
+      <div className="container mx-auto px-4 py-12 max-w-2xl">
+        <Card className="glass">
+          <CardContent className="p-8 text-center">
+            <Lock className="h-16 w-16 text-destructive mx-auto mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Admission Closed</h1>
+            <p className="text-muted-foreground mb-6">
+              This offering is no longer accepting new enrollments.
+            </p>
+            <LinkButton href="/catalog" variant="outline">
+              Browse Catalog
+            </LinkButton>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Check if user is logged in (optional — not required)
   const {

@@ -58,18 +58,38 @@ export function cyclesBetween(
 }
 
 /**
- * Resolves the monthly fee for an enrollment. Uses whatever currency the
- * student paid in originally (PKR / INR / USD) so renewals match the
- * initial payment.
+ * Resolves the monthly fee for an enrollment, honoring Financial Assistance.
+ *
+ * Resolution order:
+ *  1. If the enrollment has an FA-approved reduced amount (`fa_approved_amount`
+ *     is not null), that wins. The value is stored as a currency-agnostic
+ *     integer — its currency is always whatever `payment_currency` says,
+ *     because admins are expected to enter the reduced amount in the same
+ *     currency the student originally enrolled with.
+ *  2. Otherwise fall back to the offering's full fee in the enrollment's
+ *     `payment_currency` (PKR / INR / USD), so renewals match the initial
+ *     payment.
+ *
+ * This covers all six student cases:
+ *   PK full → price (PKR)        PK FA  → fa_approved_amount (PKR)
+ *   IN full → price_inr (INR)    IN FA  → fa_approved_amount (INR)
+ *   INT full → price_usd (USD)   INT FA → fa_approved_amount (USD)
  */
 export function monthlyAmountForEnrollment(
   offering: Pick<Offering, "price" | "price_inr" | "price_usd">,
-  enrollment: Pick<Enrollment, "payment_currency">
+  enrollment: Pick<Enrollment, "payment_currency" | "fa_approved_amount">
 ): { amount: number; currency: "PKR" | "INR" | "USD" } {
   const currency = (enrollment.payment_currency || "PKR").toUpperCase() as
     | "PKR"
     | "INR"
     | "USD";
+
+  // FA-approved reduced fee overrides the full price. Stored amount is in the
+  // same currency as payment_currency (admin entered it in the student's
+  // currency when approving the FA request).
+  if (enrollment.fa_approved_amount != null) {
+    return { amount: enrollment.fa_approved_amount, currency };
+  }
 
   if (currency === "USD" && offering.price_usd != null) {
     return { amount: offering.price_usd, currency };

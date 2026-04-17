@@ -142,7 +142,7 @@ export async function approveFinancialAssistance(
   // Fire-and-forget FA approval email
   const { data: enrollment } = await admin
     .from("enrollments")
-    .select("applicant_email, student_id, offering_id, offerings(title)")
+    .select("applicant_email, student_id, offering_id, payment_currency, offerings(title)")
     .eq("id", enrollmentId)
     .single();
   if (enrollment) {
@@ -168,7 +168,8 @@ export async function approveFinancialAssistance(
         studentName,
         offeringTitle,
         approvedAmount,
-        approvedAmount === 0
+        approvedAmount === 0,
+        (enrollment.payment_currency || "PKR") as "PKR" | "INR" | "USD"
       ).catch(() => {});
     }
   }

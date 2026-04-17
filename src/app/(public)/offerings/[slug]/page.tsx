@@ -5,7 +5,7 @@
  */
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { Calendar, Clock, Users, BookOpen, ArrowRight, MapPin, Wifi } from "lucide-react";
+import { Calendar, Clock, Users, BookOpen, ArrowRight, MapPin, Wifi, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
 import { Badge } from "@/components/ui/badge";
@@ -109,6 +109,12 @@ export default async function OfferingDetailPage({
                 <Badge className="bg-teal-600 hover:bg-teal-600 text-white inline-flex items-center gap-1">
                   <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
                   On-going
+                </Badge>
+              )}
+              {offering.admission_closed && (
+                <Badge className="bg-destructive hover:bg-destructive text-destructive-foreground inline-flex items-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  Admission Closed
                 </Badge>
               )}
             </div>
@@ -254,10 +260,17 @@ export default async function OfferingDetailPage({
               </div>
 
               {/* Enroll CTA */}
-              <LinkButton className="w-full" size="lg" href={`/offerings/${offering.slug}/enroll`}>
-                  Enroll Now
-                  <ArrowRight className="ml-2 h-4 w-4" />
-              </LinkButton>
+              {offering.admission_closed ? (
+                <div className="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg py-3 text-center font-semibold flex items-center justify-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Admission Closed!
+                </div>
+              ) : (
+                <LinkButton className="w-full" size="lg" href={`/offerings/${offering.slug}/enroll`}>
+                    Enroll Now
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                </LinkButton>
+              )}
 
               <p className="text-xs text-center text-muted-foreground">
                 Lifetime access to recordings & resources
