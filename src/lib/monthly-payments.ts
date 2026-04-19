@@ -1,21 +1,49 @@
 /**
  * Monthly payment helpers — cycle math + amount lookup.
  *
- * Each monthly offering generates one billable cycle per calendar month,
- * keyed by the first day of the month as a `YYYY-MM-DD` string (UTC).
- * Students upload a receipt per cycle; admins/treasurers approve or
- * reject independently.
+ * Cycle model: each monthly cycle starts on the 27th and runs through the
+ * 26th of the following month. Cycles are keyed by their start date as a
+ * `YYYY-MM-DD` string (UTC), e.g. `2026-05-27` = "May 2026" cycle covering
+ * 27 May → 26 Jun. The first billable cycle for the platform is May 2026;
+ * nothing before `FIRST_BILLABLE_CYCLE` generates a row.
  */
 import type { Enrollment, Offering } from "@/lib/types/database";
 
-/** Returns the first day of the month the given date belongs to, as `YYYY-MM-DD`. */
+/** Day-of-month that a new cycle begins. */
+export const CYCLE_START_DAY = 27;
+
+/**
+ * First cycle the system will ever generate. Anything earlier is ignored —
+ * pre-launch enrollments simply don't owe retroactive renewals. If you need
+ * to shift the launch date, change this constant and backfill existing rows.
+ */
+export const FIRST_BILLABLE_CYCLE = "2026-05-27";
+
+/**
+ * Returns the cycle-start date (27th) of the cycle that contains `date`.
+ * If `date` is on/after the 27th of month M, the cycle starts M-27.
+ * If `date` is before the 27th of month M, the cycle started (M-1)-27.
+ *
+ * Name kept for backward-compat with existing callers — despite the name it
+ * no longer returns the 1st-of-month; it returns the 27th-based cycle key.
+ */
 export function firstOfMonth(date = new Date()): string {
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  return `${year}-${month}-01`;
+  const d = new Date(date);
+  let year = d.getUTCFullYear();
+  let month = d.getUTCMonth(); // 0-indexed
+  if (d.getUTCDate() < CYCLE_START_DAY) {
+    month -= 1;
+    if (month < 0) {
+      month = 11;
+      year -= 1;
+    }
+  }
+  const mm = String(month + 1).padStart(2, "0");
+  const dd = String(CYCLE_START_DAY).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
 }
 
-/** Human label for a cycle_month value — "April 2026". */
+/** Human label for a cycle key — "May 2026" (month the cycle starts in). */
 export function formatCycleMonth(cycleMonth: string): string {
   // Parse as UTC so the label doesn't flip across timezones
   const [y, m] = cycleMonth.split("-").map(Number);
@@ -27,26 +55,55 @@ export function formatCycleMonth(cycleMonth: string): string {
   });
 }
 
+/** Parses a YYYY-MM-DD cycle key into a UTC Date at midnight. */
+function parseCycleKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || CYCLE_START_DAY));
+}
+
 /**
- * Returns all cycle_month values between enrollment date and current month
- * (inclusive on both ends) so the student can see every cycle they owe.
+ * Returns all billable cycle keys between enrollment and today (inclusive).
+ * Cycles earlier than `FIRST_BILLABLE_CYCLE` are skipped. If the enrollment
+ * is new enough that even its own cycle hasn't started, returns an empty
+ * array — student owes nothing yet.
  */
 export function cyclesBetween(
   enrolledAt: string | Date,
   asOf: Date = new Date()
 ): string[] {
-  const start = new Date(enrolledAt);
+  const firstCycleDate = parseCycleKey(FIRST_BILLABLE_CYCLE);
+  const enrolledDate = new Date(enrolledAt);
+  // Start from whichever is later: platform launch, or the enrollment's own
+  // first cycle (27th on/after their enrollment date).
+  const enrolledCycleKey = firstOfMonth(
+    enrolledDate.getUTCDate() >= CYCLE_START_DAY
+      ? enrolledDate
+      : // push to next month's 27th if they enrolled before the 27th
+        new Date(
+          Date.UTC(
+            enrolledDate.getUTCFullYear(),
+            enrolledDate.getUTCMonth(),
+            CYCLE_START_DAY
+          )
+        )
+  );
+  const enrolledCycleDate = parseCycleKey(enrolledCycleKey);
+  const startDate =
+    enrolledCycleDate > firstCycleDate ? enrolledCycleDate : firstCycleDate;
+
+  const currentCycleDate = parseCycleKey(firstOfMonth(asOf));
+  if (startDate > currentCycleDate) return [];
+
   const cycles: string[] = [];
-
-  let year = start.getUTCFullYear();
-  let month = start.getUTCMonth(); // 0-indexed
-
-  const endYear = asOf.getUTCFullYear();
-  const endMonth = asOf.getUTCMonth();
+  let year = startDate.getUTCFullYear();
+  let month = startDate.getUTCMonth();
+  const endYear = currentCycleDate.getUTCFullYear();
+  const endMonth = currentCycleDate.getUTCMonth();
 
   while (year < endYear || (year === endYear && month <= endMonth)) {
     const mm = String(month + 1).padStart(2, "0");
-    cycles.push(`${year}-${mm}-01`);
+    const dd = String(CYCLE_START_DAY).padStart(2, "0");
+    cycles.push(`${year}-${mm}-${dd}`);
     month += 1;
     if (month > 11) {
       month = 0;
