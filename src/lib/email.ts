@@ -896,6 +896,89 @@ export async function sendNewCourseEmail(
 }
 
 /**
+ * Credentials email — sends a branded "set your password" / "reset password"
+ * email with a prominent CTA linking to a Supabase-generated action link.
+ *
+ * Two modes (controlled by isNewUser):
+ *   - true  → new-user invite: "Welcome — set your password to get started"
+ *   - false → password reset:  "Reset your Nisa Al-Huda password"
+ *
+ * The caller is responsible for generating the actionLink via the Supabase
+ * Admin API (admin.auth.admin.generateLink with type "invite" or "recovery").
+ */
+export async function sendCredentialsEmail(
+  to: string,
+  studentName: string,
+  actionLink: string,
+  isNewUser: boolean,
+  offeringTitle?: string
+) {
+  const subject = isNewUser
+    ? `Welcome to ${APP_NAME} — Set Your Password`
+    : `Reset Your ${APP_NAME} Password`;
+
+  const heading = isNewUser
+    ? "Welcome — Set Your Password"
+    : "Reset Your Password";
+
+  const intro = isNewUser
+    ? `Your account for <strong>${APP_NAME}</strong> has been set up${
+        offeringTitle ? ` for <strong>${offeringTitle}</strong>` : ""
+      }. To get started, please create your password by clicking the secure link below. It only takes a moment, and then you'll be ready to begin your learning journey.`
+    : `We received a request to reset your ${APP_NAME} password${
+        offeringTitle ? ` for <strong>${offeringTitle}</strong>` : ""
+      }. Click the secure link below to choose a new password and regain access to your dashboard.`;
+
+  const ctaLabel = isNewUser ? "Set My Password" : "Reset My Password";
+
+  const body = `
+    <h2 style="margin:0 0 4px;color:#1a1a1a;font-size:22px;text-align:center;">${heading}</h2>
+    <p style="margin:0 0 20px;color:#8b1a4a;font-size:15px;text-align:center;">${
+      studentName ? `Dear ${studentName}` : "Dear Sister"
+    }</p>
+
+    <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.8;">
+      ${intro}
+    </p>
+
+    ${btn(actionLink, ctaLabel)}
+
+    <div style="margin:16px 0;padding:14px 16px;background:#fdf6f0;border-radius:10px;border-left:3px solid #d4a574;">
+      <p style="margin:0;color:#8c7e72;font-size:13px;line-height:1.6;">
+        <strong>Heads up:</strong> This secure link will expire shortly for your
+        protection. If the button above doesn't work, copy and paste this URL
+        into your browser:
+      </p>
+      <p style="margin:8px 0 0;word-break:break-all;">
+        <a href="${actionLink}" style="color:#8b1a4a;font-size:12px;text-decoration:underline;">${actionLink}</a>
+      </p>
+    </div>
+
+    <p style="margin:16px 0 0;color:#888;font-size:13px;line-height:1.6;">
+      If you did not expect this email, you can safely ignore it — your account
+      will remain unchanged.
+    </p>
+
+    <p style="margin:20px 0 0;color:#8b1a4a;font-size:14px;text-align:center;font-style:italic;">
+      May Allah bless your journey of seeking knowledge.
+    </p>
+  `;
+
+  try {
+    const resend = getResend();
+    if (!resend) return;
+    await resend.emails.send({
+      from: FROM,
+      to,
+      subject,
+      html: heartWrap(body),
+    });
+  } catch (err) {
+    console.error("[Email] Credentials email failed:", err);
+  }
+}
+
+/**
  * Generic sender: routes a template key to the right function.
  */
 export async function sendTemplateEmail(

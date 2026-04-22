@@ -1,0 +1,257 @@
+"use server";
+
+/**
+ * Admin Credentials Actions.
+ *
+ * Lets an admin send password setup / reset emails to enrolled students,
+ * scoped by course. For guest enrollments (no auth account yet) this issues
+ * an "invite" link that provisions the account on click; for existing users
+ * it issues a "recovery" (password reset) link.
+ */
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { sendCredentialsEmail } from "@/lib/email";
+
+export interface StudentCredentialRow {
+  /** Stable identifier for this row — enrollment id (works for guests + linked). */
+  enrollmentId: string;
+  /** auth user id if the enrollment is linked, else null. */
+  studentId: string | null;
+  name: string;
+  email: string;
+  /** true if a Supabase auth account already exists for this email. */
+  hasAccount: boolean;
+  enrollmentStatus: string;
+}
+
+async function requireAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false as const, error: "Not authenticated." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (profile?.role !== "admin") {
+    return { ok: false as const, error: "Not authorized." };
+  }
+  return { ok: true as const, user };
+}
+
+export async function getStudentsForOffering(
+  offeringId: string
+): Promise<{ success: boolean; error?: string; students?: StudentCredentialRow[] }> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const admin = createAdminClient();
+
+  const { data: enrollments, error } = await admin
+    .from("enrollments")
+    .select("id, student_id, applicant_email, status, student_details, created_at")
+    .eq("offering_id", offeringId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("getStudentsForOffering error:", error);
+    return { success: false, error: error.message };
+  }
+
+  if (!enrollments?.length) return { success: true, students: [] };
+
+  const rows: StudentCredentialRow[] = [];
+  const seenEmails = new Set<string>();
+
+  for (const e of enrollments) {
+    const email = (e.applicant_email || "").toLowerCase().trim();
+    if (!email || seenEmails.has(email)) continue;
+    seenEmails.add(email);
+
+    // Prefer profile name for linked users; fall back to student_details name.
+    let name = "";
+    let hasAccount = !!e.student_id;
+
+    if (e.student_id) {
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", e.student_id)
+        .single();
+      name = prof?.full_name || "";
+    }
+
+    if (!name) {
+      const details = (e.student_details || {}) as {
+        full_name?: string;
+        name?: string;
+        first_name?: string;
+        last_name?: string;
+      };
+      name =
+        details.full_name ||
+        details.name ||
+        [details.first_name, details.last_name].filter(Boolean).join(" ").trim() ||
+        "";
+    }
+
+    // For guest enrollments, double-check by email — the email may belong to
+    // an existing account that just hasn't been linked back to the row yet.
+    if (!hasAccount) {
+      const { data: profByEmail } = await admin.rpc("get_profile_by_email", {
+        lookup_email: email,
+      });
+      if (profByEmail && profByEmail.length > 0) {
+        hasAccount = true;
+        if (!name) name = profByEmail[0].full_name || "";
+      }
+    }
+
+    rows.push({
+      enrollmentId: e.id,
+      studentId: e.student_id,
+      name,
+      email,
+      hasAccount,
+      enrollmentStatus: e.status,
+    });
+  }
+
+  return { success: true, students: rows };
+}
+
+export interface SendCredentialsResult {
+  success: boolean;
+  error?: string;
+  sent: number;
+  failed: Array<{ email: string; error: string }>;
+}
+
+export async function sendCredentials(
+  offeringId: string,
+  emails: string[]
+): Promise<SendCredentialsResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    return { success: false, error: auth.error, sent: 0, failed: [] };
+  }
+
+  if (!emails?.length) {
+    return { success: false, error: "No students selected.", sent: 0, failed: [] };
+  }
+
+  const admin = createAdminClient();
+
+  // Fetch offering title for the email body.
+  const { data: offering } = await admin
+    .from("offerings")
+    .select("title")
+    .eq("id", offeringId)
+    .single();
+  const offeringTitle = offering?.title || undefined;
+
+  // Use the app origin for the redirect target — Supabase appends a hash
+  // fragment with the access/refresh tokens and the client picks it up.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://nisa-alhuda.vercel.app";
+  const redirectTo = `${siteUrl}/reset-password`;
+
+  const sentOk: string[] = [];
+  const failed: Array<{ email: string; error: string }> = [];
+
+  for (const rawEmail of emails) {
+    const email = rawEmail.toLowerCase().trim();
+    if (!email) continue;
+
+    try {
+      // Does this email already have an auth account?
+      const { data: profByEmail } = await admin.rpc("get_profile_by_email", {
+        lookup_email: email,
+      });
+      const hasAccount = !!(profByEmail && profByEmail.length > 0);
+
+      // Pull enrollment-side name for the greeting (best effort).
+      let name = "";
+      if (hasAccount) {
+        name = profByEmail![0].full_name || "";
+      }
+      if (!name) {
+        const { data: enr } = await admin
+          .from("enrollments")
+          .select("student_details")
+          .eq("offering_id", offeringId)
+          .eq("applicant_email", email)
+          .maybeSingle();
+        const d = (enr?.student_details || {}) as {
+          full_name?: string;
+          name?: string;
+          first_name?: string;
+          last_name?: string;
+        };
+        name =
+          d.full_name ||
+          d.name ||
+          [d.first_name, d.last_name].filter(Boolean).join(" ").trim() ||
+          "";
+      }
+
+      // Generate the appropriate action link.
+      const linkType: "recovery" | "invite" = hasAccount ? "recovery" : "invite";
+      const { data: linkData, error: linkErr } =
+        await admin.auth.admin.generateLink({
+          type: linkType,
+          email,
+          options: { redirectTo },
+        });
+
+      if (linkErr || !linkData?.properties?.action_link) {
+        failed.push({
+          email,
+          error: linkErr?.message || "Failed to generate link.",
+        });
+        continue;
+      }
+
+      const actionLink = linkData.properties.action_link;
+
+      // If we just invited a brand-new user, link their new auth id back to
+      // the matching enrollment so future logins land on their course.
+      if (!hasAccount && linkData.user?.id) {
+        await admin
+          .from("enrollments")
+          .update({ student_id: linkData.user.id })
+          .eq("offering_id", offeringId)
+          .eq("applicant_email", email)
+          .is("student_id", null);
+      }
+
+      await sendCredentialsEmail(
+        email,
+        name,
+        actionLink,
+        !hasAccount,
+        offeringTitle
+      );
+      sentOk.push(email);
+    } catch (err) {
+      console.error("[Credentials] Failed for", rawEmail, err);
+      failed.push({
+        email,
+        error: err instanceof Error ? err.message : "Unknown error.",
+      });
+    }
+  }
+
+  return {
+    success: sentOk.length > 0,
+    sent: sentOk.length,
+    failed,
+    error:
+      sentOk.length === 0 && failed.length > 0
+        ? "All sends failed. See details."
+        : undefined,
+  };
+}

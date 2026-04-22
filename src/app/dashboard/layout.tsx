@@ -15,6 +15,7 @@ import {
   BarChart3,
   Megaphone,
   Mail,
+  KeyRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
@@ -142,6 +143,7 @@ function getNavItems(role: string) {
       { href: "/dashboard/admin/enrollments", label: "Enrollments", icon: GraduationCap },
       { href: "/dashboard/admin/users", label: "Users", icon: Users },
       { href: "/dashboard/admin/emails", label: "Emails", icon: Mail },
+      { href: "/dashboard/admin/credentials", label: "Credentials", icon: KeyRound },
       { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
       { href: "/dashboard/settings", label: "Settings", icon: Settings },
     ];
