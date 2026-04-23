@@ -21,6 +21,7 @@ import {
   Wallet,
   UserCog,
   KeyRound,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -451,9 +452,10 @@ export function UserDirectory({
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">
-              Pick every role this user should hold. The <strong>primary</strong>{" "}
-              role (selected on the right) decides which dashboard they land on
-              after login — additional roles simply grant extra feature access.
+              Tick every role this user should hold. Click{" "}
+              <strong>Make primary</strong> on the row that should decide which
+              dashboard they land on after login — other ticked roles simply
+              grant extra feature access.
             </p>
 
             <div className="space-y-2">
@@ -491,16 +493,24 @@ export function UserDirectory({
                     <div className="flex-1">
                       <p className="font-medium text-sm">{cfg.label}</p>
                     </div>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-                      <input
-                        type="radio"
-                        name="primary-role"
-                        checked={isPrimary}
-                        onChange={() => handlePrimaryChange(r)}
-                        className="h-3.5 w-3.5 accent-primary cursor-pointer"
-                      />
-                      Primary
-                    </label>
+                    {isPrimary ? (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground"
+                        title="This is the user's primary role — they land here after login."
+                      >
+                        <Check className="h-3 w-3" />
+                        Primary
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handlePrimaryChange(r)}
+                        className="inline-flex items-center rounded-full border border-input px-2.5 py-1 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                        title="Make this the user's primary role."
+                      >
+                        Make primary
+                      </button>
+                    )}
                   </div>
                 );
               })}
