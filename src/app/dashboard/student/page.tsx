@@ -18,7 +18,7 @@ import {
   ExternalLink,
   AlertCircle,
 } from "lucide-react";
-import { firstOfMonth } from "@/lib/monthly-payments";
+import { firstOfMonth, cyclesBetween } from "@/lib/monthly-payments";
 import type { Offering, LiveSession, Profile as ProfileType } from "@/lib/types/database";
 
 export default async function StudentDashboardPage() {
@@ -255,10 +255,21 @@ export default async function StudentDashboardPage() {
             const completed = completedCounts[offering.id] || 0;
             const pct = count > 0 ? Math.round((completed / count) * 100) : 0;
 
-            // Monthly subscription: is the current cycle unpaid or rejected?
+            // Monthly subscription: flag only if the student actually owes a
+            // renewal for the current cycle. `cyclesBetween` honors both the
+            // platform launch date (FIRST_BILLABLE_CYCLE) and the enrollment's
+            // own first cycle, so students whose initial one-time payment just
+            // covered enrollment don't get a false "Payment due" before any
+            // renewal is owed.
+            const owedCycles =
+              offering.fee_type === "monthly"
+                ? cyclesBetween(enrollment.created_at)
+                : [];
+            const owesCurrentCycle = owedCycles.includes(currentCycle);
             const monthlyStatus = currentCycleByEnrollment[enrollment.id];
             const monthlyDue =
               offering.fee_type === "monthly" &&
+              owesCurrentCycle &&
               (monthlyStatus === undefined || monthlyStatus === "rejected");
 
             return (
