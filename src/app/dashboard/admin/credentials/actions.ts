@@ -228,13 +228,17 @@ export async function sendCredentials(
           .is("student_id", null);
       }
 
-      await sendCredentialsEmail(
+      const emailResult = await sendCredentialsEmail(
         email,
         name,
         actionLink,
         !hasAccount,
         offeringTitle
       );
+      if (!emailResult.ok) {
+        failed.push({ email, error: emailResult.error });
+        continue;
+      }
       sentOk.push(email);
     } catch (err) {
       console.error("[Credentials] Failed for", rawEmail, err);

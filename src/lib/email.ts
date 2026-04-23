@@ -912,7 +912,7 @@ export async function sendCredentialsEmail(
   actionLink: string,
   isNewUser: boolean,
   offeringTitle?: string
-) {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const subject = isNewUser
     ? `Welcome to ${APP_NAME} — Set Your Password`
     : `Reset Your ${APP_NAME} Password`;
@@ -964,18 +964,24 @@ export async function sendCredentialsEmail(
     </p>
   `;
 
-  try {
-    const resend = getResend();
-    if (!resend) return;
-    await resend.emails.send({
-      from: FROM,
-      to,
-      subject,
-      html: heartWrap(body),
-    });
-  } catch (err) {
-    console.error("[Email] Credentials email failed:", err);
+  // Credentials is a high-stakes transactional email — the admin needs to
+  // know when a send actually fails, so this variant surfaces errors instead
+  // of swallowing them (unlike the motivational templates).
+  const resend = getResend();
+  if (!resend) {
+    return { ok: false as const, error: "Email service not configured (RESEND_API_KEY missing)." };
   }
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject,
+    html: heartWrap(body),
+  });
+  if (error) {
+    console.error("[Email] Credentials email failed:", error);
+    return { ok: false as const, error: error.message || "Email send failed." };
+  }
+  return { ok: true as const };
 }
 
 /**

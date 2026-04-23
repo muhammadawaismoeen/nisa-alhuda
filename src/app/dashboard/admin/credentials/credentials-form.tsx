@@ -36,6 +36,9 @@ export function CredentialsForm({ offerings }: CredentialsFormProps) {
   const [loadingList, startLoading] = useTransition();
   const [sending, setSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [lastFailures, setLastFailures] = useState<
+    { email: string; error: string }[]
+  >([]);
 
   function handleCourseChange(id: string) {
     setOfferingId(id);
@@ -84,15 +87,24 @@ export function CredentialsForm({ offerings }: CredentialsFormProps) {
         toast.success(
           `Sent credentials to ${res.sent} student${res.sent !== 1 ? "s" : ""}.${
             res.failed.length
-              ? ` ${res.failed.length} failed — check console.`
+              ? ` ${res.failed.length} failed — see details below.`
               : ""
           }`
         );
       } else {
-        toast.error(res.error || "No emails were sent.");
+        // Show the first failure reason — usually the same root cause for all.
+        const firstReason = res.failed[0]?.error;
+        toast.error(
+          firstReason
+            ? `All sends failed: ${firstReason}`
+            : res.error || "No emails were sent."
+        );
       }
       if (res.failed.length) {
         console.warn("[Credentials] Failed sends:", res.failed);
+        setLastFailures(res.failed);
+      } else {
+        setLastFailures([]);
       }
       setShowConfirm(false);
       setSelected(new Set());
@@ -239,6 +251,28 @@ export function CredentialsForm({ offerings }: CredentialsFormProps) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Failure panel — surfaces Resend / Supabase errors per-recipient */}
+      {lastFailures.length > 0 && (
+        <Card className="border-destructive/40 bg-destructive/[0.03]">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <p className="text-sm font-semibold text-destructive">
+                {lastFailures.length} send{lastFailures.length !== 1 ? "s" : ""} failed
+              </p>
+            </div>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {lastFailures.map((f, i) => (
+                <div key={i} className="text-xs">
+                  <span className="font-medium">{f.email}</span>
+                  <span className="text-muted-foreground"> — {f.error}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Step 3: Send */}
