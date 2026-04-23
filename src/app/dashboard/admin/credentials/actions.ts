@@ -201,13 +201,20 @@ export async function sendCredentials(
           "";
       }
 
-      // Generate the appropriate action link.
+      // Generate the appropriate action link. For invites we seed
+      // user_metadata.full_name from the enrollment so the `handle_new_user`
+      // trigger stops defaulting to the literal string "User".
       const linkType: "recovery" | "invite" = hasAccount ? "recovery" : "invite";
+      const linkOptions: { redirectTo: string; data?: Record<string, unknown> } =
+        { redirectTo };
+      if (!hasAccount && name) {
+        linkOptions.data = { full_name: name };
+      }
       const { data: linkData, error: linkErr } =
         await admin.auth.admin.generateLink({
           type: linkType,
           email,
-          options: { redirectTo },
+          options: linkOptions,
         });
 
       if (linkErr || !linkData?.properties?.action_link) {
@@ -221,7 +228,10 @@ export async function sendCredentials(
       const actionLink = linkData.properties.action_link;
 
       // If we just invited a brand-new user, link their new auth id back to
-      // the matching enrollment so future logins land on their course.
+      // the matching enrollment so future logins land on their course, and
+      // backfill their profile name (the trigger already ran with whatever
+      // user_metadata we seeded above, but we still patch any row that was
+      // created before this fix landed — i.e. existing "User User" rows).
       if (!hasAccount && linkData.user?.id) {
         await admin
           .from("enrollments")
@@ -229,6 +239,13 @@ export async function sendCredentials(
           .eq("offering_id", offeringId)
           .eq("applicant_email", email)
           .is("student_id", null);
+
+        if (name) {
+          await admin
+            .from("profiles")
+            .update({ full_name: name })
+            .eq("id", linkData.user.id);
+        }
       }
 
       const emailResult = await sendCredentialsEmail(
