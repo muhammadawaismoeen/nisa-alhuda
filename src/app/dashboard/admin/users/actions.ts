@@ -145,9 +145,13 @@ export async function resetUserPassword(
   // Admin-initiated resets always send a `recovery` link because the account
   // already exists (invites are for never-logged-in guests, covered by the
   // Credentials feature).
+  // Route through /auth/callback so the PKCE code is exchanged for a
+  // session BEFORE the user lands on /reset-password — otherwise the form
+  // can't actually call updateUser({password}). This mirrors the
+  // user-initiated /forgot-password flow.
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.nisaalhuda.org";
-  const redirectTo = `${siteUrl}/reset-password`;
+  const redirectTo = `${siteUrl}/auth/callback?next=/reset-password`;
 
   const { data: linkData, error: linkErr } =
     await admin.auth.admin.generateLink({

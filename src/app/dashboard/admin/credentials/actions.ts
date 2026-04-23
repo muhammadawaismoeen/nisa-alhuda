@@ -153,11 +153,14 @@ export async function sendCredentials(
     .single();
   const offeringTitle = offering?.title || undefined;
 
-  // Use the app origin for the redirect target — Supabase appends a hash
-  // fragment with the access/refresh tokens and the client picks it up.
+  // Route through /auth/callback so the PKCE code is exchanged for a
+  // session BEFORE the user lands on /reset-password. Sending them
+  // straight to /reset-password leaves the form without a session and
+  // updateUser({password}) silently fails. Mirrors the pattern used by
+  // the user-initiated /forgot-password flow.
   const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://nisa-alhuda.vercel.app";
-  const redirectTo = `${siteUrl}/reset-password`;
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.nisaalhuda.org";
+  const redirectTo = `${siteUrl}/auth/callback?next=/reset-password`;
 
   const sentOk: string[] = [];
   const failed: Array<{ email: string; error: string }> = [];
