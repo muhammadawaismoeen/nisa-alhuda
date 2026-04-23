@@ -1,26 +1,26 @@
 /**
  * User Directory — searchable, filterable user list with admin actions.
- * Client component: search, role filter, suspend/unsuspend, login-as-user.
+ * Client component: search, role filter, multi-role assign, reset password,
+ * suspend/unsuspend, login-as-user helper.
  */
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search,
   User,
   Shield,
-  ShieldAlert,
   LogIn,
   Ban,
   CheckCircle,
   Loader2,
   Phone,
-  Mail,
   Calendar,
   BookOpen,
   Wallet,
   UserCog,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,11 +31,11 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { Profile } from "@/lib/types/database";
+import type { Profile, UserRole } from "@/lib/types/database";
+import { updateUserRoles, resetUserPassword } from "./actions";
 
 interface UserDirectoryProps {
   profiles: Profile[];
@@ -43,14 +43,28 @@ interface UserDirectoryProps {
   currentUserId: string;
 }
 
-const roleConfig = {
+const roleConfig: Record<
+  UserRole,
+  {
+    label: string;
+    color: string;
+    bg: string;
+    icon: typeof Shield;
+  }
+> = {
   admin: { label: "Admin", color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-950/30", icon: Shield },
   treasurer: { label: "Treasurer", color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-950/30", icon: Wallet },
   instructor: { label: "Instructor", color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-950/30", icon: BookOpen },
   student: { label: "Student", color: "text-green-600", bg: "bg-green-100 dark:bg-green-950/30", icon: User },
 };
 
-const ROLE_OPTIONS = ["student", "instructor", "treasurer", "admin"] as const;
+const ROLE_OPTIONS: UserRole[] = ["student", "instructor", "treasurer", "admin"];
+
+function uniqueRoles(profile: Profile): UserRole[] {
+  const set = new Set<UserRole>(profile.roles || []);
+  set.add(profile.role);
+  return Array.from(set);
+}
 
 export function UserDirectory({
   profiles,
@@ -63,11 +77,18 @@ export function UserDirectory({
   const [suspendingId, setSuspendingId] = useState<string | null>(null);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [loginTarget, setLoginTarget] = useState<Profile | null>(null);
-  const [roleChangeTarget, setRoleChangeTarget] = useState<Profile | null>(null);
-  const [selectedRole, setSelectedRole] = useState<string>("student");
-  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
-  // Filter profiles
+  // Multi-role dialog state
+  const [roleDialogTarget, setRoleDialogTarget] = useState<Profile | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<Set<UserRole>>(new Set());
+  const [selectedPrimary, setSelectedPrimary] = useState<UserRole>("student");
+  const [savingRoles, startSavingRoles] = useTransition();
+
+  // Reset-password dialog state
+  const [resetTarget, setResetTarget] = useState<Profile | null>(null);
+  const [resettingPwd, startResetPwd] = useTransition();
+
+  // Filter profiles — match against primary OR any assigned role.
   const filtered = profiles.filter((p) => {
     const matchesSearch =
       search === "" ||
@@ -75,7 +96,8 @@ export function UserDirectory({
       p.phone?.toLowerCase().includes(search.toLowerCase()) ||
       p.id.toLowerCase().includes(search.toLowerCase());
 
-    const matchesRole = roleFilter === "all" || p.role === roleFilter;
+    const matchesRole =
+      roleFilter === "all" || uniqueRoles(p).includes(roleFilter as UserRole);
 
     return matchesSearch && matchesRole;
   });
@@ -115,62 +137,102 @@ export function UserDirectory({
     }
   }
 
+  function openRoleDialog(profile: Profile) {
+    setRoleDialogTarget(profile);
+    setSelectedRoles(new Set(uniqueRoles(profile)));
+    setSelectedPrimary(profile.role);
+  }
+
+  function toggleRole(role: UserRole) {
+    setSelectedRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(role)) {
+        // Don't allow removing the primary role — user must change primary first.
+        if (role === selectedPrimary) return prev;
+        next.delete(role);
+      } else {
+        next.add(role);
+      }
+      return next;
+    });
+  }
+
+  function handlePrimaryChange(role: UserRole) {
+    setSelectedPrimary(role);
+    // Primary must be in the set.
+    setSelectedRoles((prev) => {
+      const next = new Set(prev);
+      next.add(role);
+      return next;
+    });
+  }
+
+  function confirmRoleChange() {
+    if (!roleDialogTarget) return;
+    const rolesArr = Array.from(selectedRoles);
+    if (rolesArr.length === 0) {
+      toast.error("Select at least one role.");
+      return;
+    }
+    if (!rolesArr.includes(selectedPrimary)) rolesArr.push(selectedPrimary);
+
+    startSavingRoles(async () => {
+      const res = await updateUserRoles(
+        roleDialogTarget.id,
+        selectedPrimary,
+        rolesArr
+      );
+      if (!res.success) {
+        toast.error(res.error || "Failed to update roles.");
+        return;
+      }
+      const roleLabels = rolesArr
+        .map((r) => roleConfig[r]?.label || r)
+        .join(", ");
+      toast.success(
+        `${roleDialogTarget.full_name}: ${roleLabels} (primary: ${
+          roleConfig[selectedPrimary]?.label
+        })`
+      );
+      setRoleDialogTarget(null);
+      router.refresh();
+    });
+  }
+
+  function openResetDialog(profile: Profile) {
+    setResetTarget(profile);
+  }
+
+  function confirmResetPassword() {
+    if (!resetTarget) return;
+    startResetPwd(async () => {
+      const res = await resetUserPassword(resetTarget.id);
+      if (!res.success) {
+        toast.error(res.error || "Failed to send reset link.");
+        return;
+      }
+      toast.success(
+        `Password reset link sent to ${resetTarget.full_name}. Check their email.`
+      );
+      setResetTarget(null);
+    });
+  }
+
   function handleLoginAs(profile: Profile) {
     setLoginTarget(profile);
     setShowLoginDialog(true);
   }
 
-  function openRoleDialog(profile: Profile) {
-    setRoleChangeTarget(profile);
-    setSelectedRole(profile.role);
-  }
-
-  async function confirmRoleChange() {
-    if (!roleChangeTarget) return;
-    if (selectedRole === roleChangeTarget.role) {
-      setRoleChangeTarget(null);
-      return;
-    }
-
-    setUpdatingRoleId(roleChangeTarget.id);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("profiles")
-        .update({ role: selectedRole })
-        .eq("id", roleChangeTarget.id);
-
-      if (error) throw error;
-      toast.success(
-        `${roleChangeTarget.full_name} is now ${
-          roleConfig[selectedRole as keyof typeof roleConfig]?.label || selectedRole
-        }.`
-      );
-      setRoleChangeTarget(null);
-      router.refresh();
-    } catch {
-      toast.error("Failed to update role.");
-    } finally {
-      setUpdatingRoleId(null);
-    }
-  }
-
   async function confirmLoginAs() {
     if (!loginTarget) return;
-    // Open the login page in a new tab with the user's email pre-filled
-    // Admin will need to use Supabase dashboard for actual impersonation
-    toast.info(
-      `To login as ${loginTarget.full_name}, use Supabase Auth Admin to generate a magic link for their account.`
-    );
     setShowLoginDialog(false);
-
-    // Copy email to clipboard for convenience
     try {
-      // We don't have the email directly from profiles, but we can show the user ID
       await navigator.clipboard.writeText(loginTarget.id);
-      toast.success("User ID copied to clipboard. Use in Supabase Dashboard → Auth → Users to impersonate.");
+      toast.success(
+        "User ID copied. Use Supabase Dashboard → Auth → Users to impersonate."
+      );
     } catch {
-      // Clipboard might not be available
+      toast.info("User ID: " + loginTarget.id);
     }
   }
 
@@ -188,17 +250,19 @@ export function UserDirectory({
           />
         </div>
         <div className="flex gap-2">
-          {["all", "student", "instructor", "treasurer", "admin"].map((role) => (
-            <Button
-              key={role}
-              variant={roleFilter === role ? "default" : "outline"}
-              size="sm"
-              onClick={() => setRoleFilter(role)}
-              className="capitalize"
-            >
-              {role === "all" ? "All" : role}
-            </Button>
-          ))}
+          {["all", "student", "instructor", "treasurer", "admin"].map(
+            (role) => (
+              <Button
+                key={role}
+                variant={roleFilter === role ? "default" : "outline"}
+                size="sm"
+                onClick={() => setRoleFilter(role)}
+                className="capitalize"
+              >
+                {role === "all" ? "All" : role}
+              </Button>
+            )
+          )}
         </div>
       </div>
 
@@ -218,37 +282,55 @@ export function UserDirectory({
       ) : (
         <div className="space-y-2">
           {filtered.map((profile) => {
-            const config = roleConfig[profile.role] || roleConfig.student;
-            const RoleIcon = config.icon;
+            const primaryCfg = roleConfig[profile.role] || roleConfig.student;
+            const RoleIcon = primaryCfg.icon;
             const enrollInfo = enrollmentCounts[profile.id];
             const isCurrentUser = profile.id === currentUserId;
+            const allRoles = uniqueRoles(profile);
+            const additionalRoles = allRoles.filter((r) => r !== profile.role);
 
             return (
               <Card
                 key={profile.id}
-                className={profile.is_suspended ? "opacity-60 border-red-200" : ""}
+                className={
+                  profile.is_suspended ? "opacity-60 border-red-200" : ""
+                }
               >
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {/* Avatar */}
                     <div
-                      className={`h-10 w-10 rounded-full ${config.bg} flex items-center justify-center shrink-0`}
+                      className={`h-10 w-10 rounded-full ${primaryCfg.bg} flex items-center justify-center shrink-0`}
                     >
-                      <RoleIcon className={`h-4 w-4 ${config.color}`} />
+                      <RoleIcon className={`h-4 w-4 ${primaryCfg.color}`} />
                     </div>
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <h3 className="font-semibold truncate">
                           {profile.full_name}
                         </h3>
                         <Badge
                           variant="outline"
-                          className={`text-xs ${config.color}`}
+                          className={`text-xs ${primaryCfg.color}`}
+                          title="Primary role"
                         >
-                          {config.label}
+                          {primaryCfg.label}
                         </Badge>
+                        {additionalRoles.map((r) => {
+                          const cfg = roleConfig[r];
+                          return (
+                            <Badge
+                              key={r}
+                              variant="secondary"
+                              className={`text-xs ${cfg.color}`}
+                              title="Additional role"
+                            >
+                              + {cfg.label}
+                            </Badge>
+                          );
+                        })}
                         {profile.is_suspended && (
                           <Badge variant="destructive" className="text-xs">
                             Suspended
@@ -272,7 +354,11 @@ export function UserDirectory({
                           Joined{" "}
                           {new Date(profile.created_at).toLocaleDateString(
                             "en-PK",
-                            { day: "numeric", month: "short", year: "numeric" }
+                            {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            }
                           )}
                         </span>
                         {enrollInfo && (
@@ -287,19 +373,24 @@ export function UserDirectory({
                     {/* Actions */}
                     {!isCurrentUser && (
                       <div className="flex items-center gap-1 shrink-0">
-                        {/* Change Role */}
+                        {/* Reset Password */}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => openResetDialog(profile)}
+                          title="Send password reset email"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" />
+                        </Button>
+
+                        {/* Change Roles */}
                         <Button
                           variant="ghost"
                           size="icon-sm"
                           onClick={() => openRoleDialog(profile)}
-                          disabled={updatingRoleId === profile.id}
-                          title="Change role"
+                          title="Edit roles"
                         >
-                          {updatingRoleId === profile.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <UserCog className="h-3.5 w-3.5" />
-                          )}
+                          <UserCog className="h-3.5 w-3.5" />
                         </Button>
 
                         {/* Login As */}
@@ -347,67 +438,125 @@ export function UserDirectory({
         </div>
       )}
 
-      {/* Change Role Dialog */}
+      {/* Multi-Role Dialog */}
       <Dialog
-        open={!!roleChangeTarget}
-        onOpenChange={(open) => !open && setRoleChangeTarget(null)}
+        open={!!roleDialogTarget}
+        onOpenChange={(open) => !open && !savingRoles && setRoleDialogTarget(null)}
       >
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              Change role for {roleChangeTarget?.full_name}
+              Edit roles for {roleDialogTarget?.full_name}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">
-              Role changes apply immediately. Treasurers can only access the
-              Payment Ledger to approve/reject receipts — they cannot edit
-              courses, users, or other admin areas.
+              Pick every role this user should hold. The <strong>primary</strong>{" "}
+              role (selected on the right) decides which dashboard they land on
+              after login — additional roles simply grant extra feature access.
             </p>
-            <div className="grid grid-cols-2 gap-2">
+
+            <div className="space-y-2">
               {ROLE_OPTIONS.map((r) => {
                 const cfg = roleConfig[r];
                 const RoleIcon = cfg.icon;
-                const isSelected = selectedRole === r;
+                const isChecked = selectedRoles.has(r);
+                const isPrimary = selectedPrimary === r;
                 return (
-                  <button
+                  <div
                     key={r}
-                    type="button"
-                    onClick={() => setSelectedRole(r)}
-                    className={`flex items-center gap-2 rounded-lg border p-3 text-left transition-colors ${
-                      isSelected
-                        ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                        : "border-border hover:bg-muted"
+                    className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
+                      isChecked
+                        ? "border-primary/40 bg-primary/5"
+                        : "border-border"
                     }`}
                   >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleRole(r)}
+                      disabled={isPrimary}
+                      className="h-4 w-4 rounded border-input accent-primary cursor-pointer disabled:cursor-not-allowed"
+                      title={
+                        isPrimary
+                          ? "Primary role can't be removed — change primary first."
+                          : ""
+                      }
+                    />
                     <div
-                      className={`h-8 w-8 rounded-lg ${cfg.bg} flex items-center justify-center`}
+                      className={`h-8 w-8 rounded-lg ${cfg.bg} flex items-center justify-center shrink-0`}
                     >
                       <RoleIcon className={`h-4 w-4 ${cfg.color}`} />
                     </div>
-                    <span className="font-medium text-sm">{cfg.label}</span>
-                  </button>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{cfg.label}</p>
+                    </div>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                      <input
+                        type="radio"
+                        name="primary-role"
+                        checked={isPrimary}
+                        onChange={() => handlePrimaryChange(r)}
+                        className="h-3.5 w-3.5 accent-primary cursor-pointer"
+                      />
+                      Primary
+                    </label>
+                  </div>
                 );
               })}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-1">
+              <Button
+                variant="outline"
+                onClick={() => setRoleDialogTarget(null)}
+                disabled={savingRoles}
+              >
+                Cancel
+              </Button>
+              <Button onClick={confirmRoleChange} disabled={savingRoles}>
+                {savingRoles && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save roles
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog
+        open={!!resetTarget}
+        onOpenChange={(open) => !open && !resettingPwd && setResetTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send password reset email</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-muted-foreground">
+              A secure one-time link will be emailed to{" "}
+              <strong>{resetTarget?.full_name}</strong>. They can use it to set
+              a new password. The link expires after one use or 24 hours.
+            </p>
+            <div className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
+              <KeyRound className="h-3.5 w-3.5 inline mr-1.5 align-text-bottom" />
+              The email comes from <code>noreply@nisaalhuda.org</code>. Ask the
+              user to check their spam folder if it doesn't land in Inbox.
             </div>
             <div className="flex gap-2 justify-end">
               <Button
                 variant="outline"
-                onClick={() => setRoleChangeTarget(null)}
+                onClick={() => setResetTarget(null)}
+                disabled={resettingPwd}
               >
                 Cancel
               </Button>
-              <Button
-                onClick={confirmRoleChange}
-                disabled={
-                  !!updatingRoleId ||
-                  selectedRole === roleChangeTarget?.role
-                }
-              >
-                {updatingRoleId && (
+              <Button onClick={confirmResetPassword} disabled={resettingPwd}>
+                {resettingPwd && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 )}
-                Save role
+                <KeyRound className="h-4 w-4 mr-2" />
+                Send reset email
               </Button>
             </div>
           </div>
@@ -422,9 +571,9 @@ export function UserDirectory({
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <p className="text-sm text-muted-foreground">
-              This will copy the user&apos;s ID to your clipboard. Use the
-              Supabase Dashboard (Auth → Users) to generate a magic link for
-              this user to troubleshoot their account.
+              This copies the user&apos;s ID to your clipboard. Use the Supabase
+              Dashboard (Auth → Users) to generate a magic link for this user
+              to troubleshoot their account.
             </p>
             <div className="p-3 rounded-lg bg-muted text-sm font-mono break-all">
               {loginTarget?.id}

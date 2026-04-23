@@ -28,12 +28,29 @@ export interface Profile {
   id: string;
   full_name: string;
   avatar_url: string | null;
+  /** Primary role — drives landing dashboard and existing RLS. Always present in `roles[]`. */
   role: UserRole;
+  /** All roles the user holds (includes primary). Use for feature-access checks. */
+  roles: UserRole[];
   phone: string | null;
   is_suspended: boolean;
   must_change_password: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Returns true if the given profile holds `target` role in either the
+ * primary `role` slot or the additional `roles[]` array. Mirrors the
+ * server-side `has_role()` SQL function for client-side capability checks.
+ */
+export function profileHasRole(
+  profile: Pick<Profile, "role" | "roles"> | null | undefined,
+  target: UserRole
+): boolean {
+  if (!profile) return false;
+  if (profile.role === target) return true;
+  return Array.isArray(profile.roles) && profile.roles.includes(target);
 }
 
 export interface Offering {
