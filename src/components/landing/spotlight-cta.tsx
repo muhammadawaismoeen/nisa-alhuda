@@ -26,7 +26,13 @@ export function SpotlightCTA() {
       <div
         ref={ref}
         onMouseMove={handleMove}
-        className="spotlight relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary to-rose-700 px-6 py-16 text-center text-primary-foreground sm:px-12 sm:py-20 md:px-16 md:py-24"
+        className="relative mx-auto max-w-6xl overflow-hidden rounded-3xl bg-primary px-6 py-16 text-center text-white sm:px-12 sm:py-20 md:px-16 md:py-24"
+        style={{
+          // Two layered gradients: the cursor-follow spotlight sits on top of
+          // the pink base. Inline because Tailwind v4's gradient utilities
+          // weren't resolving here, which left the section invisible.
+          backgroundImage: `radial-gradient(600px circle at var(--x, 50%) var(--y, 50%), rgba(255,255,255,0.18), transparent 40%), linear-gradient(135deg, #C55B7A 0%, #B55A75 50%, #9A3D5E 100%)`,
+        }}
       >
         {/* Decorative grid overlay */}
         <div
@@ -69,7 +75,7 @@ export function SpotlightCTA() {
           <h2 className="font-heading mt-5 text-balance text-3xl font-bold sm:text-4xl md:text-5xl">
             Begin your journey of knowledge
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-sm text-primary-foreground/90 sm:text-base">
+          <p className="mx-auto mt-4 max-w-xl text-sm text-white/90 sm:text-base">
             Join our sisterhood and take the first step toward deepening your
             understanding of the Deen — with teachers who care and a community
             that keeps you going.
