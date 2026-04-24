@@ -508,52 +508,78 @@ export function EnrollmentWizard({
   // ─── Step Indicator ────────────────────────────────────────
 
   function StepIndicator() {
+    const total = steps.length;
+    // Progress %: completed segments + partial for active (for the fill bar).
+    const progressPct = submitted
+      ? 100
+      : total <= 1
+        ? 0
+        : (currentStep / (total - 1)) * 100;
+
     return (
-      <div className="flex items-center justify-center gap-0 mb-10">
-        {steps.map((step, index) => {
-          const isActive = index === currentStep;
-          const isCompleted = index < currentStep || submitted;
-          const StepIcon = step.icon;
+      <div className="mb-10">
+        {/* Eyebrow — step N of M + current label */}
+        <div className="mb-3 flex items-center justify-between text-xs">
+          <span className="font-medium uppercase tracking-[0.14em] text-muted-foreground">
+            Step {Math.min(currentStep + 1, total)} of {total}
+          </span>
+          <span className="font-heading text-sm font-semibold text-foreground">
+            {steps[currentStep]?.label}
+          </span>
+        </div>
 
-          return (
-            <div key={step.label} className="flex items-center">
-              <div className="flex flex-col items-center gap-2">
-                <div
-                  className={`h-10 w-10 rounded-full flex items-center justify-center transition-colors ${
-                    isCompleted
-                      ? "bg-primary text-primary-foreground"
-                      : isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-muted-foreground"
-                  }`}
-                >
-                  {isCompleted && !isActive ? (
-                    <CheckCircle className="h-5 w-5" />
-                  ) : (
-                    <StepIcon className="h-5 w-5" />
-                  )}
-                </div>
-                <span
-                  className={`text-xs font-medium hidden sm:block ${
-                    isActive || isCompleted
-                      ? "text-foreground"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {step.label}
-                </span>
-              </div>
+        {/* Rail with gradient progress fill */}
+        <div className="relative">
+          <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-border/70" />
+          <div
+            className="absolute left-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-primary to-rose-400 transition-[width] duration-500 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
 
-              {index < steps.length - 1 && (
-                <div
-                  className={`h-0.5 w-8 sm:w-16 mx-1.5 sm:mx-2 mb-0 sm:mb-6 ${
-                    isCompleted ? "bg-primary" : "bg-border"
-                  }`}
-                />
-              )}
-            </div>
-          );
-        })}
+          <ol className="relative flex items-center justify-between">
+            {steps.map((step, index) => {
+              const isActive = index === currentStep && !submitted;
+              const isCompleted = index < currentStep || submitted;
+              const StepIcon = step.icon;
+
+              return (
+                <li
+                  key={step.label}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div
+                    className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition-all duration-300 ${
+                      isCompleted
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                        : isActive
+                          ? "border-primary bg-background text-primary ring-4 ring-primary/15"
+                          : "border-border bg-background text-muted-foreground"
+                    }`}
+                    aria-current={isActive ? "step" : undefined}
+                  >
+                    {isCompleted && !isActive ? (
+                      <CheckCircle className="h-5 w-5" />
+                    ) : (
+                      <StepIcon className="h-[18px] w-[18px]" />
+                    )}
+                    {isActive && (
+                      <span className="pointer-events-none absolute inset-0 animate-ping rounded-full bg-primary/20" />
+                    )}
+                  </div>
+                  <span
+                    className={`hidden text-[11px] font-medium tracking-wide sm:block ${
+                      isActive || isCompleted
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
       </div>
     );
   }

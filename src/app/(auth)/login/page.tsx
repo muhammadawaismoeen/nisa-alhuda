@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthShell } from "@/components/auth/auth-shell";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
@@ -15,27 +14,21 @@ export default async function LoginPage({
   const { redirect: redirectTo, error } = await searchParams;
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Log in to access your courses and dashboard
-        </p>
-        {error === "auth_callback_failed" && (
-          <p className="text-sm text-destructive mt-2">
-            The verification link has expired or is invalid. Please try again.
-          </p>
-        )}
-      </CardHeader>
-      <CardContent>
-        <LoginForm redirectTo={redirectTo} />
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-primary hover:underline font-medium">
-            Register
-          </Link>
-        </p>
-      </CardContent>
-    </Card>
+    <AuthShell
+      title="Welcome back"
+      subtitle="Log in to continue your journey of knowledge."
+      footer={{
+        prefix: "New here?",
+        label: "Create an account",
+        href: "/register",
+      }}
+    >
+      {error === "auth_callback_failed" && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          The verification link has expired or is invalid. Please try again.
+        </div>
+      )}
+      <LoginForm redirectTo={redirectTo} />
+    </AuthShell>
   );
 }
