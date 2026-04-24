@@ -16,6 +16,7 @@ import { BentoFeatures } from "@/components/landing/bento-features";
 import { TestimonialsMarquee } from "@/components/landing/testimonials-marquee";
 import { SpotlightCTA } from "@/components/landing/spotlight-cta";
 import { OfferingCard } from "@/components/landing/offering-card";
+import { FloralDivider } from "@/components/landing/florals";
 import { LinkButton } from "@/components/ui/link-button";
 import { ArrowRight } from "lucide-react";
 
@@ -39,6 +40,8 @@ export default async function HomePage() {
 
       {/* ─── Trust: social proof stats ─── */}
       <StatsStrip />
+
+      <FloralDivider className="container mx-auto px-4" />
 
       {/* ─── Qur'anic Ayah ─── */}
       <section className="relative overflow-hidden py-16">
@@ -109,6 +112,8 @@ export default async function HomePage() {
         </section>
       )}
 
+      <FloralDivider className="container mx-auto px-4" />
+
       {/* ─── Bento features ─── */}
       <BentoFeatures />
 
@@ -135,6 +140,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <FloralDivider className="container mx-auto px-4" />
 
       {/* ─── Testimonials ─── */}
       <section className="py-20">

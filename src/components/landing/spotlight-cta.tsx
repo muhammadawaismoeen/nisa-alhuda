@@ -8,6 +8,7 @@
 import { useRef } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { Bloom, Sprig } from "./florals";
 
 export function SpotlightCTA() {
   const ref = useRef<HTMLDivElement>(null);
@@ -47,6 +48,19 @@ export function SpotlightCTA() {
           aria-hidden
           className="absolute -right-8 -bottom-8 h-56 w-56 rounded-full bg-rose-300/20 blur-3xl"
         />
+
+        {/* Floral garnishes — tinted white so they read as embroidery on the pink */}
+        <Sprig
+          size={60}
+          className="absolute left-4 top-4 opacity-30 [&_*]:!stroke-white/60 sm:left-8 sm:top-8"
+        />
+        <Sprig
+          size={60}
+          className="absolute bottom-4 right-4 -scale-100 opacity-30 [&_*]:!stroke-white/60 sm:bottom-8 sm:right-8"
+        />
+        <div className="absolute left-1/2 top-6 -translate-x-1/2 opacity-50">
+          <Bloom size={22} tone="soft" />
+        </div>
 
         <div className="relative">
           <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider backdrop-blur-sm">

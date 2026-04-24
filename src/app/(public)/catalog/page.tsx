@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Archive, BookOpen, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { OfferingCard } from "@/components/landing/offering-card";
+import { FloatingBlossoms, FloralDivider } from "@/components/landing/florals";
 import type { Offering } from "@/lib/types/database";
 
 export const metadata: Metadata = {
@@ -44,6 +45,7 @@ export default async function CatalogPage({
       <section className="relative overflow-hidden py-16 md:py-20">
         <div className="absolute inset-0 -z-20 aurora opacity-60" aria-hidden />
         <div className="absolute inset-0 -z-10 grid-fade" aria-hidden />
+        <FloatingBlossoms className="-z-10" />
 
         <div className="container relative mx-auto px-4 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/60 px-4 py-1.5 text-xs font-medium text-primary backdrop-blur-md dark:bg-card/60">
@@ -87,8 +89,10 @@ export default async function CatalogPage({
         </div>
       </section>
 
+      <FloralDivider className="container mx-auto px-4" />
+
       {/* Grid */}
-      <section className="pb-20">
+      <section className="pb-20 pt-4">
         <div className="container mx-auto px-4">
           {list.length === 0 ? (
             <div className="mx-auto max-w-md rounded-3xl border border-border/60 bg-card/60 px-6 py-16 text-center backdrop-blur-sm">

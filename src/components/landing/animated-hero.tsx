@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
+import { FloatingBlossoms, SparkleBurst } from "./florals";
 
 const ROTATING_WORDS = ["Fiqh", "Arabic", "Hadith", "Qur'an"] as const;
 
@@ -38,6 +39,9 @@ export function AnimatedHero() {
       <div className="absolute inset-0 -z-30 aurora" aria-hidden />
       <div className="absolute inset-0 -z-20 grid-fade" aria-hidden />
       <div className="absolute inset-0 -z-10 kufic-pattern opacity-40" aria-hidden />
+
+      {/* Drifting blossoms — decorative, hugging the edges so they don't crowd the headline */}
+      <FloatingBlossoms className="-z-10" />
 
       <div className="container relative mx-auto px-4">
         <div className="mx-auto max-w-4xl text-center">
@@ -61,8 +65,9 @@ export function AnimatedHero() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
-            className="font-heading mt-7 text-balance text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
+            className="font-heading relative mt-7 text-balance text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
           >
+            <SparkleBurst className="-top-4 left-1/2 -translate-x-[18rem] sm:-top-6" />
             Deepen your understanding of
             <span className="relative mt-3 block h-[1.15em] overflow-hidden text-primary">
               <AnimatePresence mode="wait">

@@ -19,6 +19,7 @@ import {
   Wifi,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Sprig } from "./florals";
 import { formatPriceWithFee } from "@/lib/constants";
 import type { Offering } from "@/lib/types/database";
 
@@ -49,6 +50,12 @@ export function OfferingCard({ offering }: OfferingCardProps) {
       href={`/offerings/${offering.slug}`}
       className="border-beam group relative flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card/80 p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/10"
     >
+      {/* Floral corner mark — fades in on hover so cards stay calm at rest */}
+      <Sprig
+        size={44}
+        className="pointer-events-none absolute -right-2 -top-2 opacity-0 transition-opacity duration-300 group-hover:opacity-70"
+      />
+
       {/* "New" ribbon */}
       {offering.is_new && (
         <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">

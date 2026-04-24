@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { FloatingBlossoms } from "@/components/landing/florals";
 import { formatPriceWithFee } from "@/lib/constants";
 import type { Offering, Subject, Profile } from "@/lib/types/database";
 
@@ -108,6 +109,7 @@ export default async function OfferingDetailPage({
       <section className="relative overflow-hidden py-14 md:py-20">
         <div className="absolute inset-0 -z-20 aurora opacity-60" aria-hidden />
         <div className="absolute inset-0 -z-10 grid-fade" aria-hidden />
+        <FloatingBlossoms className="-z-10" />
 
         <div className="container relative mx-auto px-4">
           <Link
