@@ -5,6 +5,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Bell } from "lucide-react";
 import { NotificationList } from "./notification-list";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import type { Notification } from "@/lib/types/database";
 
 export default async function NotificationsPage() {
@@ -28,25 +30,22 @@ export default async function NotificationsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {unreadCount > 0
-              ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
-              : "You're all caught up!"}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={Bell}
+        title="Notifications"
+        subtitle={
+          unreadCount > 0
+            ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}.`
+            : "You're all caught up."
+        }
+      />
 
       {!notifications || notifications.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16">
-          <Bell className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
-          <p className="text-muted-foreground text-lg">No notifications yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            You&apos;ll see updates about your enrollments and announcements here.
-          </p>
-        </div>
+        <EmptyState
+          icon={Bell}
+          title="No notifications yet"
+          description="You'll see updates about your enrollments and announcements here."
+        />
       ) : (
         <NotificationList
           initialNotifications={notifications as Notification[]}

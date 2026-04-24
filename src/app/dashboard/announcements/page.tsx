@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Megaphone, Pin } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { AnnouncementManager } from "./announcement-manager";
 import type { Profile, Offering } from "@/lib/types/database";
 
@@ -96,16 +97,15 @@ export default async function AnnouncementsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Announcements</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {canManage
-              ? "Post announcements to all students or specific courses."
-              : "Stay updated with the latest announcements."}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={Megaphone}
+        title="Announcements"
+        subtitle={
+          canManage
+            ? "Post announcements to all students or specific courses."
+            : "Stay updated with the latest announcements from your instructors."
+        }
+      />
 
       {/* Manager component handles create/edit/delete for admins/instructors, read-only for students */}
       <AnnouncementManager

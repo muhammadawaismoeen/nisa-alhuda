@@ -4,6 +4,7 @@
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/dashboard/page-header";
 import {
   BarChart3,
   Users,
@@ -126,12 +127,11 @@ export default async function AnalyticsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Track your teaching metrics and student engagement.
-        </p>
-      </div>
+      <PageHeader
+        icon={BarChart3}
+        title="Analytics"
+        subtitle="Track your teaching metrics and student engagement at a glance."
+      />
 
       {/* Bento Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

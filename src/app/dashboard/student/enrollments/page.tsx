@@ -18,6 +18,8 @@ import {
 import type { Offering } from "@/lib/types/database";
 import { formatPaidAmount } from "@/lib/constants";
 import { FaReceiptUpload } from "./fa-receipt-upload";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 const statusConfig = {
   pending: {
@@ -60,26 +62,19 @@ export default async function StudentEnrollmentsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">My Enrollments</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Track the status of all your enrollments.
-        </p>
-      </div>
+      <PageHeader
+        icon={ClipboardList}
+        title="My Enrollments"
+        subtitle="Track the status of every program, course, and workshop you've signed up for."
+      />
 
       {!enrollments || enrollments.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <ClipboardList className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground text-lg mb-2">
-              No enrollments yet
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Browse our catalog and enroll in a program or course.
-            </p>
-            <LinkButton href="/offerings">Browse Catalog</LinkButton>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={ClipboardList}
+          title="No enrollments yet"
+          description="Browse our catalog and enroll in a program, course, or workshop to begin your journey."
+          action={<LinkButton href="/offerings">Browse Catalog</LinkButton>}
+        />
       ) : (
         <div className="space-y-3">
           {enrollments.map((enrollment: any) => {

@@ -1,11 +1,22 @@
 /**
- * Instructor Dashboard — shows assigned subjects across all offerings.
+ * Instructor Dashboard — shows assigned subjects across all offerings,
+ * framed by a warm greeting + compact stats strip.
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
-import { BookOpen, ArrowRight, Video } from "lucide-react";
+import {
+  BookOpen,
+  ArrowRight,
+  Video,
+  Users,
+  GraduationCap,
+  FileText,
+} from "lucide-react";
+import { DashboardGreeting } from "@/components/dashboard/greeting";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 export default async function InstructorDashboardPage() {
   const supabase = await createClient();
@@ -15,6 +26,12 @@ export default async function InstructorDashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, role")
+    .eq("id", user.id)
+    .single();
 
   // Fetch subjects assigned to this instructor, with offering info
   const { data: subjects, error } = await supabase
@@ -27,27 +44,44 @@ export default async function InstructorDashboardPage() {
     console.error("Error fetching subjects:", error);
   }
 
-  // Count lessons per subject
+  // Count lessons + student enrollments per offering in parallel
   const subjectIds = subjects?.map((s) => s.id) || [];
+  const offeringIds = Array.from(
+    new Set(
+      (subjects || [])
+        .map((s: { offering: { id: string } | null }) => s.offering?.id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+
   let lessonCounts: Record<string, number> = {};
+  let totalLessons = 0;
+  let totalStudents = 0;
 
   if (subjectIds.length > 0) {
-    const { data: lessons } = await supabase
-      .from("lessons")
-      .select("subject_id")
-      .in("subject_id", subjectIds);
+    const [lessonsRes, enrollmentsRes] = await Promise.all([
+      supabase.from("lessons").select("subject_id").in("subject_id", subjectIds),
+      offeringIds.length > 0
+        ? supabase
+            .from("enrollments")
+            .select("id", { count: "exact", head: true })
+            .in("offering_id", offeringIds)
+            .eq("status", "approved")
+        : Promise.resolve({ count: 0 }),
+    ]);
 
-    if (lessons) {
-      lessonCounts = lessons.reduce(
+    if (lessonsRes.data) {
+      lessonCounts = lessonsRes.data.reduce(
         (acc, l) => {
-          if (l.subject_id) {
-            acc[l.subject_id] = (acc[l.subject_id] || 0) + 1;
-          }
+          if (l.subject_id) acc[l.subject_id] = (acc[l.subject_id] || 0) + 1;
           return acc;
         },
         {} as Record<string, number>
       );
+      totalLessons = lessonsRes.data.length;
     }
+
+    totalStudents = enrollmentsRes.count ?? 0;
   }
 
   const statusConfig = {
@@ -56,81 +90,139 @@ export default async function InstructorDashboardPage() {
     archived: { label: "Archived", variant: "secondary" as const },
   };
 
+  const tail =
+    subjects && subjects.length > 0
+      ? `You're teaching ${subjects.length} subject${subjects.length > 1 ? "s" : ""} — may Allah reward your effort.`
+      : "No subjects assigned yet — an admin will link you to one soon.";
+
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">My Subjects</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage lessons for your assigned subjects.
-        </p>
+      <DashboardGreeting
+        name={profile?.full_name || "Ustadha"}
+        role={profile?.role || "instructor"}
+        tail={tail}
+      />
+
+      {/* Stats */}
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard
+          label="Subjects"
+          value={subjects?.length ?? 0}
+          hint="assigned to you"
+          icon={BookOpen}
+        />
+        <StatCard
+          label="Lessons"
+          value={totalLessons}
+          hint="across all subjects"
+          icon={FileText}
+          accent="text-indigo-600"
+        />
+        <StatCard
+          label="Students"
+          value={totalStudents}
+          hint="currently enrolled"
+          icon={Users}
+          accent="text-emerald-600"
+        />
+        <StatCard
+          label="Offerings"
+          value={offeringIds.length}
+          hint="you contribute to"
+          icon={GraduationCap}
+          accent="text-amber-600"
+        />
+      </div>
+
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-heading text-lg font-semibold">My subjects</h2>
+        {subjects && subjects.length > 0 && (
+          <LinkButton
+            variant="ghost"
+            size="sm"
+            href="/dashboard/instructor/live"
+            className="text-xs"
+          >
+            Open Live Hub
+            <ArrowRight className="ml-1 h-3 w-3" />
+          </LinkButton>
+        )}
       </div>
 
       {!subjects || subjects.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground text-lg mb-2">
-              No subjects assigned yet
-            </p>
-            <p className="text-sm text-muted-foreground">
-              You&apos;ll see your subjects here once an admin assigns them to
-              you.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={BookOpen}
+          title="No subjects assigned yet"
+          description="You'll see your subjects here once an admin assigns them to you. Reach out if something looks off."
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {subjects.map((subject: any) => {
-            const offering = subject.offering;
-            const offeringStatus =
-              statusConfig[offering?.status as keyof typeof statusConfig] ||
-              statusConfig.draft;
-            const count = lessonCounts[subject.id] || 0;
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {subjects.map(
+            (subject: {
+              id: string;
+              title: string;
+              description?: string | null;
+              offering?: {
+                id: string;
+                title: string;
+                status: string;
+              } | null;
+            }) => {
+              const offering = subject.offering;
+              const offeringStatus =
+                statusConfig[offering?.status as keyof typeof statusConfig] ||
+                statusConfig.draft;
+              const count = lessonCounts[subject.id] || 0;
 
-            return (
-              <Card key={subject.id} className="hover-lift">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center">
-                      <BookOpen className="h-5 w-5 text-primary" />
+              return (
+                <Card
+                  key={subject.id}
+                  className="group overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <CardContent className="p-5">
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/15 transition-transform group-hover:scale-105">
+                        <BookOpen className="h-5 w-5 text-primary" />
+                      </div>
+                      <Badge variant={offeringStatus.variant}>
+                        {offeringStatus.label}
+                      </Badge>
                     </div>
-                    <Badge variant={offeringStatus.variant}>
-                      {offeringStatus.label}
-                    </Badge>
-                  </div>
 
-                  <h3 className="font-heading font-semibold text-lg mb-1">
-                    {subject.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {offering?.title}
-                  </p>
-
-                  {subject.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                      {subject.description}
+                    <h3 className="mb-1 font-heading text-lg font-semibold leading-tight">
+                      {subject.title}
+                    </h3>
+                    <p className="mb-2 text-sm font-medium text-primary/90">
+                      {offering?.title}
                     </p>
-                  )}
 
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t">
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Video className="h-4 w-4" />
-                      <span>
-                        {count} {count === 1 ? "lesson" : "lessons"}
-                      </span>
+                    {subject.description && (
+                      <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
+                        {subject.description}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex items-center justify-between border-t pt-3">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Video className="h-4 w-4" />
+                        <span>
+                          {count} {count === 1 ? "lesson" : "lessons"}
+                        </span>
+                      </div>
+                      <LinkButton
+                        size="sm"
+                        className="rounded-full"
+                        href={`/dashboard/instructor/subjects/${subject.id}`}
+                      >
+                        Manage
+                        <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                      </LinkButton>
                     </div>
-                    <LinkButton
-                      size="sm"
-                      href={`/dashboard/instructor/subjects/${subject.id}`}
-                    >
-                      Manage Lessons
-                      <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                    </LinkButton>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              );
+            }
+          )}
         </div>
       )}
     </div>

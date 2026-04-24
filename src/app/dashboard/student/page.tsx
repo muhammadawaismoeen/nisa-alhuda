@@ -1,7 +1,8 @@
 /**
  * Student Dashboard — "My Learning" hub.
- * Shows approved enrollments as active learning cards,
- * plus a summary of pending enrollments.
+ * Shows approved enrollments as active learning cards, plus a summary of
+ * pending enrollments. Greeting + stats + live-now banner live above the
+ * grid so students always land on a meaningful overview.
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,9 +18,18 @@ import {
   CheckCircle,
   ExternalLink,
   AlertCircle,
+  Flame,
+  Sparkles,
 } from "lucide-react";
 import { firstOfMonth, cyclesBetween } from "@/lib/monthly-payments";
-import type { Offering, LiveSession, Profile as ProfileType } from "@/lib/types/database";
+import type {
+  Offering,
+  LiveSession,
+  Profile as ProfileType,
+} from "@/lib/types/database";
+import { DashboardGreeting } from "@/components/dashboard/greeting";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 export default async function StudentDashboardPage() {
   const supabase = await createClient();
@@ -29,6 +39,12 @@ export default async function StudentDashboardPage() {
   } = await supabase.auth.getUser();
 
   if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, role")
+    .eq("id", user.id)
+    .single();
 
   // Fetch all enrollments with offering details
   const { data: enrollments } = await supabase
@@ -40,7 +56,6 @@ export default async function StudentDashboardPage() {
   const approved = enrollments?.filter((e) => e.status === "approved") || [];
   const pending = enrollments?.filter((e) => e.status === "pending") || [];
 
-  // Fetch lessons, progress, and live sessions in parallel
   const approvedOfferingIds = approved.map((e) => e.offering_id);
   let lessonCounts: Record<string, number> = {};
   let completedCounts: Record<string, number> = {};
@@ -50,15 +65,10 @@ export default async function StudentDashboardPage() {
   })[] = [];
 
   const now = new Date();
-
-  // Current cycle (YYYY-MM-01) — used to flag enrollments that are missing a
-  // receipt or had one rejected for this month.
   const currentCycle = firstOfMonth();
 
-  // Run all independent queries in parallel
   const [lessonsResult, progressResult, sessionsResult, monthlyPayResult] =
     await Promise.all([
-      // Lessons count per offering
       approvedOfferingIds.length > 0
         ? supabase
             .from("lessons")
@@ -66,7 +76,6 @@ export default async function StudentDashboardPage() {
             .in("offering_id", approvedOfferingIds)
             .eq("is_published", true)
         : Promise.resolve({ data: null }),
-      // Completed lessons per offering
       approvedOfferingIds.length > 0
         ? supabase
             .from("lesson_progress")
@@ -74,7 +83,6 @@ export default async function StudentDashboardPage() {
             .eq("student_id", user.id)
             .in("offering_id", approvedOfferingIds)
         : Promise.resolve({ data: null }),
-      // Live sessions
       supabase
         .from("live_sessions")
         .select(
@@ -86,8 +94,6 @@ export default async function StudentDashboardPage() {
         )
         .order("scheduled_at", { ascending: true })
         .then((res) => res as { data: typeof liveSessions | null }),
-      // Monthly payment status for the current cycle (only the cycle the
-      // student needs to act on right now)
       approvedOfferingIds.length > 0
         ? supabase
             .from("monthly_payments")
@@ -97,8 +103,6 @@ export default async function StudentDashboardPage() {
         : Promise.resolve({ data: null }),
     ]);
 
-  // Map enrollment_id -> status for the current cycle so we can flag cards
-  // that need action.
   const currentCycleByEnrollment: Record<string, string> = {};
   if (monthlyPayResult.data) {
     for (const row of monthlyPayResult.data as Array<{
@@ -132,20 +136,64 @@ export default async function StudentDashboardPage() {
   if (sessionsResult.data) {
     liveSessions = (sessionsResult.data as typeof liveSessions).filter((s) => {
       const start = new Date(s.scheduled_at);
-      const end = new Date(
-        start.getTime() + s.duration_minutes * 60 * 1000
-      );
+      const end = new Date(start.getTime() + s.duration_minutes * 60 * 1000);
       return now >= start && now <= end;
     });
   }
 
+  // Aggregate stats across all approved enrollments.
+  const totalLessons = Object.values(lessonCounts).reduce((a, b) => a + b, 0);
+  const totalCompleted = Object.values(completedCounts).reduce(
+    (a, b) => a + b,
+    0
+  );
+  const overallPct =
+    totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0;
+
+  const tail =
+    approved.length > 0
+      ? `You're ${overallPct}% through your lessons — keep going.`
+      : pending.length > 0
+        ? `${pending.length} enrollment${pending.length > 1 ? "s are" : " is"} awaiting review.`
+        : "Browse the catalog to find your next course.";
+
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">My Learning</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Access your enrolled programs, courses, and workshops.
-        </p>
+      <DashboardGreeting
+        name={profile?.full_name || "Sister"}
+        role={profile?.role || "student"}
+        tail={tail}
+      />
+
+      {/* Stats strip */}
+      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard
+          label="Active"
+          value={approved.length}
+          hint="courses enrolled"
+          icon={GraduationCap}
+        />
+        <StatCard
+          label="Lessons"
+          value={`${totalCompleted}/${totalLessons}`}
+          hint="completed"
+          icon={CheckCircle}
+          accent="text-emerald-600"
+        />
+        <StatCard
+          label="Progress"
+          value={`${overallPct}%`}
+          hint="overall"
+          icon={Flame}
+          accent="text-amber-600"
+        />
+        <StatCard
+          label="Live now"
+          value={liveSessions.length}
+          hint={liveSessions.length > 0 ? "join from below" : "nothing live"}
+          icon={Video}
+          accent="text-rose-600"
+        />
       </div>
 
       {/* Live Now Banner */}
@@ -153,31 +201,32 @@ export default async function StudentDashboardPage() {
         <div className="mb-6 space-y-3">
           {liveSessions.map((session) => {
             const startedAgo = Math.floor(
-              (new Date().getTime() - new Date(session.scheduled_at).getTime()) /
+              (new Date().getTime() -
+                new Date(session.scheduled_at).getTime()) /
                 (1000 * 60)
             );
             return (
               <div
                 key={session.id}
-                className="p-4 rounded-xl border border-red-200 bg-red-50/80 dark:bg-red-950/20 dark:border-red-800 flex flex-col sm:flex-row sm:items-center gap-3"
+                className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-gradient-to-r from-red-50 to-rose-50 p-4 dark:border-red-900 dark:from-red-950/30 dark:to-rose-950/20 sm:flex-row sm:items-center"
               >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="relative shrink-0">
-                    <div className="h-10 w-10 rounded-xl bg-red-100 dark:bg-red-950/30 flex items-center justify-center">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-100 dark:bg-red-950/40">
                       <Video className="h-5 w-5 text-red-600" />
                     </div>
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+                    <span className="absolute -right-1 -top-1 flex h-3 w-3">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">
-                      LIVE NOW &middot; {session.title}
+                    <p className="text-sm font-semibold text-red-900 dark:text-red-100">
+                      LIVE NOW · {session.title}
                     </p>
                     <p className="text-xs text-red-700 dark:text-red-300">
-                      {session.instructor?.full_name} &middot; Started{" "}
-                      {startedAgo}m ago
+                      {session.instructor?.full_name} · Started {startedAgo}m
+                      ago
                     </p>
                   </div>
                 </div>
@@ -185,7 +234,7 @@ export default async function StudentDashboardPage() {
                   href={session.meeting_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors press shrink-0"
+                  className="press inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   Join Now
@@ -198,21 +247,21 @@ export default async function StudentDashboardPage() {
 
       {/* Pending enrollments notice */}
       {pending.length > 0 && (
-        <div className="mb-6 p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
-          <div className="flex items-center gap-2 mb-1">
+        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20">
+          <div className="mb-1 flex items-center gap-2">
             <Clock className="h-4 w-4 text-amber-600" />
-            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
               {pending.length} enrollment{pending.length > 1 ? "s" : ""} pending
               review
             </p>
           </div>
-          <p className="text-xs text-amber-700 dark:text-amber-300 ml-6">
+          <p className="ml-6 text-xs text-amber-800 dark:text-amber-300">
             Your enrollment{pending.length > 1 ? "s are" : " is"} being
             reviewed. You&apos;ll get access once approved.{" "}
             <LinkButton
               variant="link"
               href="/dashboard/student/enrollments"
-              className="text-xs h-auto p-0 text-amber-800 dark:text-amber-200 underline"
+              className="h-auto p-0 text-xs text-amber-900 underline dark:text-amber-100"
             >
               View details
             </LinkButton>
@@ -221,46 +270,44 @@ export default async function StudentDashboardPage() {
       )}
 
       {/* Active Learning */}
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="font-heading text-lg font-semibold">
+          {approved.length > 0 ? "Continue learning" : "Your courses"}
+        </h2>
+        {approved.length > 0 && (
+          <LinkButton
+            variant="ghost"
+            size="sm"
+            href="/dashboard/student/enrollments"
+            className="text-xs"
+          >
+            Manage enrollments
+            <ArrowRight className="ml-1 h-3 w-3" />
+          </LinkButton>
+        )}
+      </div>
+
       {approved.length === 0 && pending.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <GraduationCap className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground text-lg mb-2">
-              No enrollments yet
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Browse our catalog to find programs and courses.
-            </p>
-            <LinkButton href="/offerings">Browse Catalog</LinkButton>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Sparkles}
+          title="No enrollments yet"
+          description="Browse our catalog to discover programs, courses, and workshops designed for your journey."
+          action={<LinkButton href="/offerings">Browse Catalog</LinkButton>}
+        />
       ) : approved.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Clock className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground text-lg mb-2">
-              No active courses yet
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Your enrollments are being reviewed. You&apos;ll see your courses
-              here once approved.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Clock}
+          title="No active courses yet"
+          description="Your enrollments are being reviewed. You'll see your courses here once approved — usually within a day."
+        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {approved.map((enrollment) => {
             const offering = enrollment.offering as Offering;
             const count = lessonCounts[offering.id] || 0;
             const completed = completedCounts[offering.id] || 0;
             const pct = count > 0 ? Math.round((completed / count) * 100) : 0;
 
-            // Monthly subscription: flag only if the student actually owes a
-            // renewal for the current cycle. `cyclesBetween` honors both the
-            // platform launch date (FIRST_BILLABLE_CYCLE) and the enrollment's
-            // own first cycle, so students whose initial one-time payment just
-            // covered enrollment don't get a false "Payment due" before any
-            // renewal is owed.
             const owedCycles =
               offering.fee_type === "monthly"
                 ? cyclesBetween(enrollment.created_at)
@@ -273,10 +320,13 @@ export default async function StudentDashboardPage() {
               (monthlyStatus === undefined || monthlyStatus === "rejected");
 
             return (
-              <Card key={enrollment.id} className="hover-lift">
+              <Card
+                key={enrollment.id}
+                className="group overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-md"
+              >
                 <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="h-10 w-10 rounded-xl bg-secondary flex items-center justify-center">
+                  <div className="mb-3 flex items-start justify-between">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/15 transition-transform group-hover:scale-105">
                       <BookOpen className="h-5 w-5 text-primary" />
                     </div>
                     <div className="flex items-center gap-2">
@@ -285,7 +335,7 @@ export default async function StudentDashboardPage() {
                           variant="outline"
                           className="border-amber-300 text-amber-700 dark:text-amber-400"
                         >
-                          <AlertCircle className="h-3 w-3 mr-1" />
+                          <AlertCircle className="mr-1 h-3 w-3" />
                           Payment due
                         </Badge>
                       )}
@@ -293,23 +343,27 @@ export default async function StudentDashboardPage() {
                     </div>
                   </div>
 
-                  <h3 className="font-heading font-semibold text-lg mb-1">
+                  <h3 className="mb-1 font-heading text-lg font-semibold leading-tight">
                     {offering.title}
                   </h3>
 
                   {offering.short_description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                    <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
                       {offering.short_description}
                     </p>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mb-4">
+                  <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
                     {offering.schedule_start && (
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         {new Date(offering.schedule_start).toLocaleDateString(
                           "en-PK",
-                          { month: "short", day: "numeric", year: "numeric" }
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          }
                         )}
                       </span>
                     )}
@@ -326,22 +380,29 @@ export default async function StudentDashboardPage() {
                     </Badge>
                   </div>
 
-                  {/* Progress bar */}
                   {count > 0 && (
                     <div className="mb-4">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
+                      <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <CheckCircle className="h-3 w-3" />
                           {completed} of {count} lessons
                         </span>
-                        <span className={pct === 100 ? "text-green-600 font-semibold" : ""}>
+                        <span
+                          className={
+                            pct === 100
+                              ? "font-semibold text-emerald-600"
+                              : "tabular-nums"
+                          }
+                        >
                           {pct}%
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            pct === 100 ? "bg-green-500" : "bg-primary"
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            pct === 100
+                              ? "bg-emerald-500"
+                              : "bg-gradient-to-r from-primary to-rose-400"
                           }`}
                           style={{ width: `${pct}%` }}
                         />
@@ -349,9 +410,9 @@ export default async function StudentDashboardPage() {
                     </div>
                   )}
 
-                  <div className="pt-3 border-t">
+                  <div className="border-t pt-3">
                     <LinkButton
-                      className="w-full press"
+                      className="press w-full rounded-full"
                       href={`/dashboard/student/offerings/${offering.id}`}
                     >
                       {pct === 100 ? "Review Course" : "Continue Learning"}

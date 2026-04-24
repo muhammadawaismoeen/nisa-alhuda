@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Settings } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { ProfileForm } from "./profile-form";
 import { PasswordForm } from "./password-form";
 import { AvatarUpload } from "./avatar-upload";
@@ -29,12 +30,11 @@ export default async function SettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage your profile and account preferences.
-        </p>
-      </div>
+      <PageHeader
+        icon={Settings}
+        title="Settings"
+        subtitle="Manage your profile, avatar, and account preferences."
+      />
 
       <div className="space-y-8">
         {/* Avatar Section */}

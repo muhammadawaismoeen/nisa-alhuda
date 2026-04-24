@@ -1,44 +1,15 @@
 /**
  * Dashboard layout — shared wrapper for all authenticated dashboard pages.
- * Verifies auth and provides sidebar navigation + mobile drawer.
+ * Premium sidebar (grouped, active indicator) + polished mobile header.
  */
 import { redirect } from "next/navigation";
-import {
-  BookOpen,
-  LayoutDashboard,
-  GraduationCap,
-  Settings,
-  Users,
-  ClipboardList,
-  Video,
-  FileText,
-  BarChart3,
-  Megaphone,
-  Mail,
-  KeyRound,
-} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { LinkButton } from "@/components/ui/link-button";
 import { Logo } from "@/components/layout/logo";
 import type { Profile } from "@/lib/types/database";
 import { DashboardLogout } from "./logout-button";
 import { NotificationBell } from "./notification-bell";
 import { MobileNav } from "./mobile-nav";
-
-// Icon map for serializing nav items to client component
-const iconMap = {
-  LayoutDashboard,
-  BookOpen,
-  ClipboardList,
-  GraduationCap,
-  Users,
-  Megaphone,
-  Mail,
-  Settings,
-  Video,
-  FileText,
-  BarChart3,
-};
+import { SidebarNav, type NavSection } from "./sidebar-nav";
 
 export default async function DashboardLayout({
   children,
@@ -61,57 +32,53 @@ export default async function DashboardLayout({
 
   if (!profile) redirect("/login");
 
-  // Build navigation based on role
-  const navItems = getNavItems(profile.role);
+  const sections = getNavSections(profile.role);
 
-  // Serialize nav items for client MobileNav (icon name strings)
-  const serializedNavItems = navItems.map((item) => ({
-    href: item.href,
-    label: item.label,
-    iconName: item.icon.displayName || item.icon.name || "LayoutDashboard",
-  }));
+  // Flatten for the mobile nav (keeps its simpler flat list).
+  const flatNavItems = sections.flatMap((s) => s.items);
+
+  const initials = (profile.full_name || "")
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-muted/20">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-col border-r bg-muted/30 shrink-0">
-        <div className="p-4 border-b flex items-center justify-between">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-background md:flex">
+        <div className="flex items-center justify-between border-b px-4 py-4">
           <Logo size="sm" />
           <NotificationBell userId={profile.id} />
         </div>
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <LinkButton
-              key={item.href}
-              variant="ghost"
-              className="w-full justify-start gap-3"
-              href={item.href}
-            >
-              <item.icon className="h-4 w-4" />
-              {item.label}
-            </LinkButton>
-          ))}
-        </nav>
+        <SidebarNav sections={sections} />
 
-        <div className="p-4 border-t">
-          <div className="mb-3 px-3">
-            <p className="text-sm font-medium truncate">{profile.full_name}</p>
-            <p className="text-xs text-muted-foreground capitalize">
-              {profile.role}
-            </p>
+        {/* User card */}
+        <div className="border-t p-3">
+          <div className="mb-2 flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+              {initials || "✦"}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">{profile.full_name}</p>
+              <p className="text-[11px] capitalize text-muted-foreground">
+                {profile.role}
+              </p>
+            </div>
           </div>
           <DashboardLogout />
         </div>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header */}
-        <header className="md:hidden flex items-center justify-between border-b px-4 py-3 bg-background sticky top-0 z-40">
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-background/80 px-4 py-3 backdrop-blur md:hidden">
           <div className="flex items-center gap-2">
             <MobileNav
-              navItems={serializedNavItems}
+              navItems={flatNavItems}
               fullName={profile.full_name}
               role={profile.role}
             />
@@ -120,65 +87,206 @@ export default async function DashboardLayout({
           <NotificationBell userId={profile.id} />
         </header>
 
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 px-4 py-5 md:px-8 md:py-7">
+          <div className="mx-auto w-full max-w-6xl">{children}</div>
+        </main>
       </div>
     </div>
   );
 }
 
-function getNavItems(role: string) {
-  const base = [
-    {
-      href: "/dashboard",
-      label: "Dashboard",
-      icon: LayoutDashboard,
-    },
-  ];
+function getNavSections(role: string): NavSection[] {
+  const home = {
+    items: [
+      { href: "/dashboard", label: "Home", iconName: "LayoutDashboard" },
+    ],
+  };
 
   if (role === "admin") {
     return [
-      ...base,
-      { href: "/dashboard/admin/offerings", label: "Courses", icon: BookOpen },
-      { href: "/dashboard/admin/payments", label: "Payments", icon: ClipboardList },
-      { href: "/dashboard/admin/enrollments", label: "Enrollments", icon: GraduationCap },
-      { href: "/dashboard/admin/users", label: "Users", icon: Users },
-      { href: "/dashboard/admin/emails", label: "Emails", icon: Mail },
-      { href: "/dashboard/admin/credentials", label: "Credentials", icon: KeyRound },
-      { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
-      { href: "/dashboard/settings", label: "Settings", icon: Settings },
+      home,
+      {
+        label: "Manage",
+        items: [
+          {
+            href: "/dashboard/admin/offerings",
+            label: "Courses",
+            iconName: "BookOpen",
+          },
+          {
+            href: "/dashboard/admin/enrollments",
+            label: "Enrollments",
+            iconName: "GraduationCap",
+          },
+          {
+            href: "/dashboard/admin/payments",
+            label: "Payments",
+            iconName: "ClipboardList",
+          },
+          {
+            href: "/dashboard/admin/users",
+            label: "Users",
+            iconName: "Users",
+          },
+        ],
+      },
+      {
+        label: "Communication",
+        items: [
+          {
+            href: "/dashboard/announcements",
+            label: "Announcements",
+            iconName: "Megaphone",
+          },
+          {
+            href: "/dashboard/admin/emails",
+            label: "Emails",
+            iconName: "Mail",
+          },
+          {
+            href: "/dashboard/admin/credentials",
+            label: "Credentials",
+            iconName: "KeyRound",
+          },
+        ],
+      },
+      {
+        label: "Account",
+        items: [
+          {
+            href: "/dashboard/settings",
+            label: "Settings",
+            iconName: "Settings",
+          },
+        ],
+      },
     ];
   }
 
-  // Treasurers only see the payment ledger (plus base dashboard + settings).
-  // Their admin layout guard bounces them out of any other /dashboard/admin/* path.
   if (role === "treasurer") {
     return [
-      ...base,
-      { href: "/dashboard/admin/payments", label: "Payments", icon: ClipboardList },
-      { href: "/dashboard/settings", label: "Settings", icon: Settings },
+      home,
+      {
+        label: "Finance",
+        items: [
+          {
+            href: "/dashboard/admin/payments",
+            label: "Payments",
+            iconName: "ClipboardList",
+          },
+        ],
+      },
+      {
+        label: "Account",
+        items: [
+          {
+            href: "/dashboard/settings",
+            label: "Settings",
+            iconName: "Settings",
+          },
+        ],
+      },
     ];
   }
 
   if (role === "instructor") {
     return [
-      ...base,
-      { href: "/dashboard/instructor", label: "My Subjects", icon: BookOpen },
-      { href: "/dashboard/instructor/live", label: "Live Hub", icon: Video },
-      { href: "/dashboard/instructor/students", label: "Students", icon: Users },
-      { href: "/dashboard/instructor/resources", label: "Resources", icon: FileText },
-      { href: "/dashboard/instructor/analytics", label: "Analytics", icon: BarChart3 },
-      { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
-      { href: "/dashboard/settings", label: "Settings", icon: Settings },
+      home,
+      {
+        label: "Teaching",
+        items: [
+          {
+            href: "/dashboard/instructor",
+            label: "My Subjects",
+            iconName: "BookOpen",
+          },
+          {
+            href: "/dashboard/instructor/live",
+            label: "Live Hub",
+            iconName: "Video",
+          },
+          {
+            href: "/dashboard/instructor/students",
+            label: "Students",
+            iconName: "Users",
+          },
+          {
+            href: "/dashboard/instructor/resources",
+            label: "Resources",
+            iconName: "FileText",
+          },
+          {
+            href: "/dashboard/instructor/analytics",
+            label: "Analytics",
+            iconName: "BarChart3",
+          },
+        ],
+      },
+      {
+        label: "Community",
+        items: [
+          {
+            href: "/dashboard/announcements",
+            label: "Announcements",
+            iconName: "Megaphone",
+          },
+        ],
+      },
+      {
+        label: "Account",
+        items: [
+          {
+            href: "/dashboard/settings",
+            label: "Settings",
+            iconName: "Settings",
+          },
+        ],
+      },
     ];
   }
 
-  // Student
+  // Student (default)
   return [
-    ...base,
-    { href: "/dashboard/student", label: "My Learning", icon: GraduationCap },
-    { href: "/dashboard/student/live", label: "Live Sessions", icon: Video },
-    { href: "/dashboard/student/enrollments", label: "Enrollments", icon: ClipboardList },
-    { href: "/dashboard/announcements", label: "Announcements", icon: Megaphone },
-    { href: "/dashboard/settings", label: "Settings", icon: Settings },
+    home,
+    {
+      label: "Learning",
+      items: [
+        {
+          href: "/dashboard/student",
+          label: "My Learning",
+          iconName: "GraduationCap",
+        },
+        {
+          href: "/dashboard/student/live",
+          label: "Live Sessions",
+          iconName: "Video",
+        },
+        {
+          href: "/dashboard/student/enrollments",
+          label: "Enrollments",
+          iconName: "ClipboardList",
+        },
+      ],
+    },
+    {
+      label: "Community",
+      items: [
+        {
+          href: "/dashboard/announcements",
+          label: "Announcements",
+          iconName: "Megaphone",
+        },
+      ],
+    },
+    {
+      label: "Account",
+      items: [
+        {
+          href: "/dashboard/settings",
+          label: "Settings",
+          iconName: "Settings",
+        },
+      ],
+    },
   ];
 }

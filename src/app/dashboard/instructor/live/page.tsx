@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/dashboard/page-header";
 import {
   Video,
   Clock,
@@ -104,12 +105,11 @@ export default async function LiveHubPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Live Hub</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Schedule live sessions and manage recording uploads.
-        </p>
-      </div>
+      <PageHeader
+        icon={Video}
+        title="Live Hub"
+        subtitle="Schedule live sessions and manage recording uploads for your classes."
+      />
 
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">

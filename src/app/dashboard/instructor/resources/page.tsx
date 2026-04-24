@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { FileText } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { ResourceUploader } from "./resource-uploader";
 import type { Subject, Lesson, Resource } from "@/lib/types/database";
 
@@ -75,12 +76,11 @@ export default async function ResourceManagerPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Resources</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Upload and manage session notes and materials for your lessons.
-        </p>
-      </div>
+      <PageHeader
+        icon={FileText}
+        title="Resources"
+        subtitle="Upload and manage session notes, slides, and materials for your lessons."
+      />
 
       <ResourceUploader
         subjects={subjects as Pick<Subject, "id" | "title">[]}

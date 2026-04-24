@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 import type { LiveSession, Offering, Profile } from "@/lib/types/database";
+import { PageHeader } from "@/components/dashboard/page-header";
 
 export default async function StudentLivePage() {
   const supabase = await createClient();
@@ -59,12 +60,11 @@ export default async function StudentLivePage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Live Sessions</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Join live classes and view your schedule.
-        </p>
-      </div>
+      <PageHeader
+        icon={Video}
+        title="Live Sessions"
+        subtitle="Join live classes and keep an eye on your upcoming schedule."
+      />
 
       {/* Live Now */}
       {live.length > 0 && (

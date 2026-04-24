@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/dashboard/page-header";
 import {
   Users,
   User,
@@ -144,12 +145,11 @@ export default async function StudentManagementPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Students</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Enrolled sisters and their engagement scores.
-        </p>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="Students"
+        subtitle="Enrolled sisters in your subjects, with their engagement scores."
+      />
 
       {/* Summary stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
