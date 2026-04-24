@@ -10,7 +10,7 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Loader2, Mail } from "lucide-react";
+import { UserPlus, Loader2, Mail, Lock, Copy, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,19 +34,47 @@ export function EnrollDialog({ offeringId, offeringTitle }: EnrollDialogProps) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [sendInvite, setSendInvite] = useState(true);
+  /** "invite" = email a setup link; "password" = set password now, no email. */
+  const [mode, setMode] = useState<"invite" | "password">("invite");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  function generatePassword(): string {
+    const alphabet =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    let out = "";
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    for (const b of bytes) out += alphabet[b % alphabet.length];
+    return out;
+  }
 
   function reset() {
     setEmail("");
     setFullName("");
-    setSendInvite(true);
+    setMode("invite");
+    setPassword("");
+    setShowPassword(false);
+  }
+
+  async function copyPassword() {
+    try {
+      await navigator.clipboard.writeText(password);
+      toast.success("Password copied.");
+    } catch {
+      toast.error("Copy failed — select and copy manually.");
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) {
       toast.error("Email is required.");
+      return;
+    }
+    if (mode === "password" && password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
       return;
     }
 
@@ -56,7 +84,8 @@ export function EnrollDialog({ offeringId, offeringTitle }: EnrollDialogProps) {
         offeringId,
         email,
         fullName,
-        sendInvite
+        mode === "invite",
+        mode === "password" ? password : undefined
       );
       if (!res.success) {
         toast.error(res.error || "Failed to enroll.");
@@ -65,9 +94,10 @@ export function EnrollDialog({ offeringId, offeringTitle }: EnrollDialogProps) {
 
       const parts = [
         `Enrolled ${email}`,
-        res.isGuest ? "(new guest account)" : "(existing user)",
+        res.isGuest ? "(new account)" : "(existing user)",
       ];
       if (res.emailSent) parts.push("— welcome email sent.");
+      if (mode === "password") parts.push("— password set.");
       toast.success(parts.join(" "));
       setOpen(false);
       reset();
@@ -99,8 +129,7 @@ export function EnrollDialog({ offeringId, offeringTitle }: EnrollDialogProps) {
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <p className="text-sm text-muted-foreground">
             Enter the student&apos;s email. If they already have an account
-            we&apos;ll link to it; otherwise a new guest account is created
-            and a welcome email (with a password-setup link) is sent.
+            we&apos;ll link to it; otherwise a new account is created.
           </p>
 
           <div className="space-y-2">
@@ -129,23 +158,103 @@ export function EnrollDialog({ offeringId, offeringTitle }: EnrollDialogProps) {
             />
           </div>
 
-          <label className="flex items-start gap-2 rounded-lg border border-input p-3 cursor-pointer hover:bg-muted/30 transition-colors">
-            <input
-              type="checkbox"
-              checked={sendInvite}
-              onChange={(e) => setSendInvite(e.target.checked)}
-              className="h-4 w-4 mt-0.5 accent-primary cursor-pointer"
-            />
-            <span className="text-sm">
-              <span className="flex items-center gap-1.5 font-medium">
-                <Mail className="h-3.5 w-3.5" />
-                Send welcome / password setup email now
-              </span>
-              <span className="block text-xs text-muted-foreground mt-0.5">
-                Uncheck if you&apos;ll send credentials manually later.
-              </span>
-            </span>
-          </label>
+          <div className="space-y-2">
+            <Label>How should the student get access?</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("invite")}
+                className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${
+                  mode === "invite"
+                    ? "border-primary bg-primary/5"
+                    : "border-input hover:bg-muted/30"
+                }`}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <Mail className="h-3.5 w-3.5" />
+                  Email setup link
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  Student clicks a link to set their own password.
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("password")}
+                className={`flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors ${
+                  mode === "password"
+                    ? "border-primary bg-primary/5"
+                    : "border-input hover:bg-muted/30"
+                }`}
+              >
+                <span className="flex items-center gap-1.5 text-sm font-medium">
+                  <Lock className="h-3.5 w-3.5" />
+                  Set password now
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  You share the password with the student yourself.
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {mode === "password" && (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+              <Label htmlFor="enroll-password" className="text-sm">
+                Password <span className="text-muted-foreground">(min 8 chars)</span>
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="enroll-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Generated or your choice"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-9 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPassword(generatePassword());
+                    setShowPassword(true);
+                  }}
+                >
+                  Generate
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copyPassword}
+                  disabled={!password}
+                  title="Copy password"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                No email will be sent. Share this password with the student
+                through your preferred channel — they&apos;ll be prompted to
+                change it on first login.
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-2 justify-end pt-1">
             <Button

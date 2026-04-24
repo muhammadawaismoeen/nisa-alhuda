@@ -22,6 +22,10 @@ import {
   UserCog,
   KeyRound,
   Check,
+  Lock,
+  Eye,
+  EyeOff,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +40,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { Profile, UserRole } from "@/lib/types/database";
-import { updateUserRoles, resetUserPassword } from "./actions";
+import { updateUserRoles, resetUserPassword, setUserPassword } from "./actions";
 
 interface UserDirectoryProps {
   profiles: Profile[];
@@ -88,6 +92,12 @@ export function UserDirectory({
   // Reset-password dialog state
   const [resetTarget, setResetTarget] = useState<Profile | null>(null);
   const [resettingPwd, startResetPwd] = useTransition();
+
+  // Set-password dialog state
+  const [setPwdTarget, setSetPwdTarget] = useState<Profile | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [settingPwd, startSetPwd] = useTransition();
 
   // Filter profiles — match against primary OR any assigned role.
   const filtered = profiles.filter((p) => {
@@ -217,6 +227,57 @@ export function UserDirectory({
       );
       setResetTarget(null);
     });
+  }
+
+  function openSetPwdDialog(profile: Profile) {
+    setSetPwdTarget(profile);
+    setNewPassword(generatePassword());
+    setShowPassword(true);
+  }
+
+  /**
+   * Generate a human-shareable 12-char password with mixed case + digits.
+   * Avoids ambiguous chars (0/O, 1/l/I) so admins dictating it over a call
+   * don't hit support issues.
+   */
+  function generatePassword(): string {
+    const alphabet =
+      "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    let out = "";
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    for (const b of bytes) out += alphabet[b % alphabet.length];
+    return out;
+  }
+
+  function confirmSetPassword() {
+    if (!setPwdTarget) return;
+    if (newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return;
+    }
+    startSetPwd(async () => {
+      const res = await setUserPassword(setPwdTarget.id, newPassword);
+      if (!res.success) {
+        toast.error(res.error || "Failed to set password.");
+        return;
+      }
+      toast.success(
+        `Password set for ${setPwdTarget.full_name}. Share it with them securely.`
+      );
+      setSetPwdTarget(null);
+      setNewPassword("");
+      setShowPassword(false);
+    });
+  }
+
+  async function copyPassword() {
+    try {
+      await navigator.clipboard.writeText(newPassword);
+      toast.success("Password copied to clipboard.");
+    } catch {
+      toast.error("Copy failed — select and copy manually.");
+    }
   }
 
   function handleLoginAs(profile: Profile) {
@@ -382,6 +443,16 @@ export function UserDirectory({
                           title="Send password reset email"
                         >
                           <KeyRound className="h-3.5 w-3.5" />
+                        </Button>
+
+                        {/* Set password directly */}
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => openSetPwdDialog(profile)}
+                          title="Set password directly (no email)"
+                        >
+                          <Lock className="h-3.5 w-3.5" />
                         </Button>
 
                         {/* Change Roles */}
@@ -567,6 +638,111 @@ export function UserDirectory({
                 )}
                 <KeyRound className="h-4 w-4 mr-2" />
                 Send reset email
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Password Dialog */}
+      <Dialog
+        open={!!setPwdTarget}
+        onOpenChange={(open) => {
+          if (!open && !settingPwd) {
+            setSetPwdTarget(null);
+            setNewPassword("");
+            setShowPassword(false);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set password for {setPwdTarget?.full_name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-muted-foreground">
+              Sets the password immediately — no email. Useful when the user
+              can&apos;t access email or you want to share a default password
+              manually. The user will still be able to change it from their
+              own settings after logging in.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="new-pwd">
+                New password
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="new-pwd"
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    minLength={8}
+                    className="pr-10 font-mono"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    title={showPassword ? "Hide" : "Show"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={copyPassword}
+                  title="Copy password"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setNewPassword(generatePassword())}
+                  title="Regenerate"
+                >
+                  Regenerate
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A random 12-character password is pre-filled. Edit it, copy it,
+                or regenerate — then click Save.
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-200">
+              Share the password over a secure channel (not email). The user is
+              flagged to change it on next login.
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSetPwdTarget(null);
+                  setNewPassword("");
+                  setShowPassword(false);
+                }}
+                disabled={settingPwd}
+              >
+                Cancel
+              </Button>
+              <Button onClick={confirmSetPassword} disabled={settingPwd}>
+                {settingPwd && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                <Lock className="h-4 w-4 mr-2" />
+                Save password
               </Button>
             </div>
           </div>

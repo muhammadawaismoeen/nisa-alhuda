@@ -53,7 +53,14 @@ export async function enrollByEmail(
   offeringId: string,
   rawEmail: string,
   fullName: string,
-  sendInvite: boolean
+  sendInvite: boolean,
+  /**
+   * Optional preset password. If provided (min 8 chars), we skip the invite
+   * email and instead create the auth account (for new users) or update the
+   * password directly (for existing users). Admin shares the password with
+   * the student through a channel of their choice.
+   */
+  presetPassword?: string
 ): Promise<EnrollResult> {
   const auth = await requireAdmin();
   if (!auth.ok) return { success: false, error: auth.error };
@@ -143,6 +150,61 @@ export async function enrollByEmail(
   }
 
   let emailSent = false;
+
+  // Preset-password path takes precedence over invite. Admin explicitly chose
+  // to skip the email flow and hand the password off themselves.
+  const hasPreset = !!presetPassword && presetPassword.length >= 8;
+
+  if (hasPreset) {
+    if (studentId) {
+      // Existing user → just overwrite their password.
+      await admin.auth.admin.updateUserById(studentId, {
+        password: presetPassword!,
+      });
+      await admin
+        .from("profiles")
+        .update({ must_change_password: true })
+        .eq("id", studentId);
+    } else {
+      // New user → create a confirmed auth account with this password, then
+      // link the enrollment row to it.
+      const { data: created, error: createErr } =
+        await admin.auth.admin.createUser({
+          email,
+          password: presetPassword!,
+          email_confirm: true,
+          user_metadata: resolvedName ? { full_name: resolvedName } : undefined,
+        });
+      if (createErr || !created?.user?.id) {
+        // Account creation failed — the enrollment row is still valid as a
+        // guest record. Surface the error so the admin knows to retry.
+        return {
+          success: true,
+          isGuest: true,
+          emailSent: false,
+          error: createErr?.message || "Account created, but password not set.",
+        };
+      }
+      await admin
+        .from("enrollments")
+        .update({ student_id: created.user.id })
+        .eq("offering_id", offeringId)
+        .eq("applicant_email", email);
+      if (resolvedName) {
+        await admin
+          .from("profiles")
+          .update({ full_name: resolvedName, must_change_password: true })
+          .eq("id", created.user.id);
+      } else {
+        await admin
+          .from("profiles")
+          .update({ must_change_password: true })
+          .eq("id", created.user.id);
+      }
+    }
+    // Don't send the welcome email — admin is sharing the password manually.
+    return { success: true, isGuest: !studentId, emailSent: false };
+  }
 
   if (sendInvite) {
     // Route through /auth/callback so the PKCE code exchanges BEFORE landing

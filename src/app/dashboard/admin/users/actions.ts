@@ -180,3 +180,65 @@ export async function resetUserPassword(
 
   return { success: true, isInvite: false };
 }
+
+export interface SetUserPasswordResult {
+  success: boolean;
+  error?: string;
+  /** Email of the affected user — useful so the UI can remind the admin what to share. */
+  email?: string;
+}
+
+/**
+ * Directly set a user's password. Admin-only.
+ *
+ * Unlike `resetUserPassword` (which emails a magic link), this overwrites the
+ * password immediately and flags `must_change_password = true` on the profile
+ * so the student is nudged to change it after first login. Useful for:
+ *   - students with no email access
+ *   - sharing a default/temp password verbally or over WhatsApp
+ *   - quick internal testing
+ */
+export async function setUserPassword(
+  targetUserId: string,
+  newPassword: string
+): Promise<SetUserPasswordResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  if (!targetUserId) return { success: false, error: "Missing user id." };
+  if (!newPassword || newPassword.length < 8) {
+    return {
+      success: false,
+      error: "Password must be at least 8 characters.",
+    };
+  }
+
+  const admin = createAdminClient();
+
+  const { data: authUser, error: getErr } =
+    await admin.auth.admin.getUserById(targetUserId);
+  if (getErr || !authUser?.user) {
+    return {
+      success: false,
+      error: getErr?.message || "User not found.",
+    };
+  }
+
+  const { error: updErr } = await admin.auth.admin.updateUserById(
+    targetUserId,
+    { password: newPassword }
+  );
+  if (updErr) {
+    console.error("[setUserPassword] updateUserById error:", updErr);
+    return { success: false, error: updErr.message };
+  }
+
+  // Flag the profile so a future "force change on login" gate has the signal
+  // to act on. Non-fatal if it fails — the password change already landed.
+  await admin
+    .from("profiles")
+    .update({ must_change_password: true })
+    .eq("id", targetUserId);
+
+  return { success: true, email: authUser.user.email || undefined };
+}
