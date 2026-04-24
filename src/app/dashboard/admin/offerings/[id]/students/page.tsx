@@ -18,6 +18,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import type { Enrollment, Offering, StudentDetails } from "@/lib/types/database";
+import { EnrollDialog } from "./enroll-dialog";
 
 type EnrollmentWithDetails = Enrollment & {
   student_details: (StudentDetails & { country?: string }) | null;
@@ -63,15 +64,21 @@ export default async function OfferingStudentsPage({
       </LinkButton>
 
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <Badge variant="outline">Enrolled Students</Badge>
-          <Badge variant="default">{rows.length} total</Badge>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <Badge variant="outline">Enrolled Students</Badge>
+            <Badge variant="default">{rows.length} total</Badge>
+          </div>
+          <h1 className="text-2xl font-bold mb-1">{offering.title}</h1>
+          <p className="text-sm text-muted-foreground">
+            Approved students for this offering.{" "}
+            {rows.length === 0 ? "No one has enrolled yet." : ""}
+          </p>
         </div>
-        <h1 className="text-2xl font-bold mb-1">{offering.title}</h1>
-        <p className="text-sm text-muted-foreground">
-          Approved students for this offering. {rows.length === 0 ? "No one has enrolled yet." : ""}
-        </p>
+        <div className="shrink-0">
+          <EnrollDialog offeringId={offering.id} offeringTitle={offering.title} />
+        </div>
       </div>
 
       {rows.length === 0 ? (
