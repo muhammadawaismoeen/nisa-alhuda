@@ -6,7 +6,16 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPaidAmount } from "@/lib/constants";
-import { DollarSign, Clock, CheckCircle, XCircle, CalendarDays, Globe } from "lucide-react";
+import {
+  DollarSign,
+  Clock,
+  CheckCircle,
+  XCircle,
+  CalendarDays,
+  Globe,
+  ClipboardList,
+} from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { PaymentActions } from "./payment-actions";
 import { MonthlyPaymentActions } from "./monthly-payment-actions";
 import { formatCycleMonth, formatMonthlyAmount } from "@/lib/monthly-payments";
@@ -112,12 +121,11 @@ export default async function PaymentLedgerPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Payment Ledger</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review manual bank transfers and manage payment approvals.
-        </p>
-      </div>
+      <PageHeader
+        icon={ClipboardList}
+        title="Payment Ledger"
+        subtitle="Review manual bank transfers and manage payment approvals."
+      />
 
       {/* Status counters */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">

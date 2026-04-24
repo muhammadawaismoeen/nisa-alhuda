@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
+import { PageHeader } from "@/components/dashboard/page-header";
 import {
   Users,
+  LayoutDashboard,
   DollarSign,
   Video,
   BookOpen,
@@ -96,24 +98,24 @@ export default async function AdminDashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            System overview and key metrics.
-          </p>
-        </div>
-        {pendingApprovals > 0 && (
-          <LinkButton
-            href="/dashboard/admin/payments"
-            variant="outline"
-            className="border-amber-300 text-amber-700 hover:bg-amber-50"
-          >
-            <Clock className="h-4 w-4 mr-1.5" />
-            {pendingApprovals} Pending
-          </LinkButton>
-        )}
-      </div>
+      <PageHeader
+        icon={LayoutDashboard}
+        eyebrow="Admin"
+        title="System overview"
+        subtitle="Live snapshot of enrollments, revenue, sessions, and storage."
+        actions={
+          pendingApprovals > 0 ? (
+            <LinkButton
+              href="/dashboard/admin/payments"
+              variant="outline"
+              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+            >
+              <Clock className="h-4 w-4 mr-1.5" />
+              {pendingApprovals} Pending
+            </LinkButton>
+          ) : null
+        }
+      />
 
       {/* Bento Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

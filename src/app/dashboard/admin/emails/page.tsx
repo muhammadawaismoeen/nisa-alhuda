@@ -2,7 +2,9 @@
  * Admin Email Broadcast — pick a template, choose audience, send.
  * Server component that fetches offerings for the audience picker.
  */
+import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { EmailBroadcastForm } from "./email-broadcast-form";
 
 export default async function EmailBroadcastPage() {
@@ -15,12 +17,11 @@ export default async function EmailBroadcastPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Email Broadcast</h1>
-        <p className="text-muted-foreground">
-          Send heartwarming, Emaan-boosting emails to your students.
-        </p>
-      </div>
+      <PageHeader
+        icon={Mail}
+        title="Email Broadcast"
+        subtitle="Send heartwarming, Emaan-boosting emails to your students."
+      />
       <EmailBroadcastForm offerings={offerings || []} />
     </div>
   );

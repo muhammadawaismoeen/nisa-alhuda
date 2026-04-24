@@ -1,7 +1,9 @@
 /**
  * New Offering Page — admin creates a new program, course, or workshop.
  */
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { OfferingForm } from "../offering-form";
 
 export default async function NewOfferingPage() {
@@ -16,12 +18,12 @@ export default async function NewOfferingPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Create New Offering</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Add a new program, course, or workshop to your catalog.
-        </p>
-      </div>
+      <PageHeader
+        icon={Plus}
+        eyebrow="Courses"
+        title="Create new offering"
+        subtitle="Add a new program, course, or workshop to your catalog."
+      />
 
       <OfferingForm instructors={instructors || []} />
     </div>

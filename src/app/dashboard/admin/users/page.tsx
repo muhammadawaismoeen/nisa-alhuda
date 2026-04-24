@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { UserDirectory } from "./user-directory";
 import type { Profile } from "@/lib/types/database";
 
@@ -59,12 +60,11 @@ export default async function AdminUsersPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">User Directory</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage all students and teachers.
-        </p>
-      </div>
+      <PageHeader
+        icon={Users}
+        title="User Directory"
+        subtitle="Search, filter, and manage all students and teachers."
+      />
 
       {/* Role stats */}
       <div className="flex flex-wrap gap-3 mb-6">

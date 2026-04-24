@@ -2,7 +2,9 @@
  * Edit Offering Page — admin edits an existing offering.
  */
 import { notFound } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { OfferingForm } from "../../offering-form";
 import type { Offering, Subject } from "@/lib/types/database";
 
@@ -44,12 +46,12 @@ export default async function EditOfferingPage({
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Edit Offering</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Update the details of &ldquo;{offering.title}&rdquo;.
-        </p>
-      </div>
+      <PageHeader
+        icon={Pencil}
+        eyebrow="Courses"
+        title="Edit offering"
+        subtitle={`Update the details of "${offering.title}".`}
+      />
 
       <OfferingForm
         offering={offering}

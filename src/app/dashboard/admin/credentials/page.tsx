@@ -3,7 +3,9 @@
  * course by course. Useful when a student forgets their password or when a
  * guest-enrolled learner needs to claim their account.
  */
+import { KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { CredentialsForm } from "./credentials-form";
 
 export default async function CredentialsPage() {
@@ -16,13 +18,11 @@ export default async function CredentialsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Send Credentials</h1>
-        <p className="text-muted-foreground">
-          Manually send password setup or reset links to students of a specific
-          course.
-        </p>
-      </div>
+      <PageHeader
+        icon={KeyRound}
+        title="Send Credentials"
+        subtitle="Manually send password setup or reset links to students of a specific course."
+      />
       <CredentialsForm offerings={offerings || []} />
     </div>
   );

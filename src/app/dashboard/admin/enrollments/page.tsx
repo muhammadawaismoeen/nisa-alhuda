@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatPaidAmount } from "@/lib/constants";
-import { ClipboardList, Mail, HeartHandshake } from "lucide-react";
+import { ClipboardList, Mail, HeartHandshake, GraduationCap } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { EnrollmentActions } from "./enrollment-actions";
 import { ManualEnrollment } from "./manual-enrollment";
 import { FaActions } from "./fa-actions";
@@ -98,42 +99,44 @@ export default async function AdminEnrollmentsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Enrollments</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage enrollments. Manually add or remove students.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          {pendingFaCount > 0 && (
-            <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-400">
-              <HeartHandshake className="h-3 w-3 mr-1" />
-              {pendingFaCount} FA pending
-            </Badge>
-          )}
-          {pendingCount > 0 && (
-            <Badge variant="outline" className="border-primary text-primary">
-              {pendingCount} pending
-            </Badge>
-          )}
-          <ManualEnrollment
-            students={(students || []).map((s: any) => ({
-              id: s.id,
-              full_name: s.full_name,
-            }))}
-            offerings={(offerings || []).map((o: any) => ({
-              id: o.id,
-              title: o.title,
-              price: o.price,
-            }))}
-            existingEnrollments={(enrollments || []).map((e: any) => ({
-              studentId: e.student_id,
-              offeringId: e.offering_id,
-            }))}
-          />
-        </div>
-      </div>
+      <PageHeader
+        icon={GraduationCap}
+        title="Enrollments"
+        subtitle="Manage enrollments. Manually add or remove students."
+        actions={
+          <>
+            {pendingFaCount > 0 && (
+              <Badge
+                variant="outline"
+                className="border-amber-400 text-amber-700 dark:text-amber-400"
+              >
+                <HeartHandshake className="h-3 w-3 mr-1" />
+                {pendingFaCount} FA pending
+              </Badge>
+            )}
+            {pendingCount > 0 && (
+              <Badge variant="outline" className="border-primary text-primary">
+                {pendingCount} pending
+              </Badge>
+            )}
+            <ManualEnrollment
+              students={(students || []).map((s: any) => ({
+                id: s.id,
+                full_name: s.full_name,
+              }))}
+              offerings={(offerings || []).map((o: any) => ({
+                id: o.id,
+                title: o.title,
+                price: o.price,
+              }))}
+              existingEnrollments={(enrollments || []).map((e: any) => ({
+                studentId: e.student_id,
+                offeringId: e.offering_id,
+              }))}
+            />
+          </>
+        }
+      />
 
       {!enrollments || enrollments.length === 0 ? (
         <Card>

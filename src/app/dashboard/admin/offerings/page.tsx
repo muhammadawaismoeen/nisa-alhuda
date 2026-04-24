@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
 import { formatPriceWithFee } from "@/lib/constants";
 import { Plus, BookOpen, Pencil, Users, Lock } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { DeleteOffering } from "./delete-offering";
 import { OfferingToggles } from "./offering-toggles";
 import type { Offering } from "@/lib/types/database";
@@ -55,19 +56,20 @@ export default async function AdminOfferingsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Course Management</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage programs, courses, and workshops. Feature on homepage or
-            archive old ones.
-          </p>
-        </div>
-        <LinkButton href="/dashboard/admin/offerings/new" className="press">
-          <Plus className="h-4 w-4 mr-1.5" />
-          New Offering
-        </LinkButton>
-      </div>
+      <PageHeader
+        icon={BookOpen}
+        title="Course Management"
+        subtitle="Manage programs, courses, and workshops. Feature them on the homepage or archive old ones."
+        actions={
+          <LinkButton
+            href="/dashboard/admin/offerings/new"
+            className="press rounded-full"
+          >
+            <Plus className="h-4 w-4 mr-1.5" />
+            New Offering
+          </LinkButton>
+        }
+      />
 
       {/* Quick stats */}
       <div className="flex flex-wrap gap-3 mb-6">
