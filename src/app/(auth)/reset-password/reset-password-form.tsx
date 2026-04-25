@@ -85,11 +85,32 @@ export function ResetPasswordForm() {
               This reset link is invalid or has expired.
             </p>
             <p className="text-sm text-muted-foreground">
-              Reset links expire after one use or 24 hours. Request a new one
-              below — or ask an admin to re-send it.
+              Reset links work for one use only. The most common reasons this
+              fails:
             </p>
           </div>
         </div>
+        <ul className="space-y-2 rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <li className="flex gap-2">
+            <span className="text-primary">•</span>
+            <span>
+              Your email provider (Outlook, corporate Gmail) automatically
+              scanned the link before you clicked it, using up the one-time
+              token. Try requesting a new link and clicking it within 30 seconds.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-primary">•</span>
+            <span>
+              You requested the reset on one device but clicked the email on
+              another. Use the same browser for both steps.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-primary">•</span>
+            <span>The link is older than 24 hours.</span>
+          </li>
+        </ul>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href="/forgot-password"
@@ -109,6 +130,16 @@ export function ResetPasswordForm() {
             Back to login
           </Link>
         </div>
+        <p className="text-center text-xs text-muted-foreground">
+          Still stuck? Email{" "}
+          <a
+            href="mailto:support@nisaalhuda.org"
+            className="font-medium text-primary hover:underline"
+          >
+            support@nisaalhuda.org
+          </a>{" "}
+          — an admin can reset your password manually.
+        </p>
       </div>
     );
   }
