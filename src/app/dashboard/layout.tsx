@@ -131,8 +131,11 @@ function getNavSections(role: string): NavSection[] {
         ],
       },
       // Admins get the full instructor toolset too — same screens, but
-      // unrestricted scope (every instructor's subjects, sessions,
+      // unrestricted scope (every instructor's subjects, classes,
       // resources). RLS already permits admins on all underlying tables.
+      // Resources live inside each Subject folder now, so the standalone
+      // Resources link is gone — instructors and admins go through
+      // Subjects → click a subject → manage classes + resources inline.
       {
         label: "Teaching (all instructors)",
         items: [
@@ -150,11 +153,6 @@ function getNavSections(role: string): NavSection[] {
             href: "/dashboard/instructor/students",
             label: "Students",
             iconName: "Users",
-          },
-          {
-            href: "/dashboard/instructor/resources",
-            label: "Resources",
-            iconName: "FileText",
           },
           {
             href: "/dashboard/instructor/analytics",
@@ -242,11 +240,6 @@ function getNavSections(role: string): NavSection[] {
             href: "/dashboard/instructor/students",
             label: "Students",
             iconName: "Users",
-          },
-          {
-            href: "/dashboard/instructor/resources",
-            label: "Resources",
-            iconName: "FileText",
           },
           {
             href: "/dashboard/instructor/analytics",

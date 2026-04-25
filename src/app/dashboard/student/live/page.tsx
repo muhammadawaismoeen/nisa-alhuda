@@ -1,6 +1,9 @@
 /**
  * Student Live Sessions page.
- * Shows live-now, upcoming, and past sessions for enrolled offerings.
+ *
+ * Sourced from `lessons` (not the legacy `live_sessions` table). Shows
+ * Live Now / Upcoming / Past for every class in offerings the student is
+ * enrolled in. Past classes link to their recording when available.
  */
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,9 +13,16 @@ import {
   ExternalLink,
   Calendar,
   Clock,
+  PlayCircle,
 } from "lucide-react";
-import type { LiveSession, Offering, Profile } from "@/lib/types/database";
 import { PageHeader } from "@/components/dashboard/page-header";
+import type { Lesson } from "@/lib/types/database";
+
+interface LessonWithRefs extends Lesson {
+  subject: { id: string; title: string; instructor_id: string } | null;
+  offering: { id: string; title: string } | null;
+  instructor: { id: string; full_name: string } | null;
+}
 
 export default async function StudentLivePage() {
   const supabase = await createClient();
@@ -22,62 +32,100 @@ export default async function StudentLivePage() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Fetch live sessions (RLS filters to enrolled offerings)
-  let sessions: (LiveSession & {
-    instructor: Profile;
-    offering: Offering;
-  })[] = [];
+  // Find the student's approved enrollments → offering ids.
+  const { data: enrollments } = await supabase
+    .from("enrollments")
+    .select("offering_id")
+    .eq("student_id", user.id)
+    .eq("status", "approved");
 
-  try {
+  const offeringIds = [
+    ...new Set((enrollments || []).map((e) => e.offering_id)),
+  ];
+
+  // Pull every published class in those offerings, with subject + instructor.
+  let lessons: LessonWithRefs[] = [];
+  if (offeringIds.length > 0) {
     const { data } = await supabase
-      .from("live_sessions")
-      .select("*, instructor:profiles!live_sessions_instructor_id_fkey(*), offering:offerings!live_sessions_offering_id_fkey(*)")
+      .from("lessons")
+      .select(
+        "*, subject:subjects(id, title, instructor_id), offering:offerings(id, title)"
+      )
+      .in("offering_id", offeringIds)
+      .eq("is_published", true)
       .order("scheduled_at", { ascending: true });
 
-    sessions = (data as typeof sessions) || [];
-  } catch {
-    // Table may not exist before migration
+    const baseLessons = (data as LessonWithRefs[]) || [];
+
+    // Resolve instructor full_name for each subject (one lookup map for all).
+    const instructorIds = [
+      ...new Set(
+        baseLessons
+          .map((l) => l.subject?.instructor_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+    let instructorMap: Record<string, { id: string; full_name: string }> = {};
+    if (instructorIds.length > 0) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", instructorIds);
+      instructorMap = Object.fromEntries(
+        (profs || []).map((p) => [p.id, p as { id: string; full_name: string }])
+      );
+    }
+    lessons = baseLessons.map((l) => ({
+      ...l,
+      instructor: l.subject?.instructor_id
+        ? instructorMap[l.subject.instructor_id] ?? null
+        : null,
+    }));
   }
 
-  const now = new Date();
+  const nowMs = Date.now();
+  const TWO_HOURS = 2 * 60 * 60 * 1000;
 
-  const live = sessions.filter((s) => {
-    const start = new Date(s.scheduled_at);
-    const end = new Date(start.getTime() + s.duration_minutes * 60 * 1000);
-    return now >= start && now <= end;
+  const live = lessons.filter((l) => {
+    if (!l.scheduled_at || !l.live_class_link || l.recording_url) return false;
+    const start = new Date(l.scheduled_at).getTime();
+    return nowMs >= start && nowMs <= start + TWO_HOURS;
   });
 
-  const upcoming = sessions.filter((s) => new Date(s.scheduled_at) > now);
+  const upcoming = lessons.filter((l) => {
+    if (!l.scheduled_at) return false;
+    return new Date(l.scheduled_at).getTime() > nowMs;
+  });
 
-  const past = sessions
-    .filter((s) => {
-      const start = new Date(s.scheduled_at);
-      const end = new Date(start.getTime() + s.duration_minutes * 60 * 1000);
-      return now > end;
+  const past = lessons
+    .filter((l) => {
+      if (!l.scheduled_at) return false;
+      const start = new Date(l.scheduled_at).getTime();
+      return nowMs > start + TWO_HOURS;
     })
     .reverse()
-    .slice(0, 20);
+    .slice(0, 30);
 
   return (
     <div>
       <PageHeader
         icon={Video}
         title="Live Sessions"
-        subtitle="Join live classes and keep an eye on your upcoming schedule."
+        subtitle="Join live classes and revisit past recordings."
       />
 
       {/* Live Now */}
       {live.length > 0 && (
         <section className="mb-6">
           <div className="space-y-3">
-            {live.map((session) => {
+            {live.map((lesson) => {
               const startedAgo = Math.floor(
-                (now.getTime() - new Date(session.scheduled_at).getTime()) /
+                (nowMs - new Date(lesson.scheduled_at!).getTime()) /
                   (1000 * 60)
               );
               return (
                 <Card
-                  key={session.id}
+                  key={lesson.id}
                   className="border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/10"
                 >
                   <CardContent className="p-5">
@@ -98,22 +146,24 @@ export default async function StudentLivePage() {
                         </div>
                         <div className="min-w-0">
                           <h3 className="font-semibold text-lg">
-                            {session.title}
+                            {lesson.title}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {session.instructor?.full_name} &middot;{" "}
-                            {session.offering?.title} &middot; Started{" "}
-                            {startedAgo}m ago
+                            {lesson.subject?.title}
+                            {lesson.instructor?.full_name
+                              ? ` · ${lesson.instructor.full_name}`
+                              : ""}{" "}
+                            · Started {startedAgo}m ago
                           </p>
-                          {session.description && (
+                          {lesson.description && (
                             <p className="text-xs text-muted-foreground mt-1">
-                              {session.description}
+                              {lesson.description}
                             </p>
                           )}
                         </div>
                       </div>
                       <a
-                        href={session.meeting_url}
+                        href={lesson.live_class_link!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-colors press shrink-0"
@@ -154,10 +204,11 @@ export default async function StudentLivePage() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {upcoming.map((session) => {
-              const scheduled = new Date(session.scheduled_at);
-              const diffMs = scheduled.getTime() - now.getTime();
-              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            {upcoming.map((lesson) => {
+              const scheduled = new Date(lesson.scheduled_at!);
+              const diffMs = scheduled.getTime() - nowMs;
+              const diffMins = Math.floor(diffMs / (1000 * 60));
+              const diffHours = Math.floor(diffMins / 60);
               const diffDays = Math.floor(diffHours / 24);
 
               let timeLabel = "";
@@ -166,13 +217,12 @@ export default async function StudentLivePage() {
               } else if (diffHours > 0) {
                 timeLabel = `in ${diffHours} hour${diffHours > 1 ? "s" : ""}`;
               } else {
-                const diffMins = Math.floor(diffMs / (1000 * 60));
                 timeLabel = `in ${diffMins} min`;
               }
 
               return (
                 <Card
-                  key={session.id}
+                  key={lesson.id}
                   className="border-blue-200/60 dark:border-blue-800/60"
                 >
                   <CardContent className="p-4">
@@ -183,7 +233,7 @@ export default async function StudentLivePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold truncate">
-                            {session.title}
+                            {lesson.title}
                           </h3>
                           <Badge
                             variant="outline"
@@ -193,32 +243,36 @@ export default async function StudentLivePage() {
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {session.instructor?.full_name} &middot;{" "}
-                          {session.offering?.title} &middot;{" "}
-                          {scheduled.toLocaleDateString("en-PK", {
+                          {lesson.subject?.title}
+                          {lesson.instructor?.full_name
+                            ? ` · ${lesson.instructor.full_name}`
+                            : ""}{" "}
+                          ·{" "}
+                          {scheduled.toLocaleString("en-PK", {
                             weekday: "short",
                             day: "numeric",
                             month: "short",
                             hour: "2-digit",
                             minute: "2-digit",
-                          })}{" "}
-                          &middot; {session.duration_minutes}m
+                          })}
                         </p>
-                        {session.description && (
+                        {lesson.description && (
                           <p className="text-xs text-muted-foreground mt-1">
-                            {session.description}
+                            {lesson.description}
                           </p>
                         )}
                       </div>
-                      <a
-                        href={session.meeting_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors press shrink-0"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Join
-                      </a>
+                      {lesson.live_class_link && (
+                        <a
+                          href={lesson.live_class_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors press shrink-0"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Join
+                        </a>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -236,10 +290,10 @@ export default async function StudentLivePage() {
             Past Sessions
           </h2>
           <div className="space-y-2">
-            {past.map((session) => {
-              const scheduled = new Date(session.scheduled_at);
+            {past.map((lesson) => {
+              const scheduled = new Date(lesson.scheduled_at!);
               return (
-                <Card key={session.id} className="opacity-60">
+                <Card key={lesson.id}>
                   <CardContent className="p-3">
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -247,10 +301,14 @@ export default async function StudentLivePage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium truncate">
-                          {session.title}
+                          {lesson.title}
                         </h3>
                         <p className="text-xs text-muted-foreground">
-                          {session.instructor?.full_name} &middot;{" "}
+                          {lesson.subject?.title}
+                          {lesson.instructor?.full_name
+                            ? ` · ${lesson.instructor.full_name}`
+                            : ""}{" "}
+                          ·{" "}
                           {scheduled.toLocaleDateString("en-PK", {
                             day: "numeric",
                             month: "short",
@@ -259,6 +317,17 @@ export default async function StudentLivePage() {
                           })}
                         </p>
                       </div>
+                      {lesson.recording_url && (
+                        <a
+                          href={lesson.recording_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium px-3 py-1.5 transition-colors shrink-0"
+                        >
+                          <PlayCircle className="h-3.5 w-3.5" />
+                          Watch recording
+                        </a>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

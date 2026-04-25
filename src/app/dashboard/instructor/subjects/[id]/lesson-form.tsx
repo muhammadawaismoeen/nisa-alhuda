@@ -1,7 +1,8 @@
 /**
- * Lesson Form — create or edit a lesson within a subject.
+ * Class Form — create or edit a Class (a `lessons` row) within a subject.
  * Client Component with fields for title, description, schedule,
- * live class link, and recording URL.
+ * live class link, and recording URL. Resources are uploaded inline on
+ * the parent Class card after creation, not in this form.
  */
 "use client";
 
@@ -56,7 +57,7 @@ export function LessonForm({
     e.preventDefault();
 
     if (!title.trim()) {
-      toast.error("Please enter a lesson title.");
+      toast.error("Please enter a class title.");
       return;
     }
 
@@ -84,18 +85,18 @@ export function LessonForm({
           .eq("id", lesson.id);
 
         if (error) throw new Error(error.message);
-        toast.success("Lesson updated!");
+        toast.success("Class updated!");
       } else {
         const { error } = await supabase.from("lessons").insert(lessonData);
 
         if (error) throw new Error(error.message);
-        toast.success("Lesson created!");
+        toast.success("Class created!");
       }
 
       onClose();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to save lesson."
+        error instanceof Error ? error.message : "Failed to save class."
       );
     } finally {
       setSaving(false);
@@ -106,13 +107,13 @@ export function LessonForm({
     <div>
       <Button variant="ghost" onClick={onClose} className="mb-4">
         <ArrowLeft className="h-4 w-4 mr-1.5" />
-        Back to Lessons
+        Back to classes
       </Button>
 
       <Card>
         <CardContent className="p-6">
           <h2 className="font-heading font-semibold text-lg mb-5">
-            {isEditing ? "Edit Lesson" : "New Lesson"}
+            {isEditing ? "Edit class" : "New class"}
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -123,11 +124,15 @@ export function LessonForm({
               </Label>
               <Input
                 id="lessonTitle"
-                placeholder="e.g. Introduction to Fiqh & Its Importance"
+                placeholder="e.g. Surah Al-Fatihah — Tafseer  ·or·  27 Apr 2026"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                Name it however helps students recognise it — a date, a topic,
+                or both.
+              </p>
             </div>
 
             {/* Description */}
@@ -135,7 +140,7 @@ export function LessonForm({
               <Label htmlFor="lessonDesc">Description</Label>
               <Textarea
                 id="lessonDesc"
-                placeholder="What will this lesson cover?"
+                placeholder="What will this class cover?"
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -174,16 +179,18 @@ export function LessonForm({
 
             {/* Live Class Link */}
             <div className="space-y-2">
-              <Label htmlFor="liveLink">Live Class Link (Zoom, Meet, etc.)</Label>
+              <Label htmlFor="liveLink">Live class link (Google Meet, Zoom, etc.)</Label>
               <Input
                 id="liveLink"
                 type="url"
-                placeholder="https://zoom.us/j/..."
+                placeholder="https://meet.google.com/abc-defg-hij"
                 value={liveClassLink}
                 onChange={(e) => setLiveClassLink(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Enrolled students will see this link when the lesson is published.
+                Tip: paste your <span className="font-medium">recurring</span> Meet/Zoom URL —
+                the same link can be reused for every class in this subject.
+                Students see this link when the class is published.
               </p>
             </div>
 
@@ -198,7 +205,7 @@ export function LessonForm({
                 onChange={(e) => setRecordingUrl(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Add after the live class. Students get lifetime access to this.
+                Add after the class is over. Students keep lifetime access.
               </p>
             </div>
 
@@ -214,9 +221,9 @@ export function LessonForm({
                     {isEditing ? "Saving..." : "Creating..."}
                   </>
                 ) : isEditing ? (
-                  "Save Changes"
+                  "Save changes"
                 ) : (
-                  "Create Lesson"
+                  "Create class"
                 )}
               </Button>
             </div>
