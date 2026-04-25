@@ -3,6 +3,7 @@
  * Engagement is calculated from enrollment tenure and activity signals.
  */
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -10,14 +11,50 @@ import {
   Users,
   User,
   Phone,
-  MapPin,
   Calendar,
   TrendingUp,
   Award,
   Sparkles,
+  Clock,
 } from "lucide-react";
 import { getDashboardViewer } from "@/lib/auth-helpers";
 import type { Profile } from "@/lib/types/database";
+
+/**
+ * Compute the activity tier from a sign-in timestamp.
+ *  - Active: signed in within the last 24 hours.
+ *  - Recent: within 7 days.
+ *  - Dormant: longer than 7 days, or never signed in.
+ */
+function getActivityStatus(lastSignInAt: string | null | undefined) {
+  if (!lastSignInAt) {
+    return {
+      label: "Never signed in",
+      tone: "text-muted-foreground",
+      dot: "bg-muted-foreground/40",
+      relative: "—",
+    };
+  }
+  const now = Date.now();
+  const last = new Date(lastSignInAt).getTime();
+  const diffMs = Math.max(0, now - last);
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  let relative: string;
+  if (diffMin < 2) relative = "just now";
+  else if (diffMin < 60) relative = `${diffMin}m ago`;
+  else if (diffHr < 24) relative = `${diffHr}h ago`;
+  else if (diffDay < 30) relative = `${diffDay}d ago`;
+  else relative = `${Math.floor(diffDay / 30)}mo ago`;
+
+  if (diffHr < 24)
+    return { label: "Active", tone: "text-emerald-600", dot: "bg-emerald-500", relative };
+  if (diffDay <= 7)
+    return { label: "Recent", tone: "text-amber-600", dot: "bg-amber-500", relative };
+  return { label: "Dormant", tone: "text-muted-foreground", dot: "bg-muted-foreground/40", relative };
+}
 
 // Engagement tiers
 function getEngagementTier(score: number) {
@@ -94,6 +131,28 @@ export default async function StudentManagementPage() {
     enrollments = data || [];
   }
 
+  // Fetch last_sign_in_at for each student via the admin client. The
+  // auth.users table isn't exposed through the regular API, so we go
+  // through service-role admin.listUsers() and build a lookup map.
+  // Listing all users is fine here — production cohorts are <500 — but
+  // if this grows large we'd switch to per-id fetches in parallel.
+  const studentIds = new Set(enrollments.map((e: any) => e.student_id));
+  const lastSignInById: Record<string, string | null> = {};
+  try {
+    const admin = createAdminClient();
+    const { data: authList } = await admin.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    });
+    for (const u of authList?.users ?? []) {
+      if (studentIds.has(u.id)) {
+        lastSignInById[u.id] = u.last_sign_in_at ?? null;
+      }
+    }
+  } catch (e) {
+    console.error("[students] could not fetch last_sign_in_at:", e);
+  }
+
   // Build student data with engagement scores
   const now = new Date();
 
@@ -148,6 +207,7 @@ export default async function StudentManagementPage() {
         enrollmentCount: enrollmentCountByStudent[enrollment.student_id] || 1,
         tenureDays,
         score,
+        lastSignInAt: lastSignInById[enrollment.student_id] ?? null,
       };
     })
     .sort((a: any, b: any) => b.score - a.score);
@@ -163,6 +223,12 @@ export default async function StudentManagementPage() {
 
   const highlyActive = students.filter((s: any) => s.score >= 80).length;
 
+  // Count students who signed in within the last 24 hours.
+  const activeNow = students.filter((s: any) => {
+    if (!s.lastSignInAt) return false;
+    return Date.now() - new Date(s.lastSignInAt).getTime() < 24 * 60 * 60 * 1000;
+  }).length;
+
   return (
     <div>
       <PageHeader
@@ -172,7 +238,7 @@ export default async function StudentManagementPage() {
       />
 
       {/* Summary stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -180,7 +246,19 @@ export default async function StudentManagementPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">{students.length}</p>
-              <p className="text-xs text-muted-foreground">Total Students</p>
+              <p className="text-xs text-muted-foreground">Total</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="relative h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 flex items-center justify-center">
+              <Clock className="h-5 w-5 text-emerald-600" />
+              <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{activeNow}</p>
+              <p className="text-xs text-muted-foreground">Active 24h</p>
             </div>
           </CardContent>
         </Card>
@@ -225,26 +303,43 @@ export default async function StudentManagementPage() {
         <div className="space-y-3">
           {students.map((student: any) => {
             const tier = getEngagementTier(student.score);
+            const activity = getActivityStatus(student.lastSignInAt);
             return (
               <Card key={student.id}>
                 <CardContent className="p-4">
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    {/* Avatar */}
-                    <div className="h-11 w-11 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                    {/* Avatar with activity dot */}
+                    <div className="relative h-11 w-11 rounded-full bg-secondary flex items-center justify-center shrink-0">
                       <User className="h-5 w-5 text-primary" />
+                      <span
+                        className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-background ${activity.dot}`}
+                        title={`${activity.label} · last seen ${activity.relative}`}
+                      />
                     </div>
 
                     {/* Student info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <h3 className="font-semibold truncate">
                           {student.name}
                         </h3>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${activity.tone}`}
+                        >
+                          {activity.label}
+                        </Badge>
                         <Badge variant="outline" className={`text-xs ${tier.color}`}>
                           {tier.label}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        <span
+                          className={`flex items-center gap-1 ${activity.tone}`}
+                        >
+                          <Clock className="h-3 w-3" />
+                          Last seen {activity.relative}
+                        </span>
                         {student.phone && (
                           <span className="flex items-center gap-1">
                             <Phone className="h-3 w-3" />
