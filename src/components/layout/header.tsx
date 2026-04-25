@@ -40,6 +40,7 @@ export function Header() {
   }, [pathname]);
 
   return (
+    <>
     <header
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
         scrolled
@@ -112,8 +113,12 @@ export function Header() {
           {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
+    </header>
 
-      {/* Mobile drawer — slides in from the right */}
+      {/* Mobile drawer — slides in from the right.
+          Rendered OUTSIDE the <header> because <header>'s backdrop-blur creates
+          a containing block for position:fixed children, which would clip the
+          drawer to the header's ~64px height. */}
       <AnimatePresence>
         {open && (
           <>
@@ -195,6 +200,6 @@ export function Header() {
           </>
         )}
       </AnimatePresence>
-    </header>
+    </>
   );
 }

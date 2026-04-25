@@ -4,7 +4,8 @@
  */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -57,8 +58,13 @@ interface MobileNavProps {
 
 export function MobileNav({ navItems, fullName, role }: MobileNavProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -78,22 +84,25 @@ export function MobileNav({ navItems, fullName, role }: MobileNavProps) {
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Overlay */}
-      {open && (
-        <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md"
-          onClick={() => setOpen(false)}
-        />
-      )}
+      {/* Drawer is portaled to document.body so it isn't constrained by the
+          parent <header>'s backdrop-blur containing block. */}
+      {mounted &&
+        createPortal(
+          <>
+            {open && (
+              <div
+                className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-md"
+                onClick={() => setOpen(false)}
+              />
+            )}
 
-      {/* Drawer — slides in from the right */}
-      <div
-        className={`fixed top-0 right-0 z-50 h-full w-[85%] max-w-sm bg-white border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
-      >
+            <div
+              className={`fixed top-0 right-0 z-[70] flex h-full w-[85%] max-w-sm flex-col bg-white border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out ${
+                open ? "translate-x-0" : "translate-x-full"
+              }`}
+            >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b shrink-0">
           <Logo size="sm" />
           <button
             onClick={() => setOpen(false)}
@@ -104,7 +113,7 @@ export function MobileNav({ navItems, fullName, role }: MobileNavProps) {
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-160px)]">
+        <nav className="flex-1 min-h-0 p-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = iconMap[item.iconName] || LayoutDashboard;
             const isActive =
@@ -130,7 +139,7 @@ export function MobileNav({ navItems, fullName, role }: MobileNavProps) {
         </nav>
 
         {/* User info + Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">
+        <div className="shrink-0 p-4 border-t bg-white">
           <div className="mb-3 px-1">
             <p className="text-sm font-medium truncate">{fullName}</p>
             <p className="text-xs text-muted-foreground capitalize">{role}</p>
@@ -144,6 +153,9 @@ export function MobileNav({ navItems, fullName, role }: MobileNavProps) {
           </button>
         </div>
       </div>
+          </>,
+          document.body,
+        )}
     </>
   );
 }
