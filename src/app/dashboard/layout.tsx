@@ -130,6 +130,39 @@ function getNavSections(role: string): NavSection[] {
           },
         ],
       },
+      // Admins get the full instructor toolset too — same screens, but
+      // unrestricted scope (every instructor's subjects, sessions,
+      // resources). RLS already permits admins on all underlying tables.
+      {
+        label: "Teaching (all instructors)",
+        items: [
+          {
+            href: "/dashboard/instructor",
+            label: "Subjects",
+            iconName: "BookOpen",
+          },
+          {
+            href: "/dashboard/instructor/live",
+            label: "Live Hub",
+            iconName: "Video",
+          },
+          {
+            href: "/dashboard/instructor/students",
+            label: "Students",
+            iconName: "Users",
+          },
+          {
+            href: "/dashboard/instructor/resources",
+            label: "Resources",
+            iconName: "FileText",
+          },
+          {
+            href: "/dashboard/instructor/analytics",
+            label: "Analytics",
+            iconName: "BarChart3",
+          },
+        ],
+      },
       {
         label: "Communication",
         items: [

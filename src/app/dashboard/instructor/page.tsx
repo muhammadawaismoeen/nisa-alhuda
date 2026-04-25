@@ -17,28 +17,26 @@ import {
 import { DashboardGreeting } from "@/components/dashboard/greeting";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { getDashboardViewer } from "@/lib/auth-helpers";
 
 export default async function InstructorDashboardPage() {
   const supabase = await createClient();
+  const viewer = await getDashboardViewer();
+  if (!viewer) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .single();
-
-  // Fetch subjects assigned to this instructor, with offering info
-  const { data: subjects, error } = await supabase
+  // Admins see every instructor's subjects; instructors see only their own.
+  // RLS already permits admins on every table referenced below — this filter
+  // only affects what the application chooses to query.
+  let subjectsQuery = supabase
     .from("subjects")
-    .select("*, offering:offerings(id, title, slug, status, type)")
-    .eq("instructor_id", user.id)
+    .select("*, offering:offerings(id, title, slug, status, type), instructor:profiles!subjects_instructor_id_fkey(id, full_name)")
     .order("sort_order", { ascending: true });
+
+  if (viewer.instructorScope) {
+    subjectsQuery = subjectsQuery.eq("instructor_id", viewer.instructorScope);
+  }
+
+  const { data: subjects, error } = await subjectsQuery;
 
   if (error) {
     console.error("Error fetching subjects:", error);
@@ -90,16 +88,17 @@ export default async function InstructorDashboardPage() {
     archived: { label: "Archived", variant: "secondary" as const },
   };
 
-  const tail =
-    subjects && subjects.length > 0
+  const tail = viewer.isAdmin
+    ? `Viewing every instructor's subjects (${subjects?.length ?? 0} total).`
+    : subjects && subjects.length > 0
       ? `You're teaching ${subjects.length} subject${subjects.length > 1 ? "s" : ""} — may Allah reward your effort.`
       : "No subjects assigned yet — an admin will link you to one soon.";
 
   return (
     <div>
       <DashboardGreeting
-        name={profile?.full_name || "Ustadha"}
-        role={profile?.role || "instructor"}
+        name={viewer.fullName || "Ustadha"}
+        role={viewer.role}
         tail={tail}
       />
 
@@ -167,6 +166,7 @@ export default async function InstructorDashboardPage() {
                 title: string;
                 status: string;
               } | null;
+              instructor?: { id: string; full_name: string } | null;
             }) => {
               const offering = subject.offering;
               const offeringStatus =
@@ -192,9 +192,17 @@ export default async function InstructorDashboardPage() {
                     <h3 className="mb-1 font-heading text-lg font-semibold leading-tight">
                       {subject.title}
                     </h3>
-                    <p className="mb-2 text-sm font-medium text-primary/90">
+                    <p className="mb-1 text-sm font-medium text-primary/90">
                       {offering?.title}
                     </p>
+                    {viewer.isAdmin && subject.instructor && (
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        Instructor:{" "}
+                        <span className="font-medium text-foreground">
+                          {subject.instructor.full_name}
+                        </span>
+                      </p>
+                    )}
 
                     {subject.description && (
                       <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">

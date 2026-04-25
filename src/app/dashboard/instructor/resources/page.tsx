@@ -7,23 +7,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FileText } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ResourceUploader } from "./resource-uploader";
+import { getDashboardViewer } from "@/lib/auth-helpers";
 import type { Subject, Lesson, Resource } from "@/lib/types/database";
 
 export default async function ResourceManagerPage() {
   const supabase = await createClient();
+  const viewer = await getDashboardViewer();
+  if (!viewer) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  // Fetch instructor's subjects
-  const { data: subjects } = await supabase
+  // Admins see all subjects; instructors see only their own.
+  let subjectsQuery = supabase
     .from("subjects")
     .select("id, title, slug, offering_id")
-    .eq("instructor_id", user.id)
     .order("sort_order", { ascending: true });
+  if (viewer.instructorScope) {
+    subjectsQuery = subjectsQuery.eq("instructor_id", viewer.instructorScope);
+  }
+  const { data: subjects } = await subjectsQuery;
 
   if (!subjects || subjects.length === 0) {
     return (
@@ -36,7 +36,9 @@ export default async function ResourceManagerPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-lg">
-              No subjects assigned yet
+              {viewer.isAdmin
+                ? "No subjects in the system yet"
+                : "No subjects assigned yet"}
             </p>
           </CardContent>
         </Card>

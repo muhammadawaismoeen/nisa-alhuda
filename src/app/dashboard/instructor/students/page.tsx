@@ -16,6 +16,7 @@ import {
   Award,
   Sparkles,
 } from "lucide-react";
+import { getDashboardViewer } from "@/lib/auth-helpers";
 import type { Profile } from "@/lib/types/database";
 
 // Engagement tiers
@@ -31,18 +32,17 @@ function getEngagementTier(score: number) {
 
 export default async function StudentManagementPage() {
   const supabase = await createClient();
+  const viewer = await getDashboardViewer();
+  if (!viewer) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  // Get instructor's subjects and their offering IDs
-  const { data: subjects } = await supabase
+  // Admins see every instructor's students; instructors see only their own.
+  let subjectsQuery = supabase
     .from("subjects")
-    .select("id, title, offering_id")
-    .eq("instructor_id", user.id);
+    .select("id, title, offering_id");
+  if (viewer.instructorScope) {
+    subjectsQuery = subjectsQuery.eq("instructor_id", viewer.instructorScope);
+  }
+  const { data: subjects } = await subjectsQuery;
 
   if (!subjects || subjects.length === 0) {
     return (
@@ -55,7 +55,9 @@ export default async function StudentManagementPage() {
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Users className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-lg">
-              No subjects assigned yet
+              {viewer.isAdmin
+                ? "No subjects in the system yet"
+                : "No subjects assigned yet"}
             </p>
           </CardContent>
         </Card>

@@ -21,8 +21,19 @@ import type { LiveSession, Offering } from "@/lib/types/database";
 
 interface SessionManagerProps {
   sessions: LiveSession[];
-  offerings: Pick<Offering, "id" | "title">[];
+  /**
+   * Offerings available in the form dropdown. `instructor_id` is the
+   * offering's primary instructor — admins use this to set instructor_id
+   * on newly-created sessions (since the admin isn't the teacher).
+   */
+  offerings: Pick<Offering, "id" | "title" | "instructor_id">[];
+  /** Logged-in user's id — used as the default instructor_id for non-admins. */
   instructorId: string;
+  /**
+   * When true, the viewer is an admin: instructor_id on insert is taken
+   * from the selected offering rather than from the viewer.
+   */
+  viewerIsAdmin?: boolean;
 }
 
 type SessionStatus = "live" | "upcoming" | "completed";
@@ -63,6 +74,7 @@ export function SessionManager({
   sessions,
   offerings,
   instructorId,
+  viewerIsAdmin = false,
 }: SessionManagerProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -141,8 +153,17 @@ export function SessionManager({
         if (error) throw new Error(error.message);
         toast.success("Session updated!");
       } else {
+        // For admins, derive instructor_id from the selected offering's
+        // primary instructor — the admin isn't the teacher of the session.
+        // Fall back to the admin's own id if the offering has no instructor
+        // set (rare; the row would still satisfy NOT NULL).
+        let resolvedInstructorId = instructorId;
+        if (viewerIsAdmin) {
+          const offering = offerings.find((o) => o.id === offeringId);
+          resolvedInstructorId = offering?.instructor_id || instructorId;
+        }
         const { error } = await supabase.from("live_sessions").insert({
-          instructor_id: instructorId,
+          instructor_id: resolvedInstructorId,
           title: title.trim(),
           description: description.trim() || null,
           offering_id: offeringId,

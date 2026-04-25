@@ -16,20 +16,21 @@ import {
   Award,
 } from "lucide-react";
 
+import { getDashboardViewer } from "@/lib/auth-helpers";
+
 export default async function AnalyticsPage() {
   const supabase = await createClient();
+  const viewer = await getDashboardViewer();
+  if (!viewer) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  // Fetch instructor's subjects
-  const { data: subjects } = await supabase
+  // Admins see analytics across every instructor; instructors see only theirs.
+  let subjectsQuery = supabase
     .from("subjects")
-    .select("id, title, offering_id")
-    .eq("instructor_id", user.id);
+    .select("id, title, offering_id");
+  if (viewer.instructorScope) {
+    subjectsQuery = subjectsQuery.eq("instructor_id", viewer.instructorScope);
+  }
+  const { data: subjects } = await subjectsQuery;
 
   const subjectIds = subjects?.map((s) => s.id) || [];
   const offeringIds = [

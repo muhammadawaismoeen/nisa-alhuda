@@ -14,35 +14,39 @@ import {
 } from "lucide-react";
 import { RecordingUpdater } from "./recording-updater";
 import { SessionManager } from "./session-manager";
+import { getDashboardViewer } from "@/lib/auth-helpers";
 import type { Lesson, LiveSession } from "@/lib/types/database";
 
 export default async function LiveHubPage() {
   const supabase = await createClient();
+  const viewer = await getDashboardViewer();
+  if (!viewer) return null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  // Fetch instructor's subjects
-  const { data: subjects } = await supabase
+  // Admins see every instructor's subjects; instructors see only their own.
+  let subjectsQuery = supabase
     .from("subjects")
-    .select("id, title, offering_id")
-    .eq("instructor_id", user.id);
+    .select("id, title, offering_id, instructor_id");
+  if (viewer.instructorScope) {
+    subjectsQuery = subjectsQuery.eq("instructor_id", viewer.instructorScope);
+  }
+  const { data: subjects } = await subjectsQuery;
 
   if (!subjects || subjects.length === 0) {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-2">Live Hub</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          Manage your live sessions and recording uploads.
+          {viewer.isAdmin
+            ? "No subjects exist yet across any instructor. Create offerings and assign instructors to start scheduling sessions."
+            : "Manage your live sessions and recording uploads."}
         </p>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Video className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-lg">
-              No subjects assigned yet
+              {viewer.isAdmin
+                ? "No subjects in the system yet"
+                : "No subjects assigned yet"}
             </p>
           </CardContent>
         </Card>
@@ -56,20 +60,30 @@ export default async function LiveHubPage() {
   // Get unique offering IDs from subjects
   const offeringIds = [...new Set(subjects.map((s) => s.offering_id))];
 
-  // Fetch offerings for the session form dropdown
+  // Fetch offerings for the session form dropdown.
+  // Include instructor_id so the SessionManager can resolve the right
+  // instructor when an admin (who is not themselves an instructor) creates
+  // a session — admins fall back to the offering's primary instructor.
   const { data: offerings } = await supabase
     .from("offerings")
-    .select("id, title")
+    .select("id, title, instructor_id")
     .in("id", offeringIds);
 
-  // Fetch live sessions for this instructor
+  // Fetch live sessions: admins see every session; instructors only their own.
   let sessions: LiveSession[] = [];
   try {
-    const { data } = await supabase
+    let q = supabase
       .from("live_sessions")
       .select("*")
-      .eq("instructor_id", user.id)
       .order("scheduled_at", { ascending: true });
+    if (viewer.instructorScope) {
+      q = q.eq("instructor_id", viewer.instructorScope);
+    } else {
+      // Admin: only show sessions tied to the offerings we already loaded
+      // (avoids dumping unrelated sessions from other workspaces if any).
+      q = q.in("offering_id", offeringIds);
+    }
+    const { data } = await q;
     sessions = (data as LiveSession[]) || [];
   } catch {
     // Table may not exist yet before migration
@@ -175,7 +189,8 @@ export default async function LiveHubPage() {
       <SessionManager
         sessions={sessions}
         offerings={offerings || []}
-        instructorId={user.id}
+        instructorId={viewer.userId}
+        viewerIsAdmin={viewer.isAdmin}
       />
 
       {/* Divider */}
