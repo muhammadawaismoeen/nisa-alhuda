@@ -113,50 +113,86 @@ export function Header() {
         </button>
       </div>
 
-      {/* Mobile sheet */}
+      {/* Mobile drawer — slides in from the right */}
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden border-t border-border/60 bg-background/95 backdrop-blur-xl md:hidden"
-          >
-            <nav className="container mx-auto space-y-1 px-4 py-4">
-              {navLinks.map((link, i) => (
-                <motion.div
-                  key={link.href}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
+          <>
+            {/* Scrim */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setOpen(false)}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md md:hidden"
+            />
+
+            {/* Drawer panel */}
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+              className="fixed inset-y-0 right-0 z-50 flex h-full w-[85%] max-w-sm flex-col border-l border-border bg-white shadow-2xl md:hidden"
+            >
+              <div className="flex items-center justify-between border-b border-border/60 px-4 py-4">
+                <Logo size="sm" />
+                <button
+                  onClick={() => setOpen(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-muted"
+                  aria-label="Close menu"
                 >
-                  <Link
-                    href={link.href}
-                    className="block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
-                  >
-                    {link.label}
-                  </Link>
-                </motion.div>
-              ))}
-              <div className="my-3 border-t" />
-              <div className="flex flex-col gap-2 pt-1">
-                <LinkButton
-                  variant="outline"
-                  href="/login"
-                  className="w-full justify-center"
-                >
-                  Log In
-                </LinkButton>
-                <LinkButton
-                  href="/register"
-                  className="press w-full justify-center"
-                >
-                  Get Started
-                </LinkButton>
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-            </nav>
-          </motion.div>
+
+              <nav className="flex-1 space-y-1 overflow-y-auto px-4 py-4">
+                {navLinks.map((link, i) => {
+                  const isActive =
+                    link.href === "/"
+                      ? pathname === "/"
+                      : pathname.startsWith(link.href);
+                  return (
+                    <motion.div
+                      key={link.href}
+                      initial={{ opacity: 0, x: 12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.05 + i * 0.04 }}
+                    >
+                      <Link
+                        href={link.href}
+                        className={`block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    </motion.div>
+                  );
+                })}
+              </nav>
+
+              <div className="border-t border-border/60 bg-white p-4">
+                <div className="flex flex-col gap-2">
+                  <LinkButton
+                    variant="outline"
+                    href="/login"
+                    className="w-full justify-center"
+                  >
+                    Log In
+                  </LinkButton>
+                  <LinkButton
+                    href="/register"
+                    className="press w-full justify-center"
+                  >
+                    Get Started
+                  </LinkButton>
+                </div>
+              </div>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
     </header>
