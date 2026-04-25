@@ -81,15 +81,15 @@ export function MobileNav({ navItems, fullName, role }: MobileNavProps) {
       {/* Overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md"
           onClick={() => setOpen(false)}
         />
       )}
 
-      {/* Drawer */}
+      {/* Drawer — slides in from the right */}
       <div
-        className={`fixed top-0 left-0 z-50 h-full w-72 bg-background border-r shadow-xl transform transition-transform duration-300 ease-in-out ${
-          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed top-0 right-0 z-50 h-full w-[85%] max-w-sm bg-white border-l border-border shadow-2xl transform transition-transform duration-300 ease-in-out ${
+          open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         {/* Header */}
@@ -130,7 +130,7 @@ export function MobileNav({ navItems, fullName, role }: MobileNavProps) {
         </nav>
 
         {/* User info + Logout */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-background">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">
           <div className="mb-3 px-1">
             <p className="text-sm font-medium truncate">{fullName}</p>
             <p className="text-xs text-muted-foreground capitalize">{role}</p>

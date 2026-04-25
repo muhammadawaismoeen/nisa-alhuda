@@ -58,7 +58,7 @@ export function DashboardGreeting({ name, role, tail }: GreetingProps) {
       <svg
         aria-hidden
         viewBox="0 0 200 200"
-        className="pointer-events-none absolute -right-6 -top-6 h-52 w-52 text-primary opacity-[0.08]"
+        className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 text-primary opacity-[0.08] sm:h-48 sm:w-48 md:h-52 md:w-52"
       >
         <g fill="none" stroke="currentColor" strokeWidth="1.2">
           <circle cx="100" cy="100" r="80" />
