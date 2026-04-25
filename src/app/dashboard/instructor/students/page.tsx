@@ -65,19 +65,33 @@ export default async function StudentManagementPage() {
     );
   }
 
-  // Get unique offering IDs
-  const offeringIds = [...new Set(subjects.map((s) => s.offering_id))];
+  // Get unique offering IDs. Filter out nulls — possible when admins view
+  // every subject in the system and some are unassigned to an offering.
+  const offeringIds = [
+    ...new Set(
+      subjects
+        .map((s) => s.offering_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
 
-  // Fetch approved enrollments for these offerings
-  const { data: enrollments, error: enrollError } = await supabase
-    .from("enrollments")
-    .select("*, student:profiles!enrollments_student_id_fkey(*), offering:offerings!enrollments_offering_id_fkey(id, title)")
-    .in("offering_id", offeringIds)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+  // If there are no offerings, skip the enrollments fetch entirely —
+  // .in("offering_id", []) would return zero rows but it's noisier.
+  let enrollments: any[] = [];
+  if (offeringIds.length > 0) {
+    const { data, error: enrollError } = await supabase
+      .from("enrollments")
+      .select(
+        "*, student:profiles!enrollments_student_id_fkey(*), offering:offerings!enrollments_offering_id_fkey(id, title)"
+      )
+      .in("offering_id", offeringIds)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
 
-  if (enrollError) {
-    console.error("Error fetching enrollments:", enrollError.message);
+    if (enrollError) {
+      console.error("[students] enrollments fetch failed:", enrollError.message);
+    }
+    enrollments = data || [];
   }
 
   // Build student data with engagement scores
@@ -85,15 +99,19 @@ export default async function StudentManagementPage() {
 
   // Count enrollments per student (across all offerings) for multi-enrollment bonus
   const enrollmentCountByStudent: Record<string, number> = {};
-  (enrollments || []).forEach((e: any) => {
+  enrollments.forEach((e: any) => {
     const sid = e.student_id;
     enrollmentCountByStudent[sid] = (enrollmentCountByStudent[sid] || 0) + 1;
   });
 
   // Deduplicate students (a student may be enrolled in multiple offerings)
   const seenStudents = new Set<string>();
-  const students = (enrollments || [])
+  const students = enrollments
     .filter((e: any) => {
+      // Skip rows where the embedded student profile is null (RLS could
+      // hide it, or the row is orphaned). Without this, the .map below
+      // would crash trying to read fields of null.
+      if (!e.student) return false;
       if (seenStudents.has(e.student_id)) return false;
       seenStudents.add(e.student_id);
       return true;
