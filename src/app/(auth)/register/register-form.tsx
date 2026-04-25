@@ -19,6 +19,10 @@ export function RegisterForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("");
+  /** When the user dismisses or accepts a typo suggestion, we don't show it again. */
+  const [suggestionAccepted, setSuggestionAccepted] = useState(false);
+  const emailSuggestion = suggestionAccepted ? null : suggestEmailFix(email);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,9 +30,25 @@ export function RegisterForm() {
 
     const formData = new FormData(e.currentTarget);
     const fullName = formData.get("full_name") as string;
-    const email = formData.get("email") as string;
+    const submittedEmail = (formData.get("email") as string).trim();
     const pwd = formData.get("password") as string;
     const confirmPassword = formData.get("confirm_password") as string;
+
+    // Block obvious bounces — Supabase will throttle the project if too many
+    // emails bounce, which would lock new students out at signup.
+    if (!isPlausibleEmail(submittedEmail)) {
+      toast.error("That email doesn't look right. Please check and try again.");
+      setLoading(false);
+      return;
+    }
+
+    // If we have a typo suggestion the user hasn't seen, force them to confirm.
+    const liveSuggestion = suggestEmailFix(submittedEmail);
+    if (liveSuggestion && !suggestionAccepted) {
+      toast.error(`Did you mean ${liveSuggestion}? Tap the suggestion below to fix or confirm your email.`);
+      setLoading(false);
+      return;
+    }
 
     if (pwd.length < 6) {
       toast.error("Password must be at least 6 characters");
@@ -45,7 +65,7 @@ export function RegisterForm() {
     const supabase = createClient();
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: submittedEmail,
       password: pwd,
       options: {
         data: { full_name: fullName },
@@ -93,8 +113,25 @@ export function RegisterForm() {
             placeholder="aisha@example.com"
             className="h-11 pl-10"
             required
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setSuggestionAccepted(false);
+            }}
           />
         </div>
+        {emailSuggestion && (
+          <button
+            type="button"
+            onClick={() => {
+              setEmail(emailSuggestion);
+              setSuggestionAccepted(true);
+            }}
+            className="mt-1 text-left text-xs text-primary hover:underline"
+          >
+            Did you mean <span className="font-medium">{emailSuggestion}</span>? Tap to fix.
+          </button>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -168,6 +205,77 @@ export function RegisterForm() {
       </Button>
     </form>
   );
+}
+
+/**
+ * Suggests a fix for common email-domain typos to reduce bounces.
+ * Returns the corrected address if the domain looks like a near-miss of a
+ * popular provider, otherwise null. Catches `gmial.com`, `yaho.com`,
+ * `hotmial.com`, etc. Pure lookup — no network calls.
+ */
+function suggestEmailFix(value: string): string | null {
+  const trimmed = value.trim().toLowerCase();
+  const at = trimmed.lastIndexOf("@");
+  if (at < 1 || at === trimmed.length - 1) return null;
+  const local = trimmed.slice(0, at);
+  const domain = trimmed.slice(at + 1);
+  if (!domain.includes(".")) return null;
+
+  const knownDomains = [
+    "gmail.com",
+    "yahoo.com",
+    "hotmail.com",
+    "outlook.com",
+    "icloud.com",
+    "live.com",
+    "ymail.com",
+    "proton.me",
+    "protonmail.com",
+  ];
+  if (knownDomains.includes(domain)) return null;
+
+  for (const known of knownDomains) {
+    if (levenshtein(domain, known) <= 2 && domain !== known) {
+      return `${local}@${known}`;
+    }
+  }
+  return null;
+}
+
+/** Distance between two strings — for "did you mean" matching. */
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev: number[] = Array(b.length + 1)
+    .fill(0)
+    .map((_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prevDiag = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = prev[j];
+      prev[j] =
+        a[i - 1] === b[j - 1]
+          ? prevDiag
+          : 1 + Math.min(prev[j], prev[j - 1], prevDiag);
+      prevDiag = tmp;
+    }
+  }
+  return prev[b.length];
+}
+
+/**
+ * Quick sanity check before we hand the address to Supabase auth.
+ * Browsers' native `type="email"` already enforces the basic shape; this is
+ * a second line of defence against pasted garbage.
+ */
+function isPlausibleEmail(value: string): boolean {
+  const v = value.trim();
+  if (v.length < 5 || v.length > 254) return false;
+  // Single @ with non-empty local + domain, and a dot in the domain.
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(v);
 }
 
 /**
