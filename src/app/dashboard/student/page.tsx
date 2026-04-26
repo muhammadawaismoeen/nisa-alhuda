@@ -288,12 +288,31 @@ export default async function StudentDashboardPage() {
       </div>
 
       {approved.length === 0 && pending.length === 0 ? (
-        <EmptyState
-          icon={Sparkles}
-          title="No enrollments yet"
-          description="Browse our catalog to discover programs, courses, and workshops designed for your journey."
-          action={<LinkButton href="/offerings">Browse Catalog</LinkButton>}
-        />
+        <div className="space-y-3">
+          <EmptyState
+            icon={Sparkles}
+            title="No enrollments yet"
+            description="Browse our catalog to discover programs, courses, and workshops designed for your journey."
+            action={<LinkButton href="/offerings">Browse Catalog</LinkButton>}
+          />
+          <div className="rounded-xl border border-amber-200/70 bg-amber-50/60 dark:border-amber-800/40 dark:bg-amber-950/20 p-4 text-sm">
+            <p className="font-medium text-amber-900 dark:text-amber-200">
+              Already paid for a course?
+            </p>
+            <p className="mt-1 text-amber-900/80 dark:text-amber-200/80">
+              If you&apos;ve already paid via bank transfer or WhatsApp and your
+              course isn&apos;t showing up here, please email{" "}
+              <a
+                href="mailto:support@nisaalhuda.org"
+                className="font-medium underline"
+              >
+                support@nisaalhuda.org
+              </a>{" "}
+              with the email you used when you paid — an admin will activate
+              your enrollment.
+            </p>
+          </div>
+        </div>
       ) : approved.length === 0 ? (
         <EmptyState
           icon={Clock}
