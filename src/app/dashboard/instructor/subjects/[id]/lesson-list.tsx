@@ -36,14 +36,17 @@ import {
   PlayCircle,
   Clock,
   Download,
+  Link2,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { LessonForm } from "./lesson-form";
-import { partitionLessons } from "@/lib/resource-helpers";
+import { partitionLessons, isExternalUrl } from "@/lib/resource-helpers";
 import type { Lesson, Resource } from "@/lib/types/database";
 
 interface LessonListProps {
@@ -222,6 +225,47 @@ export function LessonList({
     }
   }
 
+  const handleAddLink = useCallback(
+    async (lessonId: string, title: string, url: string) => {
+      const trimmedTitle = title.trim();
+      const trimmedUrl = url.trim();
+      if (!trimmedTitle || !trimmedUrl) {
+        toast.error("Both title and URL are required.");
+        return false;
+      }
+      if (!/^https?:\/\//i.test(trimmedUrl)) {
+        toast.error("URL must start with https:// or http://.");
+        return false;
+      }
+      try {
+        const supabase = createClient();
+        const { data: row, error } = await supabase
+          .from("resources")
+          .insert({
+            lesson_id: lessonId,
+            title: trimmedTitle,
+            // file_url stores the full URL — isExternalUrl() detects it
+            // on read and skips storage signing.
+            file_url: trimmedUrl,
+            file_type: "link",
+            file_size: 0,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        if (row) setResources((prev) => [row as Resource, ...prev]);
+        toast.success(`Added link: ${trimmedTitle}`);
+        return true;
+      } catch (e) {
+        toast.error(
+          e instanceof Error ? e.message : "Failed to add link."
+        );
+        return false;
+      }
+    },
+    []
+  );
+
   const handleUpload = useCallback(
     async (lessonId: string, files: FileList | File[]) => {
       const fileArray = Array.from(files);
@@ -306,6 +350,11 @@ export function LessonList({
           uploadLessonId={resourceLessons[0]?.id ?? null}
           onUpload={(files) =>
             resourceLessons[0] && handleUpload(resourceLessons[0].id, files)
+          }
+          onAddLink={(title, url) =>
+            resourceLessons[0]
+              ? handleAddLink(resourceLessons[0].id, title, url)
+              : Promise.resolve(false)
           }
           onDeleteResource={handleDeleteResource}
         />
@@ -607,7 +656,8 @@ function ClassCard({
               {resources.length > 0 ? (
                 <div className="space-y-2">
                   {resources.map((r) => {
-                    const Icon = getFileIcon(r.title);
+                    const isLink = isExternalUrl(r.file_url);
+                    const Icon = isLink ? Globe : getFileIcon(r.title);
                     return (
                       <div
                         key={r.id}
@@ -620,9 +670,20 @@ function ClassCard({
                           <p className="text-sm font-medium truncate">
                             {r.title}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatFileSize(r.file_size)} ·{" "}
-                            <span className="uppercase">{r.file_type}</span>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {isLink ? (
+                              <>
+                                <span className="text-primary font-medium">
+                                  External link
+                                </span>{" "}
+                                · {new URL(r.file_url).hostname}
+                              </>
+                            ) : (
+                              <>
+                                {formatFileSize(r.file_size)} ·{" "}
+                                <span className="uppercase">{r.file_type}</span>
+                              </>
+                            )}
                           </p>
                         </div>
                         <ResourceLink path={r.file_url} fileName={r.title} />
@@ -656,8 +717,13 @@ function ClassCard({
 
 function ResourceLink({ path, fileName }: { path: string; fileName?: string }) {
   const [busy, setBusy] = useState<"open" | "download" | null>(null);
+  const external = isExternalUrl(path);
 
   async function getUrl(forDownload: boolean): Promise<string | null> {
+    // External URL (e.g. Google Drive): just hand it back — Drive
+    // handles its own preview/download dance, and the URL has no
+    // expiry to worry about.
+    if (external) return path;
     const supabase = createClient();
     const opts = forDownload
       ? { download: fileName || true }
@@ -693,6 +759,9 @@ function ResourceLink({ path, fileName }: { path: string; fileName?: string }) {
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName || "";
+      // External link → open in a new tab (no inline download), so the
+      // browser/Drive can show its own viewer.
+      if (external) a.target = "_blank";
       a.rel = "noopener noreferrer";
       document.body.appendChild(a);
       a.click();
@@ -709,7 +778,7 @@ function ResourceLink({ path, fileName }: { path: string; fileName?: string }) {
         size="icon-sm"
         onClick={handleOpen}
         disabled={busy !== null}
-        title="Open in new tab"
+        title={external ? "Open link in new tab" : "Open in new tab"}
       >
         {busy === "open" ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -717,19 +786,21 @@ function ResourceLink({ path, fileName }: { path: string; fileName?: string }) {
           <ExternalLink className="h-3.5 w-3.5" />
         )}
       </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleDownload}
-        disabled={busy !== null}
-        title="Download"
-      >
-        {busy === "download" ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Download className="h-3.5 w-3.5" />
-        )}
-      </Button>
+      {!external && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={handleDownload}
+          disabled={busy !== null}
+          title="Download"
+        >
+          {busy === "download" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      )}
     </div>
   );
 }
@@ -740,6 +811,8 @@ interface ResourcesSectionProps {
   resources: Resource[];
   uploadLessonId: string | null;
   onUpload: (files: FileList | File[]) => void;
+  /** Resolves true when the link was added successfully so the form can clear. */
+  onAddLink: (title: string, url: string) => Promise<boolean>;
   onDeleteResource: (r: Resource) => void;
 }
 
@@ -747,10 +820,27 @@ function ResourcesSection({
   resources,
   uploadLessonId,
   onUpload,
+  onAddLink,
   onDeleteResource,
 }: ResourcesSectionProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [showLinkForm, setShowLinkForm] = useState(false);
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [savingLink, setSavingLink] = useState(false);
+
+  async function submitLink(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingLink(true);
+    const ok = await onAddLink(linkTitle, linkUrl);
+    setSavingLink(false);
+    if (ok) {
+      setLinkTitle("");
+      setLinkUrl("");
+      setShowLinkForm(false);
+    }
+  }
 
   return (
     <div className="mb-6">
@@ -815,10 +905,77 @@ function ResourcesSection({
             </div>
           ) : null}
 
+          {/* Add link — for files too big for Storage (e.g. Drive PDFs). */}
+          {uploadLessonId ? (
+            showLinkForm ? (
+              <form
+                onSubmit={submitLink}
+                className="rounded-lg border bg-muted/20 p-3 mb-3 space-y-2"
+              >
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Link2 className="h-4 w-4 text-primary" />
+                  Add an external link
+                </div>
+                <Input
+                  placeholder="Title (e.g. Tafseer Ibn Kathir — English)"
+                  value={linkTitle}
+                  onChange={(e) => setLinkTitle(e.target.value)}
+                  required
+                />
+                <Input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  required
+                />
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setShowLinkForm(false);
+                      setLinkTitle("");
+                      setLinkUrl("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={savingLink}>
+                    {savingLink ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                        Adding…
+                      </>
+                    ) : (
+                      "Add link"
+                    )}
+                  </Button>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Tip: paste a Google Drive share link (set the file&apos;s
+                  visibility to <em>Anyone with link · Viewer</em> first).
+                </p>
+              </form>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLinkForm(true)}
+                className="mb-3"
+              >
+                <Link2 className="h-3.5 w-3.5 mr-1.5" />
+                Add link (for big files / external resources)
+              </Button>
+            )
+          ) : null}
+
           {resources.length > 0 ? (
             <div className="space-y-2">
               {resources.map((r) => {
-                const Icon = getFileIcon(r.title);
+                const isLink = isExternalUrl(r.file_url);
+                const Icon = isLink ? Globe : getFileIcon(r.title);
                 return (
                   <div
                     key={r.id}
@@ -829,9 +986,20 @@ function ResourcesSection({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{r.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatFileSize(r.file_size)} ·{" "}
-                        <span className="uppercase">{r.file_type}</span>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {isLink ? (
+                          <>
+                            <span className="text-primary font-medium">
+                              External link
+                            </span>{" "}
+                            · {new URL(r.file_url).hostname}
+                          </>
+                        ) : (
+                          <>
+                            {formatFileSize(r.file_size)} ·{" "}
+                            <span className="uppercase">{r.file_type}</span>
+                          </>
+                        )}
                       </p>
                     </div>
                     <ResourceLink path={r.file_url} fileName={r.title} />
@@ -850,7 +1018,7 @@ function ResourcesSection({
             </div>
           ) : (
             <p className="text-sm text-muted-foreground italic">
-              No resources uploaded yet.
+              No resources yet. Upload files or add a link above.
             </p>
           )}
         </CardContent>

@@ -19,6 +19,18 @@ export function isResourcesOnly(lesson: Pick<Lesson, "scheduled_at" | "live_clas
 }
 
 /**
+ * A resource's `file_url` can hold either a Supabase Storage path
+ * (e.g. "<lessonId>/<timestamp>-name.pdf") or a full external URL
+ * (e.g. a Google Drive share link). External URLs are opened directly
+ * — they don't need signing and aren't subject to the 50MB Storage
+ * cap, which is essential for large reference books like the
+ * 268MB English Tafseer Ibn Kathir PDF.
+ */
+export function isExternalUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value.trim());
+}
+
+/**
  * Partition a list of lessons into:
  *   - resourceLessons: pure-resource holders (Resources section)
  *   - classLessons:    real classes with a schedule and/or live link

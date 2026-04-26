@@ -22,7 +22,9 @@ import {
   File as FileIcon,
   Download,
   ExternalLink,
+  Globe,
 } from "lucide-react";
+import { isExternalUrl } from "@/lib/resource-helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -248,7 +250,8 @@ export function SubjectAccordion({
                     </h4>
                     <div className="space-y-2">
                       {resourcesBySubject[subject.id]!.map((r) => {
-                        const Icon = getFileIcon(r.title);
+                        const isLink = isExternalUrl(r.file_url);
+                        const Icon = isLink ? Globe : getFileIcon(r.title);
                         return (
                           <div
                             key={r.id}
@@ -261,9 +264,22 @@ export function SubjectAccordion({
                               <p className="text-sm font-medium truncate">
                                 {r.title}
                               </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatFileSize(r.file_size)} ·{" "}
-                                <span className="uppercase">{r.file_type}</span>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {isLink ? (
+                                  <>
+                                    <span className="text-primary font-medium">
+                                      External link
+                                    </span>{" "}
+                                    · {new URL(r.file_url).hostname}
+                                  </>
+                                ) : (
+                                  <>
+                                    {formatFileSize(r.file_size)} ·{" "}
+                                    <span className="uppercase">
+                                      {r.file_type}
+                                    </span>
+                                  </>
+                                )}
                               </p>
                             </div>
                             <ResourceActions
@@ -449,8 +465,12 @@ function ResourceActions({
   fileName?: string;
 }) {
   const [busy, setBusy] = useState<"open" | "download" | null>(null);
+  const external = isExternalUrl(path);
 
   async function getUrl(forDownload: boolean): Promise<string | null> {
+    // External URLs (Drive, etc.) are passed straight through —
+    // no signing, no expiry, no download forcing (Drive handles it).
+    if (external) return path;
     const supabase = createClient();
     const opts = forDownload ? { download: fileName || true } : undefined;
     const { data, error } = await supabase.storage
@@ -481,6 +501,7 @@ function ResourceActions({
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName || "";
+      if (external) a.target = "_blank";
       a.rel = "noopener noreferrer";
       document.body.appendChild(a);
       a.click();
@@ -497,7 +518,7 @@ function ResourceActions({
         size="icon-sm"
         onClick={handleOpen}
         disabled={busy !== null}
-        title="Open in new tab"
+        title={external ? "Open link in new tab" : "Open in new tab"}
       >
         {busy === "open" ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -505,19 +526,21 @@ function ResourceActions({
           <ExternalLink className="h-3.5 w-3.5" />
         )}
       </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleDownload}
-        disabled={busy !== null}
-        title="Download"
-      >
-        {busy === "download" ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Download className="h-3.5 w-3.5" />
-        )}
-      </Button>
+      {!external && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={handleDownload}
+          disabled={busy !== null}
+          title="Download"
+        >
+          {busy === "download" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+        </Button>
+      )}
     </div>
   );
 }
