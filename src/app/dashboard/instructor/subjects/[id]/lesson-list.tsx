@@ -35,6 +35,7 @@ import {
   Radio,
   PlayCircle,
   Clock,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { LessonForm } from "./lesson-form";
+import { partitionLessons } from "@/lib/resource-helpers";
 import type { Lesson, Resource } from "@/lib/types/database";
 
 interface LessonListProps {
@@ -283,11 +285,35 @@ export function LessonList({
     );
   }
 
+  // Lessons with no schedule/no live link are "Resources" holders, not
+  // actual classes. We surface their attached files in a Resources block
+  // at the top of the page rather than as Class cards.
+  const { resourceLessons, classLessons } = partitionLessons(initialLessons);
+  const resourceLessonIds = new Set(resourceLessons.map((l) => l.id));
+  const subjectResources = resources.filter((r) =>
+    resourceLessonIds.has(r.lesson_id)
+  );
+
   return (
     <div>
+      {/* Subject-level Resources */}
+      {(resourceLessons.length > 0 || subjectResources.length > 0) && (
+        <ResourcesSection
+          resources={subjectResources}
+          /* All resources upload into the FIRST resource-holding lesson by
+             default; if none exists we tell the user to create one via
+             the form. */
+          uploadLessonId={resourceLessons[0]?.id ?? null}
+          onUpload={(files) =>
+            resourceLessons[0] && handleUpload(resourceLessons[0].id, files)
+          }
+          onDeleteResource={handleDeleteResource}
+        />
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-heading font-semibold text-lg">
-          Classes ({initialLessons.length})
+          Classes ({classLessons.length})
         </h2>
         <Button onClick={handleAddNew} className="press">
           <Plus className="h-4 w-4 mr-1.5" />
@@ -295,7 +321,7 @@ export function LessonList({
         </Button>
       </div>
 
-      {initialLessons.length === 0 ? (
+      {classLessons.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Video className="h-12 w-12 text-muted-foreground mb-4" />
@@ -313,7 +339,7 @@ export function LessonList({
         </Card>
       ) : (
         <div className="space-y-3">
-          {initialLessons.map((lesson, idx) => {
+          {classLessons.map((lesson, idx) => {
             const isExpanded = expandedId === lesson.id;
             const status = getClassStatus(lesson);
             const StatusIcon = status.icon;
@@ -599,7 +625,7 @@ function ClassCard({
                             <span className="uppercase">{r.file_type}</span>
                           </p>
                         </div>
-                        <ResourceLink path={r.file_url} />
+                        <ResourceLink path={r.file_url} fileName={r.title} />
                         <Button
                           variant="ghost"
                           size="icon-sm"
@@ -628,40 +654,207 @@ function ClassCard({
 
 // ─── ResourceLink: signs a private storage URL on click ─────────
 
-function ResourceLink({ path }: { path: string }) {
-  const [busy, setBusy] = useState(false);
+function ResourceLink({ path, fileName }: { path: string; fileName?: string }) {
+  const [busy, setBusy] = useState<"open" | "download" | null>(null);
 
-  async function open() {
-    setBusy(true);
+  async function getUrl(forDownload: boolean): Promise<string | null> {
+    const supabase = createClient();
+    const opts = forDownload
+      ? { download: fileName || true }
+      : undefined;
+    const { data, error } = await supabase.storage
+      .from("resources")
+      .createSignedUrl(path, 60 * 10, opts);
+    if (error || !data?.signedUrl) {
+      toast.error("Could not get this file.");
+      return null;
+    }
+    return data.signedUrl;
+  }
+
+  async function handleOpen() {
+    setBusy("open");
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase.storage
-        .from("resources")
-        .createSignedUrl(path, 60 * 5); // 5 minute window
-      if (error || !data?.signedUrl) {
-        toast.error("Could not open this file.");
-        return;
-      }
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      const url = await getUrl(false);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
     } finally {
-      setBusy(false);
+      setBusy(null);
+    }
+  }
+
+  async function handleDownload() {
+    setBusy("download");
+    try {
+      const url = await getUrl(true);
+      if (!url) return;
+      // Browser-native download via a hidden <a download>: the signed URL
+      // already carries Content-Disposition: attachment, but we also set
+      // the link's `download` attribute so it works on stricter browsers.
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName || "";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      setBusy(null);
     }
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onClick={open}
-      disabled={busy}
-      className="shrink-0"
-      title="Open file"
-    >
-      {busy ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-      ) : (
-        <ExternalLink className="h-3.5 w-3.5" />
-      )}
-    </Button>
+    <div className="flex items-center gap-1 shrink-0">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={handleOpen}
+        disabled={busy !== null}
+        title="Open in new tab"
+      >
+        {busy === "open" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <ExternalLink className="h-3.5 w-3.5" />
+        )}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={handleDownload}
+        disabled={busy !== null}
+        title="Download"
+      >
+        {busy === "download" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Download className="h-3.5 w-3.5" />
+        )}
+      </Button>
+    </div>
+  );
+}
+
+// ─── Subject-level Resources block ───────────────────────────
+
+interface ResourcesSectionProps {
+  resources: Resource[];
+  uploadLessonId: string | null;
+  onUpload: (files: FileList | File[]) => void;
+  onDeleteResource: (r: Resource) => void;
+}
+
+function ResourcesSection({
+  resources,
+  uploadLessonId,
+  onUpload,
+  onDeleteResource,
+}: ResourcesSectionProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-heading font-semibold text-lg flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          Resources
+          {resources.length > 0 && (
+            <span className="text-sm font-normal text-muted-foreground">
+              ({resources.length})
+            </span>
+          )}
+        </h2>
+      </div>
+
+      <Card>
+        <CardContent className="p-4">
+          {/* Upload zone — only enabled when a holder lesson exists */}
+          {uploadLessonId ? (
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                if (e.dataTransfer.files.length > 0) {
+                  onUpload(e.dataTransfer.files);
+                }
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              className={`cursor-pointer rounded-lg border-2 border-dashed p-3 text-center transition-colors mb-3 ${
+                dragOver
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
+              }`}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp,.pptx,.xlsx,.mp3,.mp4"
+                onChange={(e) => {
+                  if (e.target.files) onUpload(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              <div className="flex items-center justify-center gap-2 text-sm">
+                <Upload className="h-4 w-4 text-primary" />
+                <span>
+                  Drop files here or{" "}
+                  <span className="text-primary font-medium">browse</span> · max
+                  50MB each · students can download
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {resources.length > 0 ? (
+            <div className="space-y-2">
+              {resources.map((r) => {
+                const Icon = getFileIcon(r.title);
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-3 rounded-lg border bg-background p-2.5"
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{r.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatFileSize(r.file_size)} ·{" "}
+                        <span className="uppercase">{r.file_type}</span>
+                      </p>
+                    </div>
+                    <ResourceLink path={r.file_url} fileName={r.title} />
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => onDeleteResource(r)}
+                      className="text-muted-foreground hover:text-destructive shrink-0"
+                      title="Delete resource"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              No resources uploaded yet.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

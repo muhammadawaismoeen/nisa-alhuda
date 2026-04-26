@@ -26,7 +26,9 @@ import type {
   MonthlyPayment,
   Offering,
   Enrollment,
+  Resource,
 } from "@/lib/types/database";
+import { partitionLessons } from "@/lib/resource-helpers";
 
 export default async function StudentLearningHubPage({
   params,
@@ -95,7 +97,11 @@ export default async function StudentLearningHubPage({
     .eq("offering_id", id)
     .order("sort_order", { ascending: true });
 
-  // Fetch all published lessons for this offering
+  // Fetch all published lessons for this offering. We'll partition each
+  // subject's lessons into "Resources" (no schedule + no live link → just
+  // a holder for downloadable files) and "Classes" (real scheduled or
+  // live-linked sessions). Resources are surfaced as a separate top
+  // block per subject; Classes go in the lesson list.
   const { data: lessons } = await supabase
     .from("lessons")
     .select("*")
@@ -103,15 +109,51 @@ export default async function StudentLearningHubPage({
     .eq("is_published", true)
     .order("sort_order", { ascending: true });
 
-  // Group lessons by subject
+  const allLessons: Lesson[] = (lessons as Lesson[]) || [];
+
+  // Group lessons by subject, then split into Resources vs Classes.
   const lessonsBySubject: Record<string, Lesson[]> = {};
-  (lessons || []).forEach((lesson: Lesson) => {
+  allLessons.forEach((lesson) => {
     const sid = lesson.subject_id || "__no_subject__";
     if (!lessonsBySubject[sid]) lessonsBySubject[sid] = [];
     lessonsBySubject[sid].push(lesson);
   });
 
-  const totalLessons = lessons?.length || 0;
+  const classLessonsBySubject: Record<string, Lesson[]> = {};
+  const resourceLessonIdsBySubject: Record<string, string[]> = {};
+  for (const [sid, ls] of Object.entries(lessonsBySubject)) {
+    const { resourceLessons, classLessons } = partitionLessons(ls);
+    classLessonsBySubject[sid] = classLessons;
+    resourceLessonIdsBySubject[sid] = resourceLessons.map((l) => l.id);
+  }
+
+  // Pull every resource attached to any of the resource-holder lessons
+  // across the offering, in one shot. We then group them per subject so
+  // the accordion can show them under the Resources heading.
+  const allResourceLessonIds = Object.values(resourceLessonIdsBySubject).flat();
+  let resourcesBySubject: Record<string, Resource[]> = {};
+  if (allResourceLessonIds.length > 0) {
+    const { data: resourcesRows } = await supabase
+      .from("resources")
+      .select("*")
+      .in("lesson_id", allResourceLessonIds)
+      .order("created_at", { ascending: false });
+    const lessonIdToSubject: Record<string, string> = {};
+    for (const [sid, ids] of Object.entries(resourceLessonIdsBySubject)) {
+      for (const id of ids) lessonIdToSubject[id] = sid;
+    }
+    for (const r of (resourcesRows as Resource[]) || []) {
+      const sid = lessonIdToSubject[r.lesson_id];
+      if (!sid) continue;
+      if (!resourcesBySubject[sid]) resourcesBySubject[sid] = [];
+      resourcesBySubject[sid].push(r);
+    }
+  }
+
+  // The "lessons" the student sees as actual classes excludes resource
+  // holders — counts and progress should only consider real classes.
+  const classLessonsFlat = Object.values(classLessonsBySubject).flat();
+  const totalLessons = classLessonsFlat.length;
 
   // Fetch student's progress for this offering
   const { data: progress } = await supabase
@@ -127,10 +169,10 @@ export default async function StudentLearningHubPage({
   const completionPct =
     totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
-  // Determine upcoming lesson
+  // Determine upcoming lesson — only real classes can be "upcoming".
   const now = new Date();
-  const upcomingLesson = (lessons || []).find(
-    (l: Lesson) => l.scheduled_at && new Date(l.scheduled_at) > now
+  const upcomingLesson = classLessonsFlat.find(
+    (l) => l.scheduled_at && new Date(l.scheduled_at) > now
   );
 
   return (
@@ -317,7 +359,8 @@ export default async function StudentLearningHubPage({
       ) : (
         <SubjectAccordion
           subjects={subjects as (Subject & { instructor: { full_name: string } | null })[]}
-          lessonsBySubject={lessonsBySubject}
+          lessonsBySubject={classLessonsBySubject}
+          resourcesBySubject={resourcesBySubject}
           completedLessonIds={completedLessonIds}
           offeringId={id}
         />

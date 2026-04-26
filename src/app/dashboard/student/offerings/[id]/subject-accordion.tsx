@@ -17,23 +17,51 @@ import {
   CheckCircle,
   Circle,
   Loader2,
+  FileText,
+  Image as ImageIcon,
+  File as FileIcon,
+  Download,
+  ExternalLink,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import type { Subject, Lesson } from "@/lib/types/database";
+import type { Subject, Lesson, Resource } from "@/lib/types/database";
 
 interface SubjectAccordionProps {
   subjects: (Subject & { instructor: { full_name: string } | null })[];
   lessonsBySubject: Record<string, Lesson[]>;
+  resourcesBySubject: Record<string, Resource[]>;
   completedLessonIds: string[];
   offeringId: string;
+}
+
+const FILE_ICON_MAP: Record<string, typeof FileText> = {
+  pdf: FileText,
+  doc: FileText,
+  docx: FileText,
+  txt: FileText,
+  png: ImageIcon,
+  jpg: ImageIcon,
+  jpeg: ImageIcon,
+  webp: ImageIcon,
+};
+function getFileIcon(name: string) {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  return FILE_ICON_MAP[ext] || FileIcon;
+}
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function SubjectAccordion({
   subjects,
   lessonsBySubject,
+  resourcesBySubject,
   completedLessonIds,
   offeringId,
 }: SubjectAccordionProps) {
@@ -198,7 +226,7 @@ export function SubjectAccordion({
               />
             </button>
 
-            {/* Subject Description + Lessons */}
+            {/* Subject Description + Resources + Classes */}
             {isOpen && (
               <CardContent className="pt-0 pb-4 px-4">
                 {subject.description && (
@@ -207,14 +235,61 @@ export function SubjectAccordion({
                   </p>
                 )}
 
+                {/* Resources block — surfaces the subject's downloadable
+                    files at the top of the expanded panel. */}
+                {(resourcesBySubject[subject.id]?.length ?? 0) > 0 && (
+                  <div className="ml-3 mb-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-primary" />
+                      Resources
+                      <span className="font-normal normal-case tracking-normal">
+                        · downloadable for this subject
+                      </span>
+                    </h4>
+                    <div className="space-y-2">
+                      {resourcesBySubject[subject.id]!.map((r) => {
+                        const Icon = getFileIcon(r.title);
+                        return (
+                          <div
+                            key={r.id}
+                            className="flex items-center gap-3 rounded-lg border bg-background p-2.5"
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                              <Icon className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {r.title}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(r.file_size)} ·{" "}
+                                <span className="uppercase">{r.file_type}</span>
+                              </p>
+                            </div>
+                            <ResourceActions
+                              path={r.file_url}
+                              fileName={r.title}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Classes (real scheduled or live-linked sessions) */}
                 {lessons.length === 0 ? (
                   <div className="ml-12 py-6 text-center">
                     <p className="text-sm text-muted-foreground">
-                      Lessons coming soon for this subject.
+                      Classes coming soon for this subject.
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-2 ml-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5 text-primary" />
+                      Classes
+                    </h4>
                     {lessons.map((lesson, lessonIndex) => (
                       <LessonCard
                         key={lesson.id}
@@ -329,7 +404,7 @@ function LessonCard({
         </div>
       </div>
 
-      {/* Action buttons */}
+      {/* Action buttons (defined further down) */}
       <div className="flex items-center gap-2 shrink-0">
         {/* Live class link */}
         {lesson.live_class_link && isUpcoming && (
@@ -357,6 +432,92 @@ function LessonCard({
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Open + Download buttons for a private resource. Uses createSignedUrl
+ * (10-min window). Download forces Content-Disposition: attachment so
+ * the browser actually saves the file rather than previewing it.
+ */
+function ResourceActions({
+  path,
+  fileName,
+}: {
+  path: string;
+  fileName?: string;
+}) {
+  const [busy, setBusy] = useState<"open" | "download" | null>(null);
+
+  async function getUrl(forDownload: boolean): Promise<string | null> {
+    const supabase = createClient();
+    const opts = forDownload ? { download: fileName || true } : undefined;
+    const { data, error } = await supabase.storage
+      .from("resources")
+      .createSignedUrl(path, 60 * 10, opts);
+    if (error || !data?.signedUrl) {
+      toast.error("Could not get this file. Please try again.");
+      return null;
+    }
+    return data.signedUrl;
+  }
+
+  async function handleOpen() {
+    setBusy("open");
+    try {
+      const url = await getUrl(false);
+      if (url) window.open(url, "_blank", "noopener,noreferrer");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDownload() {
+    setBusy("download");
+    try {
+      const url = await getUrl(true);
+      if (!url) return;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName || "";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={handleOpen}
+        disabled={busy !== null}
+        title="Open in new tab"
+      >
+        {busy === "open" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <ExternalLink className="h-3.5 w-3.5" />
+        )}
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={handleDownload}
+        disabled={busy !== null}
+        title="Download"
+      >
+        {busy === "download" ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Download className="h-3.5 w-3.5" />
+        )}
+      </Button>
     </div>
   );
 }
