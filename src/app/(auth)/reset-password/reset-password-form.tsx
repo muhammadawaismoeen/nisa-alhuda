@@ -3,19 +3,25 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, KeyRound, Loader2, Lock } from "lucide-react";
+import { AlertCircle, KeyRound, Loader2, Lock, Mail } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 /**
- * Password reset form. Expects the user to land here with an active
- * recovery session — which is only true if they came through
- * /auth/callback (which exchanges the ?code= for a session). If no
- * session exists we show an expired-link error instead of a form that
- * would silently fail on submit.
+ * Password reset form. Two paths to a usable session:
+ *   1. Link path — user clicked the reset email and /auth/callback
+ *      verified a token, leaving an active recovery session in cookies.
+ *   2. Code path — user pastes the 6-digit code from the email plus
+ *      their email address. We call verifyOtp({ type: 'recovery' })
+ *      directly, which works regardless of which device/browser the
+ *      email was opened in and is immune to email-scanner pre-clicks.
+ *
+ * If neither path produced a session yet, we show the code-entry form
+ * instead of a dead-end "expired" error.
  */
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -25,12 +31,49 @@ export function ResetPasswordForm() {
     "checking" | "ready" | "missing"
   >("checking");
 
+  // Code-entry path (only used when sessionState === "missing").
+  const [codeEmail, setCodeEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [verifyingCode, setVerifyingCode] = useState(false);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data }) => {
       setSessionState(data.session ? "ready" : "missing");
     });
   }, []);
+
+  async function handleVerifyCode(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const trimmed = code.trim().replace(/\s+/g, "");
+    if (!codeEmail.trim() || !trimmed) {
+      toast.error("Please enter both your email and the 6-digit code.");
+      return;
+    }
+    setVerifyingCode(true);
+    try {
+      const supabase = createClient();
+      // verifyOtp with type "recovery" creates a session bound to the
+      // user. If it succeeds we flip into the password form below; if it
+      // fails the toast tells the user to request a fresh email.
+      const { error } = await supabase.auth.verifyOtp({
+        type: "recovery",
+        email: codeEmail.trim(),
+        token: trimmed,
+      });
+      if (error) {
+        toast.error(
+          error.message ||
+            "That code didn't work. Request a fresh email and try again."
+        );
+        return;
+      }
+      setSessionState("ready");
+      toast.success("Code accepted — set your new password.");
+    } finally {
+      setVerifyingCode(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -78,68 +121,121 @@ export function ResetPasswordForm() {
   if (sessionState === "missing") {
     return (
       <div className="space-y-4 py-2">
-        <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-          <div className="space-y-1">
-            <p className="font-medium text-destructive">
-              This reset link is invalid or has expired.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Reset links work for one use only. The most common reasons this
-              fails:
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <p className="text-sm font-medium text-foreground">
+            Enter the 6-digit code from your reset email.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            The link in the email may have been pre-clicked by your inbox&apos;s
+            spam scanner — entering the code below works regardless.
+          </p>
+        </div>
+
+        <form onSubmit={handleVerifyCode} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="codeEmail">Your email</Label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="codeEmail"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="aisha@example.com"
+                className="h-11 pl-10"
+                value={codeEmail}
+                onChange={(e) => setCodeEmail(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="code">6-digit code from email</Label>
+            <Input
+              id="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              className="h-11 tracking-[0.4em] text-center font-mono text-base"
+              maxLength={8}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Open the reset email — the code is shown right under the
+              &ldquo;Reset password&rdquo; button.
             </p>
           </div>
-        </div>
-        <ul className="space-y-2 rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
-          <li className="flex gap-2">
-            <span className="text-primary">•</span>
-            <span>
-              Your email provider (Outlook, corporate Gmail) automatically
-              scanned the link before you clicked it, using up the one-time
-              token. Try requesting a new link and clicking it within 30 seconds.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-primary">•</span>
-            <span>
-              You requested the reset on one device but clicked the email on
-              another. Use the same browser for both steps.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-primary">•</span>
-            <span>The link is older than 24 hours.</span>
-          </li>
-        </ul>
-        <div className="flex flex-col gap-2 sm:flex-row">
+
+          <Button
+            type="submit"
+            disabled={verifyingCode}
+            className="h-11 w-full rounded-full text-sm font-semibold"
+          >
+            {verifyingCode ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Verifying…
+              </>
+            ) : (
+              <>
+                <KeyRound className="mr-2 h-4 w-4" />
+                Verify code
+              </>
+            )}
+          </Button>
+        </form>
+
+        <div className="flex flex-col gap-2 pt-1 sm:flex-row">
           <Link
             href="/forgot-password"
             className={buttonVariants({
-              className: "h-11 flex-1 rounded-full text-sm font-semibold",
+              variant: "outline",
+              className: "h-10 flex-1 rounded-full text-sm font-medium",
             })}
           >
-            Request new link
+            Send a fresh email
           </Link>
           <Link
             href="/login"
             className={buttonVariants({
-              variant: "outline",
-              className: "h-11 flex-1 rounded-full text-sm font-semibold",
+              variant: "ghost",
+              className: "h-10 flex-1 rounded-full text-sm font-medium",
             })}
           >
             Back to login
           </Link>
         </div>
-        <p className="text-center text-xs text-muted-foreground">
-          Still stuck? Email{" "}
-          <a
-            href="mailto:support@nisaalhuda.org"
-            className="font-medium text-primary hover:underline"
-          >
-            support@nisaalhuda.org
-          </a>{" "}
-          — an admin can reset your password manually.
-        </p>
+
+        <details className="rounded-xl border bg-muted/20 p-3 text-xs text-muted-foreground">
+          <summary className="cursor-pointer font-medium text-foreground">
+            <AlertCircle className="inline h-3.5 w-3.5 mr-1 -mt-0.5" />
+            Why doesn&apos;t the link in the email just work?
+          </summary>
+          <ul className="mt-2 space-y-1.5 pl-4 list-disc">
+            <li>
+              Outlook and corporate Gmail accounts &ldquo;pre-click&rdquo; links
+              to scan for malware — using up the one-time token before you do.
+            </li>
+            <li>
+              Opening the email on a different device than where you requested
+              the reset.
+            </li>
+            <li>The link is older than 24 hours.</li>
+          </ul>
+          <p className="mt-2">
+            The 6-digit code path above bypasses all three. Still stuck? Email{" "}
+            <a
+              href="mailto:support@nisaalhuda.org"
+              className="font-medium text-primary hover:underline"
+            >
+              support@nisaalhuda.org
+            </a>
+            .
+          </p>
+        </details>
       </div>
     );
   }
