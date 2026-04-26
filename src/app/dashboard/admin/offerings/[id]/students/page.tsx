@@ -22,7 +22,26 @@ import { EnrollDialog } from "./enroll-dialog";
 
 type EnrollmentWithDetails = Enrollment & {
   student_details: (StudentDetails & { country?: string }) | null;
+  student?: { full_name: string | null } | null;
 };
+
+/**
+ * Resolves the best display name for an enrollment row, in order of
+ * preference: student_details first+last → profile.full_name → email
+ * local part. We need this fallback because admin-approved enrollments
+ * (paid out-of-band) and bulk-imported rows often have an empty
+ * student_details JSON, which used to render as "undefined undefined".
+ */
+function resolveDisplayName(r: EnrollmentWithDetails): string {
+  const d = r.student_details;
+  const first = d?.first_name?.trim();
+  const last = d?.last_name?.trim();
+  if (first || last) return [first, last].filter(Boolean).join(" ");
+  const profileName = r.student?.full_name?.trim();
+  if (profileName) return profileName;
+  if (r.applicant_email) return r.applicant_email.split("@")[0];
+  return "—";
+}
 
 export default async function OfferingStudentsPage({
   params,
@@ -41,10 +60,14 @@ export default async function OfferingStudentsPage({
 
   if (!offering) notFound();
 
-  // Fetch all approved enrollments with student details
+  // Fetch all approved enrollments with student details + a profile join
+  // so we can fall back to profile.full_name when student_details JSON is
+  // empty (e.g. admin-approved rows that skipped the wizard).
   const { data: enrollments } = await supabase
     .from("enrollments")
-    .select("*")
+    .select(
+      "*, student:profiles!enrollments_student_id_fkey(full_name)"
+    )
     .eq("offering_id", id)
     .eq("status", "approved")
     .order("created_at", { ascending: false });
@@ -112,15 +135,13 @@ export default async function OfferingStudentsPage({
                   <tbody>
                     {rows.map((r) => {
                       const d = r.student_details;
-                      const fullName = d
-                        ? `${d.first_name} ${d.last_name}`.trim()
-                        : "—";
+                      const fullName = resolveDisplayName(r);
                       const cityCountry = d
                         ? [d.city, d.country].filter(Boolean).join(", ") || "—"
                         : "—";
                       return (
                         <tr key={r.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="px-4 py-3 font-medium">{fullName || "—"}</td>
+                          <td className="px-4 py-3 font-medium">{fullName}</td>
                           <td className="px-4 py-3 text-muted-foreground">
                             {r.applicant_email || "—"}
                           </td>
@@ -156,9 +177,7 @@ export default async function OfferingStudentsPage({
           <div className="md:hidden space-y-3">
             {rows.map((r) => {
               const d = r.student_details;
-              const fullName = d
-                ? `${d.first_name} ${d.last_name}`.trim()
-                : "—";
+              const fullName = resolveDisplayName(r);
               const cityCountry = d
                 ? [d.city, d.country].filter(Boolean).join(", ") || "—"
                 : "—";
@@ -166,7 +185,7 @@ export default async function OfferingStudentsPage({
                 <Card key={r.id}>
                   <CardContent className="p-4 space-y-2">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">{fullName || "—"}</h3>
+                      <h3 className="font-semibold">{fullName}</h3>
                       <span className="text-xs text-muted-foreground">
                         {new Date(r.created_at).toLocaleDateString("en-PK", {
                           month: "short",
