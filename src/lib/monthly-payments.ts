@@ -158,11 +158,11 @@ export function monthlyAmountForEnrollment(
 }
 
 /**
- * Produces a display label for the amount — "Rs. 3,000" / "₹1,500" / "$35".
+ * Produces a display label for the amount — "PKR 3,000" / "₹1,500" / "$35".
  */
 export function formatMonthlyAmount(amount: number, currency: string): string {
   const c = (currency || "PKR").toUpperCase();
-  if (c === "USD") return `$${amount.toLocaleString()}`;
-  if (c === "INR") return `₹${amount.toLocaleString()}`;
-  return `Rs. ${amount.toLocaleString()}`;
+  if (c === "USD") return `USD ${amount.toLocaleString()}`;
+  if (c === "INR") return `INR ${amount.toLocaleString()}`;
+  return `PKR ${amount.toLocaleString()}`;
 }

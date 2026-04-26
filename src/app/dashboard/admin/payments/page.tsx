@@ -165,13 +165,13 @@ export default async function PaymentLedgerPage() {
               </p>
             </div>
             <p className="text-2xl font-bold text-green-700 dark:text-green-500">
-              Rs. {revenuePkr.toLocaleString("en-PK")}
+              PKR {revenuePkr.toLocaleString("en-PK")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Total approved (PKR)
               {pendingPkr > 0 && (
                 <span className="block mt-0.5 text-amber-600">
-                  Rs. {pendingPkr.toLocaleString("en-PK")} pending
+                  PKR {pendingPkr.toLocaleString("en-PK")} pending
                 </span>
               )}
             </p>

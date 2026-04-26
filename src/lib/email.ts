@@ -201,10 +201,10 @@ function formatEmailAmount(
   currency: "PKR" | "INR" | "USD"
 ): string {
   if (currency === "USD")
-    return `$${amount.toLocaleString("en-US")}`;
+    return `USD ${amount.toLocaleString("en-US")}`;
   if (currency === "INR")
     return `\u20B9${amount.toLocaleString("en-IN")}`;
-  return `Rs. ${amount.toLocaleString("en-PK")}`;
+  return `PKR ${amount.toLocaleString("en-PK")}`;
 }
 
 /**

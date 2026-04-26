@@ -148,7 +148,7 @@ export function FaReceiptUpload({
                 <p className="text-amber-800 dark:text-amber-300">
                   Your reduced fee for <strong>{offeringTitle}</strong> is{" "}
                   <strong>
-                    Rs. {Number(approvedAmount).toLocaleString()}
+                    PKR {Number(approvedAmount).toLocaleString()}
                   </strong>
                   . Please transfer this amount and upload your receipt below.
                 </p>

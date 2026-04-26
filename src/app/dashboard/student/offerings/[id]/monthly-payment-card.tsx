@@ -42,7 +42,7 @@ export function MonthlyPaymentCard({
 }: MonthlyPaymentCardProps) {
   // Full-waiver branch: FA-approved with 0 reduced fee on a monthly offering.
   // The student owes nothing — show a celebratory fee-waived card instead of
-  // the uploader + payment history, which would otherwise show "Rs. 0 per month"
+  // the uploader + payment history, which would otherwise show "PKR 0 per month"
   // and an upload prompt for nothing.
   if (monthlyAmount === 0) {
     return <FullyWaivedCard />;

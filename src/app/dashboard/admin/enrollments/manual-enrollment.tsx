@@ -214,7 +214,7 @@ export function ManualEnrollment({
               <option value="">Select an offering...</option>
               {offerings.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.title} (Rs. {o.price.toLocaleString()})
+                  {o.title} (PKR {o.price.toLocaleString()})
                 </option>
               ))}
             </select>

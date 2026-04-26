@@ -54,7 +54,7 @@ export function FaActions({
 }: FaActionsProps) {
   const currencyLabel = paymentCurrency;
   const currencySymbol =
-    paymentCurrency === "USD" ? "$" : paymentCurrency === "INR" ? "₹" : "Rs.";
+    paymentCurrency === "USD" ? "$" : paymentCurrency === "INR" ? "₹" : "PKR";
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"main" | "reject">("main");

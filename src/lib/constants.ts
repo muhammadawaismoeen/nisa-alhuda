@@ -10,13 +10,19 @@ export const APP_DESCRIPTION =
 
 export const CURRENCY = {
   code: "PKR",
-  symbol: "Rs.",
+  /**
+   * Display prefix used everywhere a price is rendered. We use the ISO
+   * code "PKR" rather than "Rs." because non-Pakistani sisters reading
+   * the marketing copy didn't always recognise "Rs." (and "/mo" felt
+   * cryptic) — "PKR 3,000 per month" is unambiguous globally.
+   */
+  symbol: "PKR",
   locale: "en-PK",
 } as const;
 
 /**
  * Format a price in PKR for display.
- * formatPrice(5000) → "Rs. 5,000"
+ * formatPrice(5000) → "PKR 5,000"
  * formatPrice(0)    → "Free"
  */
 export function formatPrice(amount: number): string {
@@ -26,21 +32,21 @@ export function formatPrice(amount: number): string {
 
 /**
  * Format price with fee type suffix.
- * formatPriceWithFee(2000, "monthly") → "Rs. 2,000/mo"
- * formatPriceWithFee(5000, "one_time") → "Rs. 5,000"
+ * formatPriceWithFee(2000, "monthly")  → "PKR 2,000 per month"
+ * formatPriceWithFee(5000, "one_time") → "PKR 5,000"
  */
 export function formatPriceWithFee(amount: number, feeType: string): string {
   if (amount === 0) return "Free";
   const base = `${CURRENCY.symbol} ${amount.toLocaleString(CURRENCY.locale)}`;
-  return feeType === "monthly" ? `${base}/mo` : base;
+  return feeType === "monthly" ? `${base} per month` : base;
 }
 
 /**
  * Format a paid amount using the currency the student actually paid in.
  * Used on admin dashboards where a single enrollment list mixes PKR / INR / USD payments.
- * formatPaidAmount(15, "USD") → "$15"
- * formatPaidAmount(2000, "INR") → "₹2,000"
- * formatPaidAmount(5000, "PKR") → "Rs. 5,000"
+ * formatPaidAmount(15, "USD")    → "USD 15"
+ * formatPaidAmount(2000, "INR")  → "INR 2,000"
+ * formatPaidAmount(5000, "PKR")  → "PKR 5,000"
  */
 export function formatPaidAmount(
   amount: number,
@@ -49,15 +55,15 @@ export function formatPaidAmount(
   if (amount === 0) return "Free";
   const code = (currency || "PKR").toUpperCase();
   if (code === "USD") {
-    return `$${amount.toLocaleString("en-US", {
+    return `USD ${amount.toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     })}`;
   }
   if (code === "INR") {
-    return `₹${amount.toLocaleString("en-IN")}`;
+    return `INR ${amount.toLocaleString("en-IN")}`;
   }
-  return `Rs. ${amount.toLocaleString("en-PK")}`;
+  return `PKR ${amount.toLocaleString("en-PK")}`;
 }
 
 export const ROLES = {

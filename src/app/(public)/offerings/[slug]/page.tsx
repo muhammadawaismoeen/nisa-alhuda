@@ -306,7 +306,7 @@ export default async function OfferingDetailPage({
                         <p className="mt-1 text-xs text-muted-foreground">
                           🇮🇳 India: ₹
                           {Number(offering.price_inr).toLocaleString("en-IN")}
-                          {offering.fee_type === "monthly" ? "/mo" : ""}
+                          {offering.fee_type === "monthly" ? " per month" : ""}
                         </p>
                       )}
                       {offering.price_usd && offering.price_usd > 0 && (
@@ -317,7 +317,7 @@ export default async function OfferingDetailPage({
                             maximumFractionDigits: 2,
                           })}{" "}
                           USD
-                          {offering.fee_type === "monthly" ? "/mo" : ""}
+                          {offering.fee_type === "monthly" ? " per month" : ""}
                         </p>
                       )}
                     </div>

@@ -149,7 +149,7 @@ export default async function AdminDashboardPage() {
               </div>
             </div>
             <p className="text-3xl font-bold">
-              Rs. {totalRevenue.toLocaleString()}
+              PKR {totalRevenue.toLocaleString()}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               from approved enrollments

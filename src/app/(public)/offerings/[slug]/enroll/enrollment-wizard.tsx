@@ -1013,7 +1013,7 @@ export function EnrollmentWizard({
                         ? "$"
                         : paymentRegion === "in"
                           ? "₹"
-                          : "Rs."}
+                          : "PKR"}
                     </span>
                     <Input
                       id="faOfferedAmount"
@@ -1061,9 +1061,9 @@ export function EnrollmentWizard({
                   <p className="text-sm text-muted-foreground mb-1">Amount</p>
                   <p className="text-2xl font-bold text-primary">
                     {paymentRegion === "intl"
-                      ? `$${(offeringPriceUsd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD${offeringFeeType === "monthly" ? "/mo" : ""}`
+                      ? `$${(offeringPriceUsd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD${offeringFeeType === "monthly" ? " per month" : ""}`
                       : paymentRegion === "in" && hasInrPrice
-                        ? `₹${(offeringPriceInr ?? 0).toLocaleString("en-IN")}${offeringFeeType === "monthly" ? "/mo" : ""}`
+                        ? `₹${(offeringPriceInr ?? 0).toLocaleString("en-IN")}${offeringFeeType === "monthly" ? " per month" : ""}`
                         : formatPriceWithFee(offeringPrice, offeringFeeType)}
                   </p>
                 </div>

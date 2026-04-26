@@ -202,7 +202,7 @@ export default async function StudentEnrollmentsPage() {
                         <div className="mt-3 p-3 rounded-lg bg-amber-100/70 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700">
                           <p className="text-sm text-amber-900 dark:text-amber-200">
                             <strong>
-                              Your FA was approved for Rs.{" "}
+                              Your FA was approved for PKR{" "}
                               {Number(
                                 enrollment.fa_approved_amount
                               ).toLocaleString()}
