@@ -158,28 +158,12 @@ export function RecordingPlayer({ url, children }: Props) {
       </button>
 
       {isOpen && (
-        <>
-          {/* Crop the YouTube iframe via CSS transform: scale + the
-              wrapper's overflow:hidden together clip ~9% off every
-              edge. That's enough to push YouTube's title overlay
-              (top), the wordmark + 'share' chain (bottom corners), and
-              any side branding off-screen — without inserting any
-              overlay element on top of the player. Plyr's own controls
-              are siblings of this iframe (not inside .plyr__video-embed)
-              so they are NOT scaled and remain pixel-perfect. */}
-          <style>{`
-            .nh-plyr-crop .plyr__video-embed iframe {
-              transform: scale(1.18) !important;
-              transform-origin: center !important;
-            }
-          `}</style>
-          <div
-            className="nh-plyr-crop relative w-full overflow-hidden rounded-lg border bg-black"
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            <div ref={mountRef} className="plyr__video-embed" />
-          </div>
-        </>
+        <div
+          className="relative w-full overflow-hidden rounded-lg border bg-black"
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <div ref={mountRef} className="plyr__video-embed" />
+        </div>
       )}
     </div>
   );
