@@ -40,6 +40,12 @@ import "plyr/dist/plyr.css";
 interface Props {
   url: string;
   /**
+   * Lesson title shown in our own overlay strip at the top of the
+   * player — covers YouTube's clickable title/channel overlay (which
+   * navigates to youtube.com when clicked).
+   */
+  title?: string;
+  /**
    * Rendered when `url` is NOT a YouTube URL — typically a "Watch
    * recording" link button. Lets non-YouTube call sites work as before.
    */
@@ -54,7 +60,7 @@ const PLYR_THEME: CSSProperties = {
   ["--plyr-color-main" as any]: "#8b1a4a",
 };
 
-export function RecordingPlayer({ url, children }: Props) {
+export function RecordingPlayer({ url, title, children }: Props) {
   // Hooks must be unconditional — keep above any early return.
   const [isOpen, setIsOpen] = useState(false);
   const mountRef = useRef<HTMLDivElement>(null);
@@ -163,6 +169,62 @@ export function RecordingPlayer({ url, children }: Props) {
           onContextMenu={(e) => e.preventDefault()}
         >
           <div ref={mountRef} className="plyr__video-embed" />
+
+          {/* Top title strip — covers YouTube's clickable
+              title/channel overlay (which navigates to youtube.com on
+              click) and shows our own non-clickable label instead.
+              pointer-events:none lets pause/seek-on-tap fall through
+              to the player below. */}
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-30 bg-gradient-to-b from-black via-black/85 to-transparent px-4 pt-3 pb-10"
+            aria-hidden="true"
+          >
+            <p className="line-clamp-1 text-sm font-semibold text-white sm:text-base">
+              {title ?? "Class recording"}
+            </p>
+            <p className="mt-0.5 text-xs text-white/70">
+              Nisa Al-Huda
+            </p>
+          </div>
+
+          {/* Bottom-right cover — opaque tile over the YouTube
+              wordmark that pokes through Plyr's controls bar in some
+              builds. Sized + positioned to sit between Plyr's volume
+              slider and the settings/fullscreen icons. Click events
+              are swallowed so even if the wordmark text peeks out it
+              isn't actionable. */}
+          <div
+            aria-hidden="true"
+            tabIndex={-1}
+            className="absolute z-30 bg-black"
+            style={{ bottom: "8px", right: "70px", width: "90px", height: "32px" }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+
+          {/* Bottom-left cover — opaque tile over YouTube's
+              "share / copy link" chain icon, which is rendered by
+              YouTube outside Plyr's controls. */}
+          <div
+            aria-hidden="true"
+            tabIndex={-1}
+            className="absolute z-30 bg-black"
+            style={{ bottom: "8px", left: "8px", width: "44px", height: "32px" }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
         </div>
       )}
     </div>
