@@ -163,6 +163,32 @@ export function RecordingPlayer({ url, children }: Props) {
           onContextMenu={(e) => e.preventDefault()}
         >
           <div ref={mountRef} className="plyr__video-embed" />
+
+          {/* Transparent click absorber over YouTube's title/channel
+              overlay at the top of the iframe. The title itself is
+              rendered inside the iframe (cross-origin — we can't reach
+              it directly), but our absorber sits ABOVE the iframe in
+              z-stack and swallows the click before it reaches the
+              underlying link. No background colour → invisible to the
+              eye, the title text still shows through.
+              The click is forwarded to Plyr's togglePlay so tap-to-
+              pause UX is preserved. */}
+          <div
+            aria-hidden="true"
+            tabIndex={-1}
+            className="absolute inset-x-0 top-0 z-10"
+            style={{ height: "75px" }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (playerRef.current as any)?.togglePlay?.();
+              } catch {
+                // Player not yet ready — silently ignore.
+              }
+            }}
+          />
         </div>
       )}
     </div>
