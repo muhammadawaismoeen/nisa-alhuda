@@ -47,6 +47,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { LessonForm } from "./lesson-form";
 import { partitionLessons, isExternalUrl } from "@/lib/resource-helpers";
+import { RecordingPlayer } from "@/components/lesson/recording-player";
 import type { Lesson, Resource } from "@/lib/types/database";
 
 interface LessonListProps {
@@ -541,16 +542,18 @@ function ClassCard({
               )}
 
               {lesson.recording_url ? (
-                <a
-                  href={lesson.recording_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 py-1.5 transition-colors"
-                >
-                  <PlayCircle className="h-3.5 w-3.5" />
-                  Watch recording
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+                <RecordingPlayer url={lesson.recording_url}>
+                  <a
+                    href={lesson.recording_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 py-1.5 transition-colors"
+                  >
+                    <PlayCircle className="h-3.5 w-3.5" />
+                    Watch recording
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </RecordingPlayer>
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium px-3 py-1.5">
                   No recording yet
