@@ -1,67 +1,147 @@
 "use client";
 
 /**
- * RecordingPlayer — collapsible YouTube embed for class recordings.
+ * RecordingPlayer — collapsible YouTube embed wrapped in Plyr.
  *
- * For a YouTube URL: renders a "Watch recording ▼" button. Clicking it
- * mounts an inline 16:9 iframe below. Clicking again unmounts the
- * iframe. Because the iframe is mounted lazily, the YouTube URL is NOT
- * in the page's initial DOM — View Source on the page shows only the
- * button, not the recording URL.
+ * Why Plyr (not the bare YouTube iframe): Plyr replaces YouTube's native
+ * control bar with its own custom controls. That means the YouTube
+ * wordmark, the "share / copy link" chain icon, and the on-pause
+ * "Watch on YouTube" overlay all stop being part of the player UI —
+ * Plyr's own controls sit on top of the iframe and there's no surface
+ * the student can click to leak the URL.
  *
- * Defenses against casual link extraction:
- *   - youtube-nocookie.com privacy-enhanced embed domain
- *   - lazy mount (URL not in initial DOM; closing unmounts and removes
- *     it from the live DOM too)
- *   - context menu (right-click) suppressed on the wrapper
- *   - picture-in-picture disabled (no popout window)
- *   - clipboard-write disabled (YouTube's Share button can't copy)
- *   - modestbranding + rel=0 + iv_load_policy=3 (clean, no related videos
- *     or annotations)
+ * Defenses delivered:
+ *   - Custom controls (no YouTube branding visible at all)
+ *   - youtube-nocookie.com privacy domain
+ *   - Lazy mount (Plyr only initialises once the student clicks Watch)
+ *   - Iframe destroyed on close so the URL leaves the live DOM
+ *   - Right-click suppressed on the wrapper AND in Plyr's
+ *     `disableContextMenu` option
+ *   - Picture-in-picture and airplay buttons not in the controls list
  *
- * What it does NOT block (browser-tech limitations, document for honesty):
- *   - DevTools inspection of the iframe src after the user opens the
- *     player. Mitigated by lazy mount + immediate unmount on close.
- *   - OS-level screen recording / screenshot. Impossible to prevent on
- *     any web platform without DRM.
- *   - Clicking the small YouTube logo in the player's controls bar
- *     (it can navigate to youtube.com). modestbranding hides it on
- *     most modern Chromium versions but YouTube has been deprecating
- *     this — full removal needs a paid DRM player.
+ * What it does NOT defend against (browser tech limit):
+ *   - DevTools inspection of the live iframe src once Plyr has booted.
+ *     Anyone with DevTools open can read the src. The lazy mount +
+ *     destroy-on-close raises the bar but cannot eliminate it. Full
+ *     mitigation requires DRM (Mux / Cloudflare Stream / Vimeo OTT).
+ *   - OS-level screen recording / screenshot. Impossible on any web
+ *     platform without DRM.
  *
- * For non-YouTube URLs (Zoom, Drive, Vimeo, etc.) the component renders
- * the `children` prop unchanged — letting each call site keep its own
- * existing "Watch" link button styling.
+ * For non-YouTube URLs (Zoom, Drive, Vimeo, ...) the component renders
+ * the `children` prop unchanged so each call site keeps its own link
+ * UI.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { ChevronDown, ChevronUp, PlayCircle } from "lucide-react";
 import { extractYouTubeId } from "@/lib/video-helpers";
+import "plyr/dist/plyr.css";
 
 interface Props {
   url: string;
   /**
    * Rendered when `url` is NOT a YouTube URL — typically a "Watch
-   * recording" link button. Lets non-YouTube call sites keep working
-   * without changes.
+   * recording" link button. Lets non-YouTube call sites work as before.
    */
   children?: React.ReactNode;
-  /** Accessible iframe title. Defaults to "Class recording". */
-  title?: string;
 }
 
-export function RecordingPlayer({ url, children, title = "Class recording" }: Props) {
-  // Hook must be called unconditionally — keep above any early return.
+// Plyr brand override — match the LMS primary colour for the progress
+// bar and accents (default is YouTube red).
+const PLYR_THEME: CSSProperties = {
+  // Plyr's CSS variables — strings, applied via inline style.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ["--plyr-color-main" as any]: "#8b1a4a",
+};
+
+export function RecordingPlayer({ url, children }: Props) {
+  // Hooks must be unconditional — keep above any early return.
   const [isOpen, setIsOpen] = useState(false);
+  const mountRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerRef = useRef<any>(null);
 
   const id = extractYouTubeId(url);
+
+  // Boot Plyr when the player opens; tear it down when it closes (or
+  // the component unmounts). This is what removes the iframe URL from
+  // the live DOM after the student clicks Hide.
+  useEffect(() => {
+    if (!isOpen || !id || !mountRef.current) return;
+
+    let cancelled = false;
+    const host = mountRef.current;
+
+    (async () => {
+      // Dynamic import keeps Plyr (~15 KB) out of the initial JS bundle.
+      const Plyr = (await import("plyr")).default;
+      if (cancelled || !host) return;
+
+      // Plyr discovers YouTube videos via a div with these data attrs;
+      // it then constructs the iframe internally with our youtube
+      // options applied.
+      const target = document.createElement("div");
+      target.setAttribute("data-plyr-provider", "youtube");
+      target.setAttribute("data-plyr-embed-id", id);
+      host.replaceChildren(target);
+
+      playerRef.current = new Plyr(target, {
+        controls: [
+          "play-large",
+          "play",
+          "rewind",
+          "fast-forward",
+          "progress",
+          "current-time",
+          "duration",
+          "mute",
+          "volume",
+          "captions",
+          "settings",
+          "fullscreen",
+        ],
+        settings: ["captions", "speed"],
+        speed: {
+          selected: 1,
+          options: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2],
+        },
+        seekTime: 10,
+        keyboard: { focused: true, global: false },
+        tooltips: { controls: true, seek: true },
+        clickToPlay: true,
+        hideControls: true,
+        disableContextMenu: true,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        youtube: {
+          noCookie: true,
+          modestbranding: 1,
+          rel: 0,
+          showinfo: 0,
+          iv_load_policy: 3,
+          playsinline: 1,
+        } as any,
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      if (playerRef.current) {
+        try {
+          playerRef.current.destroy();
+        } catch {
+          // ignore destroy errors (e.g. when iframe was never attached)
+        }
+        playerRef.current = null;
+      }
+      // Wipe any DOM remnants — guarantees URL leaves the live DOM.
+      if (host) host.replaceChildren();
+    };
+  }, [isOpen, id]);
+
   if (!id) return <>{children}</>;
 
-  // Embed URL only used after the user clicks open; never rendered
-  // when isOpen is false.
-  const src = `https://www.youtube-nocookie.com/embed/${id}?modestbranding=1&rel=0&iv_load_policy=3&playsinline=1`;
-
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-3" style={PLYR_THEME}>
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
@@ -80,59 +160,9 @@ export function RecordingPlayer({ url, children, title = "Class recording" }: Pr
       {isOpen && (
         <div
           className="relative w-full overflow-hidden rounded-lg border bg-black"
-          style={{ aspectRatio: "16 / 9" }}
           onContextMenu={(e) => e.preventDefault()}
         >
-          <iframe
-            src={src}
-            title={title}
-            // Minimal allow list. Drops picture-in-picture (popout window
-            // would expose the URL) and clipboard-write (YouTube's share
-            // button copy). Keeps autoplay/fullscreen/encrypted-media for
-            // normal playback.
-            allow="autoplay; encrypted-media; fullscreen"
-            allowFullScreen
-            referrerPolicy="strict-origin-when-cross-origin"
-            className="absolute inset-0 h-full w-full"
-          />
-
-          {/* Branding occluders — opaque black overlays sized to cover the
-              YouTube share/link icon (bottom-left) and YouTube wordmark
-              (bottom-right). Each overlay sits ABOVE the iframe and
-              swallows clicks, so students can't open them. They're sized
-              to clear the timeline scrubber and the fullscreen button
-              respectively.
-
-              Note: positions reflect YouTube's current embed UI. If
-              YouTube reshuffles its controls these may need re-tuning. */}
-          <div
-            aria-hidden="true"
-            tabIndex={-1}
-            className="absolute bottom-0 left-0 z-20 bg-black"
-            style={{ width: "60px", height: "40px" }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          />
-          <div
-            aria-hidden="true"
-            tabIndex={-1}
-            className="absolute bottom-0 z-20 bg-black"
-            style={{ right: "50px", width: "130px", height: "40px" }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-          />
+          <div ref={mountRef} className="plyr__video-embed" />
         </div>
       )}
     </div>
