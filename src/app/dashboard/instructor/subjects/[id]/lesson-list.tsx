@@ -609,7 +609,7 @@ function ClassCard({
                 URL never leaks into the initial DOM. */}
             {lesson.recording_url && isYouTubeUrl(lesson.recording_url) && (
               <div className="mb-4">
-                <RecordingPlayer url={lesson.recording_url} title={lesson.title} />
+                <RecordingPlayer url={lesson.recording_url} />
               </div>
             )}
 

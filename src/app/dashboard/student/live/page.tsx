@@ -342,10 +342,7 @@ export default async function StudentLivePage() {
                     {lesson.recording_url &&
                       isYouTubeUrl(lesson.recording_url) && (
                         <div className="mt-3">
-                          <RecordingPlayer
-                            url={lesson.recording_url}
-                            title={lesson.title}
-                          />
+                          <RecordingPlayer url={lesson.recording_url} />
                         </div>
                       )}
                   </CardContent>
