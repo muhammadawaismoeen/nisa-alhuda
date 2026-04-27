@@ -318,9 +318,10 @@ export default async function StudentLearningHubPage({
                   Upcoming: {upcomingLesson.title}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(upcomingLesson.scheduled_at!).toLocaleDateString(
+                  {new Date(upcomingLesson.scheduled_at!).toLocaleString(
                     "en-PK",
                     {
+                      timeZone: "Asia/Karachi",
                       weekday: "long",
                       day: "numeric",
                       month: "short",

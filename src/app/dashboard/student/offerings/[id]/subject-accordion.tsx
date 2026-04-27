@@ -31,6 +31,7 @@ import {
   scheduleDisplayLabel,
   computeNextOccurrence,
 } from "@/lib/recurring-schedule";
+import { RecordingPlayer } from "@/components/lesson/recording-player";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -405,13 +406,15 @@ function LessonCard({
           {scheduledAt && (
             <span className="flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              {scheduledAt.toLocaleDateString("en-PK", {
+              {scheduledAt.toLocaleString("en-PK", {
+                timeZone: "Asia/Karachi",
                 weekday: "short",
                 day: "numeric",
                 month: "short",
                 hour: "2-digit",
                 minute: "2-digit",
-              })}
+              })}{" "}
+              PKT
             </span>
           )}
           {isUpcoming && (
@@ -448,17 +451,19 @@ function LessonCard({
           </a>
         )}
 
-        {/* Recording link */}
+        {/* Recording — embedded player when YouTube, link button otherwise */}
         {lesson.recording_url && (
-          <a
-            href={lesson.recording_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-          >
-            <PlayCircle className="h-3 w-3" />
-            Watch
-          </a>
+          <RecordingPlayer url={lesson.recording_url}>
+            <a
+              href={lesson.recording_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+            >
+              <PlayCircle className="h-3 w-3" />
+              Watch
+            </a>
+          </RecordingPlayer>
         )}
       </div>
     </div>

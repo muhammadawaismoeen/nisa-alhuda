@@ -91,21 +91,29 @@ export default async function PaymentLedgerPage() {
       .reduce((sum, r) => sum + (r.amount || 0), 0);
 
   // Unified (amount, currency) rows across enrollments + monthly renewals.
+  // Excludes payment_method='manual_approval' rows — those are admin-created
+  // enrollments for stranded / duplicate / rescued students, granting LMS
+  // access without representing money received. Counting them would inflate
+  // revenue totals.
   const approvedRows = [
-    ...approved.map((e) => ({
-      amount: e.payment_amount || 0,
-      currency: e.payment_currency,
-    })),
+    ...approved
+      .filter((e) => e.payment_method !== "manual_approval")
+      .map((e) => ({
+        amount: e.payment_amount || 0,
+        currency: e.payment_currency,
+      })),
     ...approvedMonthly.map((p: any) => ({
       amount: p.amount || 0,
       currency: p.currency,
     })),
   ];
   const pendingRows = [
-    ...pending.map((e) => ({
-      amount: e.payment_amount || 0,
-      currency: e.payment_currency,
-    })),
+    ...pending
+      .filter((e) => e.payment_method !== "manual_approval")
+      .map((e) => ({
+        amount: e.payment_amount || 0,
+        currency: e.payment_currency,
+      })),
     ...pendingMonthly.map((p: any) => ({
       amount: p.amount || 0,
       currency: p.currency,

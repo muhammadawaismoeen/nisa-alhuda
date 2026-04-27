@@ -291,9 +291,10 @@ export default async function LiveHubPage() {
                         <p className="text-xs text-muted-foreground">
                           {subjectMap[lesson.subject_id || ""] || "Subject"}{" "}
                           &middot; Held on{" "}
-                          {new Date(lesson.scheduled_at!).toLocaleDateString(
+                          {new Date(lesson.scheduled_at!).toLocaleString(
                             "en-PK",
                             {
+                              timeZone: "Asia/Karachi",
                               weekday: "short",
                               day: "numeric",
                               month: "short",
@@ -353,12 +354,14 @@ function ClassRow({
             {start && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {start.toLocaleString("en-PK", {
+                  timeZone: "Asia/Karachi",
                   weekday: "short",
                   day: "numeric",
                   month: "short",
                   hour: "2-digit",
                   minute: "2-digit",
-                })}
+                })}{" "}
+                PKT
               </p>
             )}
           </div>

@@ -451,14 +451,15 @@ export function SessionManager({
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {offeringMap[session.offering_id] || "Unknown"} &middot;{" "}
-                          {scheduled.toLocaleDateString("en-PK", {
+                          {scheduled.toLocaleString("en-PK", {
+                            timeZone: "Asia/Karachi",
                             weekday: "short",
                             day: "numeric",
                             month: "short",
                             hour: "2-digit",
                             minute: "2-digit",
                           })}{" "}
-                          &middot; {session.duration_minutes}m
+                          PKT &middot; {session.duration_minutes}m
                         </p>
                         {session.description && (
                           <p className="text-xs text-muted-foreground mt-1">
@@ -528,12 +529,14 @@ export function SessionManager({
                         </h3>
                         <p className="text-xs text-muted-foreground">
                           {offeringMap[session.offering_id] || "Unknown"} &middot;{" "}
-                          {scheduled.toLocaleDateString("en-PK", {
+                          {scheduled.toLocaleString("en-PK", {
+                            timeZone: "Asia/Karachi",
                             day: "numeric",
                             month: "short",
                             hour: "2-digit",
                             minute: "2-digit",
-                          })}
+                          })}{" "}
+                          PKT
                         </p>
                       </div>
                       <button

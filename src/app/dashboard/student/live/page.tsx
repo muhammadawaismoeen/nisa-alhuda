@@ -16,6 +16,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { RecordingPlayer } from "@/components/lesson/recording-player";
 import type { Lesson } from "@/lib/types/database";
 
 interface LessonWithRefs extends Lesson {
@@ -249,12 +250,14 @@ export default async function StudentLivePage() {
                             : ""}{" "}
                           ·{" "}
                           {scheduled.toLocaleString("en-PK", {
+                            timeZone: "Asia/Karachi",
                             weekday: "short",
                             day: "numeric",
                             month: "short",
                             hour: "2-digit",
                             minute: "2-digit",
-                          })}
+                          })}{" "}
+                          PKT
                         </p>
                         {lesson.description && (
                           <p className="text-xs text-muted-foreground mt-1">
@@ -309,24 +312,28 @@ export default async function StudentLivePage() {
                             ? ` · ${lesson.instructor.full_name}`
                             : ""}{" "}
                           ·{" "}
-                          {scheduled.toLocaleDateString("en-PK", {
+                          {scheduled.toLocaleString("en-PK", {
+                            timeZone: "Asia/Karachi",
                             day: "numeric",
                             month: "short",
                             hour: "2-digit",
                             minute: "2-digit",
-                          })}
+                          })}{" "}
+                          PKT
                         </p>
                       </div>
                       {lesson.recording_url && (
-                        <a
-                          href={lesson.recording_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium px-3 py-1.5 transition-colors shrink-0"
-                        >
-                          <PlayCircle className="h-3.5 w-3.5" />
-                          Watch recording
-                        </a>
+                        <RecordingPlayer url={lesson.recording_url}>
+                          <a
+                            href={lesson.recording_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium px-3 py-1.5 transition-colors shrink-0"
+                          >
+                            <PlayCircle className="h-3.5 w-3.5" />
+                            Watch recording
+                          </a>
+                        </RecordingPlayer>
                       )}
                     </div>
                   </CardContent>

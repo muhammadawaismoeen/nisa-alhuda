@@ -492,13 +492,15 @@ function ClassCard({
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     {new Date(lesson.scheduled_at).toLocaleString("en-PK", {
+                      timeZone: "Asia/Karachi",
                       weekday: "short",
                       day: "numeric",
                       month: "short",
                       year: "numeric",
                       hour: "2-digit",
                       minute: "2-digit",
-                    })}
+                    })}{" "}
+                    PKT
                   </span>
                 )}
                 <span className="flex items-center gap-1">
