@@ -95,6 +95,44 @@ export function RecordingPlayer({ url, children, title = "Class recording" }: Pr
             referrerPolicy="strict-origin-when-cross-origin"
             className="absolute inset-0 h-full w-full"
           />
+
+          {/* Branding occluders — opaque black overlays sized to cover the
+              YouTube share/link icon (bottom-left) and YouTube wordmark
+              (bottom-right). Each overlay sits ABOVE the iframe and
+              swallows clicks, so students can't open them. They're sized
+              to clear the timeline scrubber and the fullscreen button
+              respectively.
+
+              Note: positions reflect YouTube's current embed UI. If
+              YouTube reshuffles its controls these may need re-tuning. */}
+          <div
+            aria-hidden="true"
+            tabIndex={-1}
+            className="absolute bottom-0 left-0 z-20 bg-black"
+            style={{ width: "60px", height: "40px" }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
+          <div
+            aria-hidden="true"
+            tabIndex={-1}
+            className="absolute bottom-0 z-20 bg-black"
+            style={{ right: "50px", width: "130px", height: "40px" }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          />
         </div>
       )}
     </div>
