@@ -15,10 +15,15 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LinkButton } from "@/components/ui/link-button";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, ExternalLink, Radio } from "lucide-react";
 import { getDashboardViewer } from "@/lib/auth-helpers";
 import { LessonList } from "./lesson-list";
-import type { Lesson, Resource } from "@/lib/types/database";
+import {
+  hasRecurringSchedule,
+  isLiveNow,
+  scheduleDisplayLabel,
+} from "@/lib/recurring-schedule";
+import type { Lesson, Resource, Subject } from "@/lib/types/database";
 
 export default async function SubjectFolderPage({
   params,
@@ -109,12 +114,74 @@ export default async function SubjectFolderPage({
         </div>
       </div>
 
+      {/* Recurring class banner — shown when admin has set the per-subject
+          schedule (URL + day + time). One Join button forever. */}
+      {hasRecurringSchedule(subject as Subject) && (
+        <RecurringClassBanner subject={subject as Subject} />
+      )}
+
       <LessonList
         subjectId={id}
         offeringId={subject.offering_id}
         lessons={lessons}
         initialResources={resources}
       />
+    </div>
+  );
+}
+
+function RecurringClassBanner({ subject }: { subject: Subject }) {
+  const live = isLiveNow(subject);
+  const label = scheduleDisplayLabel(subject) ?? "Recurring class";
+  return (
+    <div
+      className={`mb-6 flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center ${
+        live
+          ? "border-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/20"
+          : "border-primary/30 bg-primary/5"
+      }`}
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/15 shrink-0">
+        {live ? (
+          <Radio className="h-5 w-5 text-emerald-600" />
+        ) : (
+          <Calendar className="h-5 w-5 text-primary" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-heading font-semibold text-sm">
+            Recurring live class
+          </h2>
+          {live && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+              </span>
+              Live now
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground truncate">
+          Same link every week:{" "}
+          <span className="font-mono">{subject.recurring_meeting_url}</span>
+        </p>
+      </div>
+      <a
+        href={subject.recurring_meeting_url!}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors press shrink-0 ${
+          live
+            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+            : "bg-primary hover:bg-primary/90 text-primary-foreground"
+        }`}
+      >
+        Join Live
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
     </div>
   );
 }

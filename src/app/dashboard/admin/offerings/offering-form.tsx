@@ -35,6 +35,16 @@ interface SubjectDraft {
   description: string;
   sort_order: number;
   instructor_id: string;
+  /** Stable Zoom/Meet URL reused for every weekly class. */
+  recurring_meeting_url: string;
+  /** Free-text label like "Mondays 6–7 PM PKT". */
+  recurring_schedule_label: string;
+  /** "" | "0".."6" — empty string means "no fixed day". */
+  recurring_day_of_week: string;
+  /** "HH:MM" 24-hour. */
+  recurring_start_time: string;
+  /** Numeric string. */
+  recurring_duration_minutes: string;
 }
 
 interface InstructorOption {
@@ -99,6 +109,17 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
       description: s.description || "",
       sort_order: s.sort_order,
       instructor_id: s.instructor_id,
+      recurring_meeting_url: s.recurring_meeting_url || "",
+      recurring_schedule_label: s.recurring_schedule_label || "",
+      recurring_day_of_week:
+        s.recurring_day_of_week == null ? "" : String(s.recurring_day_of_week),
+      // Postgres returns TIME columns as "HH:MM:SS" — slice to "HH:MM" for input[type=time].
+      recurring_start_time: s.recurring_start_time
+        ? s.recurring_start_time.slice(0, 5)
+        : "",
+      recurring_duration_minutes: s.recurring_duration_minutes
+        ? String(s.recurring_duration_minutes)
+        : "60",
     }))
   );
 
@@ -150,6 +171,11 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
         description: "",
         sort_order: prev.length + 1,
         instructor_id: instructors[0]?.id || "",
+        recurring_meeting_url: "",
+        recurring_schedule_label: "",
+        recurring_day_of_week: "",
+        recurring_start_time: "",
+        recurring_duration_minutes: "60",
       },
     ]);
   }
@@ -271,6 +297,20 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
             description: subject.description.trim() || null,
             instructor_id: subject.instructor_id || user?.id,
             sort_order: i + 1,
+            // New: recurring schedule fields. Empty string → null so the
+            // database keeps "no schedule set" as a clean NULL.
+            recurring_meeting_url: subject.recurring_meeting_url.trim() || null,
+            recurring_schedule_label:
+              subject.recurring_schedule_label.trim() || null,
+            recurring_day_of_week:
+              subject.recurring_day_of_week === ""
+                ? null
+                : Number(subject.recurring_day_of_week),
+            recurring_start_time: subject.recurring_start_time || null,
+            recurring_duration_minutes:
+              subject.recurring_duration_minutes.trim() === ""
+                ? null
+                : Number(subject.recurring_duration_minutes),
           };
 
           if (subject.id) {
@@ -711,6 +751,110 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
                             updateSubject(index, "description", e.target.value)
                           }
                         />
+                      </div>
+
+                      {/* ─── Recurring class schedule ────────────────────
+                          Set the day, time and the SAME meeting URL once
+                          per subject. Students see "Mondays 6–7 PM PKT
+                          [Join Live]" forever — no per-class data entry. */}
+                      <div className="space-y-1 md:col-span-2 mt-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <p className="text-xs font-semibold text-primary mb-2">
+                          Recurring class schedule (set once, used every week)
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">
+                              Recurring meeting URL
+                            </Label>
+                            <Input
+                              placeholder="https://us06web.zoom.us/j/..."
+                              value={subject.recurring_meeting_url}
+                              onChange={(e) =>
+                                updateSubject(
+                                  index,
+                                  "recurring_meeting_url",
+                                  e.target.value
+                                )
+                              }
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">
+                              Schedule label (shown to students)
+                            </Label>
+                            <Input
+                              placeholder="e.g. Mondays 6–7 PM PKT"
+                              value={subject.recurring_schedule_label}
+                              onChange={(e) =>
+                                updateSubject(
+                                  index,
+                                  "recurring_schedule_label",
+                                  e.target.value
+                                )
+                              }
+                              className="text-sm"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Day of week</Label>
+                            <select
+                              value={subject.recurring_day_of_week}
+                              onChange={(e) =>
+                                updateSubject(
+                                  index,
+                                  "recurring_day_of_week",
+                                  e.target.value
+                                )
+                              }
+                              className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground"
+                            >
+                              <option value="">— not set —</option>
+                              <option value="0">Sunday</option>
+                              <option value="1">Monday</option>
+                              <option value="2">Tuesday</option>
+                              <option value="3">Wednesday</option>
+                              <option value="4">Thursday</option>
+                              <option value="5">Friday</option>
+                              <option value="6">Saturday</option>
+                            </select>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Start time (PKT)</Label>
+                              <Input
+                                type="time"
+                                value={subject.recurring_start_time}
+                                onChange={(e) =>
+                                  updateSubject(
+                                    index,
+                                    "recurring_start_time",
+                                    e.target.value
+                                  )
+                                }
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Duration (min)</Label>
+                              <Input
+                                type="number"
+                                min={15}
+                                max={300}
+                                step={5}
+                                value={subject.recurring_duration_minutes}
+                                onChange={(e) =>
+                                  updateSubject(
+                                    index,
+                                    "recurring_duration_minutes",
+                                    e.target.value
+                                  )
+                                }
+                                className="text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 

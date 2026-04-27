@@ -25,6 +25,12 @@ import {
   Globe,
 } from "lucide-react";
 import { isExternalUrl } from "@/lib/resource-helpers";
+import {
+  hasRecurringSchedule,
+  isLiveNow,
+  scheduleDisplayLabel,
+  computeNextOccurrence,
+} from "@/lib/recurring-schedule";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -237,6 +243,13 @@ export function SubjectAccordion({
                   </p>
                 )}
 
+                {/* Recurring class card — the always-visible Join button.
+                    Renders only when the subject has a full schedule set
+                    by admin (URL + day + time). */}
+                {hasRecurringSchedule(subject) && (
+                  <RecurringClassCard subject={subject} />
+                )}
+
                 {/* Resources block — surfaces the subject's downloadable
                     files at the top of the expanded panel. */}
                 {(resourcesBySubject[subject.id]?.length ?? 0) > 0 && (
@@ -447,6 +460,84 @@ function LessonCard({
             Watch
           </a>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Permanent "Live class" card per subject — uses the recurring schedule
+ * fields on `subjects` (migration 024). Replaces the per-class manual
+ * scheduling: admin sets URL + day + time once and students see the
+ * Join button forever, plus a "Live now" pulse when the class is in
+ * progress.
+ */
+function RecurringClassCard({
+  subject,
+}: {
+  subject: Subject;
+}) {
+  const live = isLiveNow(subject);
+  const occ = computeNextOccurrence(subject);
+  const label = scheduleDisplayLabel(subject) ?? "Recurring class";
+  const url = subject.recurring_meeting_url!;
+
+  // "Starts in 2h 15m" / "Starts in 3 days" string for the upcoming case.
+  let countdown: string | null = null;
+  if (!live && occ) {
+    const diffMs = occ.start.getTime() - Date.now();
+    if (diffMs > 0) {
+      const mins = Math.round(diffMs / 60000);
+      if (mins < 60) countdown = `Starts in ${mins} min`;
+      else if (mins < 60 * 24)
+        countdown = `Starts in ${Math.floor(mins / 60)}h ${mins % 60}m`;
+      else countdown = `Starts in ${Math.floor(mins / 60 / 24)}d`;
+    }
+  }
+
+  return (
+    <div className="ml-3 mb-4">
+      <div
+        className={`flex flex-col gap-3 rounded-xl border p-4 sm:flex-row sm:items-center ${
+          live
+            ? "border-emerald-300 bg-emerald-50/60 dark:bg-emerald-950/20"
+            : "border-primary/30 bg-primary/5"
+        }`}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="font-heading font-semibold text-sm">
+              Live class
+            </h4>
+            {live && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
+                </span>
+                Live now
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+          {countdown && (
+            <p className="mt-0.5 text-xs font-medium text-primary">{countdown}</p>
+          )}
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors press shrink-0 ${
+            live
+              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+              : "bg-primary hover:bg-primary/90 text-primary-foreground"
+          }`}
+        >
+          <Video className="h-4 w-4" />
+          Join Live
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
       </div>
     </div>
   );

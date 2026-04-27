@@ -93,6 +93,16 @@ export interface Subject {
   description: string | null;
   instructor_id: string;
   sort_order: number;
+  /** Stable Zoom/Meet URL used for every weekly class. */
+  recurring_meeting_url: string | null;
+  /** Free-text human label like "Mondays 6–7 PM PKT". Shown to students. */
+  recurring_schedule_label: string | null;
+  /** 0=Sun, 1=Mon, … 6=Sat. Same as JS Date.getDay(). */
+  recurring_day_of_week: number | null;
+  /** Local-time start, e.g. "18:00:00". */
+  recurring_start_time: string | null;
+  /** Defaults to 60. Used for live-now detection. */
+  recurring_duration_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
