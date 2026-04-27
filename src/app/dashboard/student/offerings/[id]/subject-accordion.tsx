@@ -32,6 +32,7 @@ import {
   computeNextOccurrence,
 } from "@/lib/recurring-schedule";
 import { RecordingPlayer } from "@/components/lesson/recording-player";
+import { isYouTubeUrl } from "@/lib/video-helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -361,14 +362,18 @@ function LessonCard({
   const isUpcoming = scheduledAt ? scheduledAt > now : false;
   const isPast = scheduledAt ? scheduledAt < now : false;
 
+  const recordingIsYoutube =
+    lesson.recording_url && isYouTubeUrl(lesson.recording_url);
+
   return (
     <div
-      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+      className={`rounded-lg border transition-colors ${
         isCompleted
           ? "bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-900/30"
           : "bg-background hover:bg-muted/20"
       }`}
     >
+      <div className="flex items-start gap-3 p-3">
       {/* Completion toggle */}
       <button
         onClick={onToggleComplete}
@@ -451,21 +456,30 @@ function LessonCard({
           </a>
         )}
 
-        {/* Recording — embedded player when YouTube, link button otherwise */}
-        {lesson.recording_url && (
-          <RecordingPlayer url={lesson.recording_url}>
-            <a
-              href={lesson.recording_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
-            >
-              <PlayCircle className="h-3 w-3" />
-              Watch
-            </a>
-          </RecordingPlayer>
+        {/* Recording link — pill button only when URL is NOT YouTube
+            (YouTube URLs render as a full-width inline embed below). */}
+        {lesson.recording_url && !recordingIsYoutube && (
+          <a
+            href={lesson.recording_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted transition-colors"
+          >
+            <PlayCircle className="h-3 w-3" />
+            Watch
+          </a>
         )}
       </div>
+      </div>
+
+      {/* Inline YouTube embed row — full width, below the lesson header. */}
+      {recordingIsYoutube && lesson.recording_url && (
+        <div className="px-3 pb-3">
+          <RecordingPlayer url={lesson.recording_url}>
+            <></>
+          </RecordingPlayer>
+        </div>
+      )}
     </div>
   );
 }
