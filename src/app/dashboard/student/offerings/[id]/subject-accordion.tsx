@@ -472,12 +472,12 @@ function LessonCard({
       </div>
       </div>
 
-      {/* Inline YouTube embed row — full width, below the lesson header. */}
+      {/* Collapsible YouTube player — full width, below the lesson header.
+          Renders only a "Watch recording ▼" button until the student
+          clicks it, so the iframe URL never ends up in the initial DOM. */}
       {recordingIsYoutube && lesson.recording_url && (
         <div className="px-3 pb-3">
-          <RecordingPlayer url={lesson.recording_url}>
-            <></>
-          </RecordingPlayer>
+          <RecordingPlayer url={lesson.recording_url} />
         </div>
       )}
     </div>

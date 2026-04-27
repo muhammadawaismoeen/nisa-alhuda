@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { LessonForm } from "./lesson-form";
 import { partitionLessons, isExternalUrl } from "@/lib/resource-helpers";
 import { RecordingPlayer } from "@/components/lesson/recording-player";
+import { isYouTubeUrl } from "@/lib/video-helpers";
 import type { Lesson, Resource } from "@/lib/types/database";
 
 interface LessonListProps {
@@ -541,20 +542,22 @@ function ClassCard({
                 </span>
               )}
 
-              {lesson.recording_url ? (
-                <RecordingPlayer url={lesson.recording_url}>
-                  <a
-                    href={lesson.recording_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 py-1.5 transition-colors"
-                  >
-                    <PlayCircle className="h-3.5 w-3.5" />
-                    Watch recording
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </RecordingPlayer>
-              ) : (
+              {/* Recording link — pill button only when URL is set AND
+                  not a YouTube URL. YouTube URLs render as a collapsible
+                  embed in a separate row below. */}
+              {lesson.recording_url && !isYouTubeUrl(lesson.recording_url) && (
+                <a
+                  href={lesson.recording_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium px-3 py-1.5 transition-colors"
+                >
+                  <PlayCircle className="h-3.5 w-3.5" />
+                  Watch recording
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+              {!lesson.recording_url && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium px-3 py-1.5">
                   No recording yet
                 </span>
@@ -600,6 +603,15 @@ function ClassCard({
                 </Button>
               </div>
             </div>
+
+            {/* Collapsible YouTube embed — full-width row below the
+                action buttons. Iframe is mounted lazily on click so the
+                URL never leaks into the initial DOM. */}
+            {lesson.recording_url && isYouTubeUrl(lesson.recording_url) && (
+              <div className="mb-4">
+                <RecordingPlayer url={lesson.recording_url} />
+              </div>
+            )}
 
             {/* Description */}
             {lesson.description && (

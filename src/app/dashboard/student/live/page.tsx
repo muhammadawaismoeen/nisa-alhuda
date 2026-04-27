@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RecordingPlayer } from "@/components/lesson/recording-player";
+import { isYouTubeUrl } from "@/lib/video-helpers";
 import type { Lesson } from "@/lib/types/database";
 
 interface LessonWithRefs extends Lesson {
@@ -322,8 +323,11 @@ export default async function StudentLivePage() {
                           PKT
                         </p>
                       </div>
-                      {lesson.recording_url && (
-                        <RecordingPlayer url={lesson.recording_url}>
+                      {/* Pill link only for non-YouTube URLs. YouTube
+                          recordings render as a collapsible embed row
+                          below the meta line. */}
+                      {lesson.recording_url &&
+                        !isYouTubeUrl(lesson.recording_url) && (
                           <a
                             href={lesson.recording_url}
                             target="_blank"
@@ -333,9 +337,14 @@ export default async function StudentLivePage() {
                             <PlayCircle className="h-3.5 w-3.5" />
                             Watch recording
                           </a>
-                        </RecordingPlayer>
-                      )}
+                        )}
                     </div>
+                    {lesson.recording_url &&
+                      isYouTubeUrl(lesson.recording_url) && (
+                        <div className="mt-3">
+                          <RecordingPlayer url={lesson.recording_url} />
+                        </div>
+                      )}
                   </CardContent>
                 </Card>
               );

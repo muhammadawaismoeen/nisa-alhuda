@@ -1,71 +1,102 @@
 "use client";
 
 /**
- * RecordingPlayer — wraps a "Watch recording" UI.
+ * RecordingPlayer — collapsible YouTube embed for class recordings.
  *
- * If the recording URL is a YouTube link, renders the video as an
- * inline 16:9 embed (privacy-enhanced youtube-nocookie domain, minimal
- * branding, related videos disabled, keyboard shortcuts disabled,
- * right-click context menu suppressed on the wrapper). The actual
- * youtube.com URL is hidden inside the iframe so a casual student
- * can't pull it off the page via "View source" / right-click.
+ * For a YouTube URL: renders a "Watch recording ▼" button. Clicking it
+ * mounts an inline 16:9 iframe below. Clicking again unmounts the
+ * iframe. Because the iframe is mounted lazily, the YouTube URL is NOT
+ * in the page's initial DOM — View Source on the page shows only the
+ * button, not the recording URL.
  *
- * For any other URL (Zoom, Drive, Vimeo, ...) the component renders
- * the `children` prop unchanged — letting the existing link-button UI
- * each call site provides keep working exactly as before.
+ * Defenses against casual link extraction:
+ *   - youtube-nocookie.com privacy-enhanced embed domain
+ *   - lazy mount (URL not in initial DOM; closing unmounts and removes
+ *     it from the live DOM too)
+ *   - context menu (right-click) suppressed on the wrapper
+ *   - picture-in-picture disabled (no popout window)
+ *   - clipboard-write disabled (YouTube's Share button can't copy)
+ *   - modestbranding + rel=0 + iv_load_policy=3 (clean, no related videos
+ *     or annotations)
  *
- * NOTE: this only deters casual sharing. OS-level screen recording
- * cannot be prevented by any web technology.
+ * What it does NOT block (browser-tech limitations, document for honesty):
+ *   - DevTools inspection of the iframe src after the user opens the
+ *     player. Mitigated by lazy mount + immediate unmount on close.
+ *   - OS-level screen recording / screenshot. Impossible to prevent on
+ *     any web platform without DRM.
+ *   - Clicking the small YouTube logo in the player's controls bar
+ *     (it can navigate to youtube.com). modestbranding hides it on
+ *     most modern Chromium versions but YouTube has been deprecating
+ *     this — full removal needs a paid DRM player.
+ *
+ * For non-YouTube URLs (Zoom, Drive, Vimeo, etc.) the component renders
+ * the `children` prop unchanged — letting each call site keep its own
+ * existing "Watch" link button styling.
  */
+import { useState } from "react";
+import { ChevronDown, ChevronUp, PlayCircle } from "lucide-react";
 import { extractYouTubeId } from "@/lib/video-helpers";
 
 interface Props {
   url: string;
   /**
-   * Rendered when `url` is NOT a YouTube URL — typically the existing
-   * "Watch recording" link button. Lets each call site keep its own
-   * styling for the non-YouTube case.
+   * Rendered when `url` is NOT a YouTube URL — typically a "Watch
+   * recording" link button. Lets non-YouTube call sites keep working
+   * without changes.
    */
-  children: React.ReactNode;
-  /**
-   * Optional title shown to assistive tech for the iframe. Defaults to
-   * "Class recording".
-   */
+  children?: React.ReactNode;
+  /** Accessible iframe title. Defaults to "Class recording". */
   title?: string;
 }
 
 export function RecordingPlayer({ url, children, title = "Class recording" }: Props) {
+  // Hook must be called unconditionally — keep above any early return.
+  const [isOpen, setIsOpen] = useState(false);
+
   const id = extractYouTubeId(url);
   if (!id) return <>{children}</>;
 
-  // youtube-nocookie: privacy-enhanced embed domain (no third-party
-  // tracking cookies dropped on the LMS page).
-  // modestbranding=1: hides the YouTube logo in the controls bar.
-  // rel=0:           does NOT cross-pollinate with random "related"
-  //                  videos — only shows more from the same channel.
-  //
-  // Default controls remain ON — students get play/pause, timeline
-  // scrubbing (forward/backward), keyboard shortcuts (←/→ to seek 5s,
-  // J/L to seek 10s, K to toggle play, comma/period to step frame),
-  // captions toggle, fullscreen, and the Settings gear (which exposes
-  // playback speed 0.25x → 2x).
-  const src = `https://www.youtube-nocookie.com/embed/${id}?modestbranding=1&rel=0`;
+  // Embed URL only used after the user clicks open; never rendered
+  // when isOpen is false.
+  const src = `https://www.youtube-nocookie.com/embed/${id}?modestbranding=1&rel=0&iv_load_policy=3&playsinline=1`;
 
   return (
-    <div
-      className="relative w-full basis-full overflow-hidden rounded-lg border bg-black"
-      style={{ aspectRatio: "16 / 9" }}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <iframe
-        src={src}
-        title={title}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-        loading="lazy"
-        referrerPolicy="strict-origin-when-cross-origin"
-        className="absolute inset-0 h-full w-full"
-      />
+    <div className="w-full space-y-3">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        aria-expanded={isOpen}
+        className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary text-sm font-medium px-4 py-2 transition-colors press"
+      >
+        <PlayCircle className="h-4 w-4" />
+        <span>{isOpen ? "Hide recording" : "Watch recording"}</span>
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4" />
+        ) : (
+          <ChevronDown className="h-4 w-4" />
+        )}
+      </button>
+
+      {isOpen && (
+        <div
+          className="relative w-full overflow-hidden rounded-lg border bg-black"
+          style={{ aspectRatio: "16 / 9" }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <iframe
+            src={src}
+            title={title}
+            // Minimal allow list. Drops picture-in-picture (popout window
+            // would expose the URL) and clipboard-write (YouTube's share
+            // button copy). Keeps autoplay/fullscreen/encrypted-media for
+            // normal playback.
+            allow="autoplay; encrypted-media; fullscreen"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="absolute inset-0 h-full w-full"
+          />
+        </div>
+      )}
     </div>
   );
 }
