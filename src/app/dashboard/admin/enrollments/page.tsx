@@ -319,11 +319,18 @@ export default async function AdminEnrollmentsPage() {
                                   )}
                                 </span>
                               )}
-                              {enrollment.payment_amount === 0 && (
-                                <span className="text-green-600 font-medium">
-                                  {isFaApproved ? "Fully Waived" : "Free"}
-                                </span>
-                              )}
+                              {enrollment.payment_amount === 0 &&
+                                enrollment.payment_method === "manual_approval" && (
+                                  <span className="text-muted-foreground font-medium">
+                                    Manual
+                                  </span>
+                                )}
+                              {enrollment.payment_amount === 0 &&
+                                enrollment.payment_method !== "manual_approval" && (
+                                  <span className="text-green-600 font-medium">
+                                    {isFaApproved ? "Fully Waived" : "Free"}
+                                  </span>
+                                )}
                               {details?.phone && <span>{details.phone}</span>}
                               <span>
                                 {new Date(enrollment.created_at).toLocaleDateString(
