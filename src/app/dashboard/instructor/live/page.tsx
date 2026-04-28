@@ -78,11 +78,17 @@ export default async function LiveHubPage() {
   // pending recording" buckets in JS — small dataset, simpler than SQL.
   const { data: lessonsData } = await supabase
     .from("lessons")
-    .select("*")
+    .select("*, subject:subjects(recurring_meeting_url)")
     .in("subject_id", subjectIds)
     .order("scheduled_at", { ascending: true });
 
-  const lessons: Lesson[] = (lessonsData as Lesson[]) || [];
+  // Pulls in the subject's recurring_meeting_url so the Join button can
+  // fall back to it when a lesson has no per-row live_class_link (the
+  // new pattern: one URL per subject, lessons pre-created without links).
+  type LessonWithSubject = Lesson & {
+    subject?: { recurring_meeting_url: string | null } | null;
+  };
+  const lessons: LessonWithSubject[] = (lessonsData as LessonWithSubject[]) || [];
   const now = Date.now();
   const TWO_HOURS = 2 * 60 * 60 * 1000;
   const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -331,11 +337,15 @@ function ClassRow({
   subjectTitle,
   tone,
 }: {
-  lesson: Lesson;
+  lesson: Lesson & {
+    subject?: { recurring_meeting_url: string | null } | null;
+  };
   subjectTitle: string;
   tone: "live" | "upcoming" | "later";
 }) {
   const start = lesson.scheduled_at ? new Date(lesson.scheduled_at) : null;
+  const joinUrl =
+    lesson.live_class_link ?? lesson.subject?.recurring_meeting_url ?? null;
   const ringTone =
     tone === "live"
       ? "border-emerald-300 bg-emerald-50/30"
@@ -374,9 +384,9 @@ function ClassRow({
                 Manage
               </Link>
             )}
-            {lesson.live_class_link && (
+            {joinUrl && (
               <a
-                href={lesson.live_class_link}
+                href={joinUrl}
                 target="_blank"
                 rel="noreferrer"
                 className={`inline-flex items-center gap-1.5 rounded-full text-xs font-medium px-3 py-1.5 transition-colors ${

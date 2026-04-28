@@ -21,9 +21,25 @@ import { isYouTubeUrl } from "@/lib/video-helpers";
 import type { Lesson } from "@/lib/types/database";
 
 interface LessonWithRefs extends Lesson {
-  subject: { id: string; title: string; instructor_id: string } | null;
+  subject: {
+    id: string;
+    title: string;
+    instructor_id: string;
+    /**
+     * Fallback Zoom/Meet URL set at the subject level (migration 024).
+     * Used when the per-lesson `live_class_link` is not set — common
+     * for the new pattern where admin sets one recurring URL per
+     * subject and pre-creates 52 weekly lesson rows without links.
+     */
+    recurring_meeting_url: string | null;
+  } | null;
   offering: { id: string; title: string } | null;
   instructor: { id: string; full_name: string } | null;
+}
+
+/** Resolve the join URL for a lesson — per-lesson link wins, subject's recurring URL is the fallback. */
+function joinUrlFor(lesson: LessonWithRefs): string | null {
+  return lesson.live_class_link ?? lesson.subject?.recurring_meeting_url ?? null;
 }
 
 export default async function StudentLivePage() {
@@ -51,7 +67,7 @@ export default async function StudentLivePage() {
     const { data } = await supabase
       .from("lessons")
       .select(
-        "*, subject:subjects(id, title, instructor_id), offering:offerings(id, title)"
+        "*, subject:subjects(id, title, instructor_id, recurring_meeting_url), offering:offerings(id, title)"
       )
       .in("offering_id", offeringIds)
       .eq("is_published", true)
@@ -89,7 +105,8 @@ export default async function StudentLivePage() {
   const TWO_HOURS = 2 * 60 * 60 * 1000;
 
   const live = lessons.filter((l) => {
-    if (!l.scheduled_at || !l.live_class_link || l.recording_url) return false;
+    if (!l.scheduled_at || l.recording_url) return false;
+    if (!joinUrlFor(l)) return false;
     const start = new Date(l.scheduled_at).getTime();
     return nowMs >= start && nowMs <= start + TWO_HOURS;
   });
@@ -165,7 +182,7 @@ export default async function StudentLivePage() {
                         </div>
                       </div>
                       <a
-                        href={lesson.live_class_link!}
+                        href={joinUrlFor(lesson)!}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-colors press shrink-0"
@@ -266,9 +283,9 @@ export default async function StudentLivePage() {
                           </p>
                         )}
                       </div>
-                      {lesson.live_class_link && (
+                      {joinUrlFor(lesson) && (
                         <a
-                          href={lesson.live_class_link}
+                          href={joinUrlFor(lesson)!}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors press shrink-0"
