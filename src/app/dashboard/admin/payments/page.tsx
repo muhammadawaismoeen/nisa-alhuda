@@ -266,9 +266,13 @@ export default async function PaymentLedgerPage() {
                       </p>
                       <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
                         <span className="font-medium text-foreground">
-                          {formatPaidAmount(
-                            enrollment.payment_amount,
-                            enrollment.payment_currency
+                          {enrollment.payment_method === "manual_approval" ? (
+                            <span className="text-muted-foreground">Manual</span>
+                          ) : (
+                            formatPaidAmount(
+                              enrollment.payment_amount,
+                              enrollment.payment_currency
+                            )
                           )}
                         </span>
                         {enrollment.student?.phone && (
@@ -494,9 +498,13 @@ export default async function PaymentLedgerPage() {
                       {enrollment.offering?.title}
                     </td>
                     <td className="py-3 whitespace-nowrap">
-                      {formatPaidAmount(
-                        enrollment.payment_amount,
-                        enrollment.payment_currency
+                      {enrollment.payment_method === "manual_approval" ? (
+                        <span className="text-muted-foreground">Manual</span>
+                      ) : (
+                        formatPaidAmount(
+                          enrollment.payment_amount,
+                          enrollment.payment_currency
+                        )
                       )}
                     </td>
                     <td className="py-3 text-muted-foreground whitespace-nowrap">
