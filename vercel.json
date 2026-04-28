@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/roll-published-window",
+      "schedule": "59 18 * * 0"
+    }
+  ]
+}
