@@ -125,6 +125,7 @@ export default async function SubjectFolderPage({
         offeringId={subject.offering_id}
         lessons={lessons}
         initialResources={resources}
+        subjectRecurringMeetingUrl={(subject as Subject).recurring_meeting_url ?? null}
       />
     </div>
   );

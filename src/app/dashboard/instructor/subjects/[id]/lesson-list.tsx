@@ -56,6 +56,12 @@ interface LessonListProps {
   offeringId: string;
   lessons: Lesson[];
   initialResources: Resource[];
+  /**
+   * Subject-level recurring meeting URL (migration 024). Used as a
+   * fallback when a lesson row has no per-row `live_class_link` — the
+   * new pattern is one URL per subject, applied to every weekly class.
+   */
+  subjectRecurringMeetingUrl?: string | null;
 }
 
 const FILE_ICON_MAP: Record<string, typeof FileText> = {
@@ -144,6 +150,7 @@ export function LessonList({
   offeringId,
   lessons: initialLessons,
   initialResources,
+  subjectRecurringMeetingUrl,
 }: LessonListProps) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -414,6 +421,7 @@ export function LessonList({
                 togglingId={togglingId}
                 onUpload={(files) => handleUpload(lesson.id, files)}
                 onDeleteResource={handleDeleteResource}
+                subjectRecurringMeetingUrl={subjectRecurringMeetingUrl}
               />
             );
           })}
@@ -440,6 +448,8 @@ interface ClassCardProps {
   togglingId: string | null;
   onUpload: (files: FileList | File[]) => void;
   onDeleteResource: (r: Resource) => void;
+  /** Falls back as the join URL when the lesson row has none. */
+  subjectRecurringMeetingUrl?: string | null;
 }
 
 function ClassCard({
@@ -457,6 +467,7 @@ function ClassCard({
   togglingId,
   onUpload,
   onDeleteResource,
+  subjectRecurringMeetingUrl,
 }: ClassCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -525,22 +536,28 @@ function ClassCard({
           <div className="px-4 pb-4 border-t bg-muted/10">
             {/* Action row — live link / recording / edit / publish / delete */}
             <div className="flex flex-wrap items-center gap-2 pt-3 mb-4">
-              {lesson.live_class_link ? (
-                <a
-                  href={lesson.live_class_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
-                >
-                  <Radio className="h-3.5 w-3.5" />
-                  Join live class
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium px-3 py-1.5">
-                  No live link set
-                </span>
-              )}
+              {(() => {
+                // Effective join URL: per-lesson live_class_link wins, else
+                // subject's recurring URL is the fallback.
+                const joinUrl =
+                  lesson.live_class_link ?? subjectRecurringMeetingUrl ?? null;
+                return joinUrl ? (
+                  <a
+                    href={joinUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-3 py-1.5 transition-colors"
+                  >
+                    <Radio className="h-3.5 w-3.5" />
+                    Join live class
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-muted text-muted-foreground text-xs font-medium px-3 py-1.5">
+                    No live link set
+                  </span>
+                );
+              })()}
 
               {/* Recording link — pill button only when URL is set AND
                   not a YouTube URL. YouTube URLs render as a collapsible
