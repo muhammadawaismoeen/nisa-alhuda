@@ -110,6 +110,38 @@ export function isLiveNow(
 }
 
 /**
+ * True when both `scheduledAt` and `now` fall on the same calendar day
+ * in Pakistan Standard Time. Used to hide Join buttons for sessions
+ * that are not happening today (e.g. tomorrow's Fiqh class shouldn't
+ * be joinable from the dashboard while it's still Wednesday).
+ */
+export function isSameDayPkt(
+  scheduledAt: Date | string | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!scheduledAt) return false;
+  const s = typeof scheduledAt === "string" ? new Date(scheduledAt) : scheduledAt;
+  if (Number.isNaN(s.getTime())) return false;
+  const sPkt = new Date(s.getTime() + PKT_OFFSET_MS);
+  const nPkt = new Date(now.getTime() + PKT_OFFSET_MS);
+  return sPkt.toISOString().slice(0, 10) === nPkt.toISOString().slice(0, 10);
+}
+
+/**
+ * For a SUBJECT's recurring schedule: true when the configured weekly
+ * day matches today's day-of-week in PKT. Lets the per-subject "Live
+ * class" card hide its Join button on non-class days.
+ */
+export function isClassDayPkt(
+  s: RecurringScheduleInput | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!s || s.recurring_day_of_week == null) return false;
+  const pkt = new Date(now.getTime() + PKT_OFFSET_MS);
+  return pkt.getUTCDay() === s.recurring_day_of_week;
+}
+
+/**
  * Falls back to a computed "Mondays 6:00 PM PKT (60 min)" style label
  * when admin didn't set one explicitly.
  */

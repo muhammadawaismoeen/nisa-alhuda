@@ -18,6 +18,7 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 import { RecordingPlayer } from "@/components/lesson/recording-player";
 import { isYouTubeUrl } from "@/lib/video-helpers";
+import { isSameDayPkt } from "@/lib/recurring-schedule";
 import type { Lesson } from "@/lib/types/database";
 
 interface LessonWithRefs extends Lesson {
@@ -283,17 +284,23 @@ export default async function StudentLivePage() {
                           </p>
                         )}
                       </div>
-                      {joinUrlFor(lesson) && (
-                        <a
-                          href={joinUrlFor(lesson)!}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors press shrink-0"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Join
-                        </a>
-                      )}
+                      {/* Join button only shows for sessions happening
+                          TODAY (PKT). Tomorrow's classes still appear in
+                          the list with their countdown badge ("in 1
+                          day"), but with no Join button until that day
+                          arrives. Mirrors the founder ask 2026-04-29. */}
+                      {joinUrlFor(lesson) &&
+                        isSameDayPkt(lesson.scheduled_at, new Date()) && (
+                          <a
+                            href={joinUrlFor(lesson)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors press shrink-0"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Join
+                          </a>
+                        )}
                     </div>
                   </CardContent>
                 </Card>

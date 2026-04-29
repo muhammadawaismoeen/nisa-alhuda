@@ -28,6 +28,7 @@ import { isExternalUrl } from "@/lib/resource-helpers";
 import {
   hasRecurringSchedule,
   isLiveNow,
+  isClassDayPkt,
   scheduleDisplayLabel,
   computeNextOccurrence,
 } from "@/lib/recurring-schedule";
@@ -500,6 +501,11 @@ function RecurringClassCard({
   const occ = computeNextOccurrence(subject);
   const label = scheduleDisplayLabel(subject) ?? "Recurring class";
   const url = subject.recurring_meeting_url!;
+  // Join button only shows on the configured weekly day-of-week (PKT).
+  // On other days the card still renders with the schedule label and
+  // countdown, but no clickable Join — students can't accidentally
+  // open Tuesday's Arabic meeting on a Saturday afternoon.
+  const showJoin = live || isClassDayPkt(subject);
 
   // "Starts in 2h 15m" / "Starts in 3 days" string for the upcoming case.
   let countdown: string | null = null;
@@ -543,6 +549,7 @@ function RecurringClassCard({
             <p className="mt-0.5 text-xs font-medium text-primary">{countdown}</p>
           )}
         </div>
+        {showJoin && (
         <a
           href={url}
           target="_blank"
@@ -557,6 +564,7 @@ function RecurringClassCard({
           Join Live
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
+        )}
       </div>
     </div>
   );
