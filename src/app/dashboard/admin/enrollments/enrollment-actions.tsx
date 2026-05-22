@@ -25,6 +25,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { deleteEnrollment } from "./actions";
+import {
+  approveEnrollmentWithCredentials,
+  rejectEnrollment,
+} from "../payments/actions";
 
 interface EnrollmentActionsProps {
   enrollmentId: string;
@@ -73,31 +77,25 @@ export function EnrollmentActions({
   async function handleApprove() {
     setLoading("approve");
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { error } = await supabase
-        .from("enrollments")
-        .update({
-          status: "approved",
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", enrollmentId);
-
-      if (error) throw error;
-
-      toast.success("Enrollment approved!");
-      // Fire-and-forget email
-      fetch("/api/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "enrollment_approved", enrollmentId }),
-      }).catch(() => {});
+      // Single server-side action does it all: ensure auth account exists →
+      // reset password to the shared default → link enrollment.student_id →
+      // mark approved → email credentials. Replaces the previous
+      // direct-DB-update + fire-and-forget /api/email call so every approval
+      // path provisions credentials consistently.
+      const result = await approveEnrollmentWithCredentials(enrollmentId);
+      if (!result.success) {
+        toast.error(result.error || "Failed to approve enrollment.");
+        return;
+      }
+      if (result.emailSent === false) {
+        toast.warning(
+          result.error || "Approved, but credentials email failed to send."
+        );
+      } else {
+        toast.success("Enrollment approved — credentials emailed.");
+      }
       router.refresh();
-    } catch (error) {
+    } catch {
       toast.error("Failed to approve enrollment.");
     } finally {
       setLoading(null);
@@ -128,25 +126,14 @@ export function EnrollmentActions({
 
     setLoading("reject");
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { error } = await supabase
-        .from("enrollments")
-        .update({
-          status: "rejected",
-          rejection_reason: rejectReason,
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", enrollmentId);
-
-      if (error) throw error;
-
+      const result = await rejectEnrollment(enrollmentId, rejectReason);
+      if (!result.success) {
+        toast.error(result.error || "Failed to reject enrollment.");
+        return;
+      }
       toast.success("Enrollment rejected.");
-      // Fire-and-forget email
+      // Best-effort student notification — reject path doesn't carry
+      // credentials, so the old /api/email endpoint still fits the bill.
       fetch("/api/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,7 +145,7 @@ export function EnrollmentActions({
       }).catch(() => {});
       setShowRejectDialog(false);
       router.refresh();
-    } catch (error) {
+    } catch {
       toast.error("Failed to reject enrollment.");
     } finally {
       setLoading(null);

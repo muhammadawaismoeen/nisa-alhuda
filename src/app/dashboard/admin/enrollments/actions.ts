@@ -11,6 +11,7 @@ import {
   sendFaApprovedEmail,
   sendFaRejectedEmail,
 } from "@/lib/email";
+import { provisionCredentialsForEnrollment } from "../payments/actions";
 
 export async function manualEnroll(
   studentId: string,
@@ -172,6 +173,16 @@ export async function approveFinancialAssistance(
         (enrollment.payment_currency || "PKR") as "PKR" | "INR" | "USD"
       ).catch(() => {});
     }
+  }
+
+  // Full waiver === instant approval, so the sister should also receive
+  // her login credentials (matching the Payment-Ledger Approve flow).
+  // Partial-waiver approvals leave the row pending — credentials are
+  // provisioned later when the reduced-fee receipt is approved.
+  if (approvedAmount === 0) {
+    provisionCredentialsForEnrollment(enrollmentId).catch((err) => {
+      console.error("[FA Approve] provisionCredentials failed:", err);
+    });
   }
 
   return { success: true };

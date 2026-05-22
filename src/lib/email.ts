@@ -985,6 +985,123 @@ export async function sendCredentialsEmail(
 }
 
 /**
+ * Approval credentials email — sent when admin approves an enrollment.
+ *
+ * Unlike sendCredentialsEmail() (which uses a Supabase action-link the
+ * student must click to set their own password), this variant emails the
+ * student a plain-text password the system has already set on their
+ * account. Used for the approval workflow where Awais wants a single
+ * shared password applied to every approved sister so onboarding is
+ * frictionless — they get their credentials and can log in immediately.
+ *
+ * Visual style mirrors scripts/reset-students-to-default.ts so students
+ * recognise it as the same family of Nisa Al-Huda credential emails.
+ */
+export async function sendApprovalCredentialsEmail(
+  to: string,
+  studentName: string,
+  email: string,
+  password: string,
+  offeringTitle: string,
+  offeringId?: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const loginUrl = `${SITE_URL}/login`;
+  const dashboardUrl = offeringId
+    ? `${SITE_URL}/dashboard/student/offerings/${offeringId}`
+    : `${SITE_URL}/dashboard/student`;
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /></head>
+<body style="margin:0;padding:0;background:#faf8f5;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf8f5;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(139,26,74,0.08);">
+        <tr>
+          <td style="background:linear-gradient(135deg,#8b1a4a 0%,#a0325e 50%,#d4a574 100%);padding:32px 28px;text-align:center;">
+            <p style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:0.02em;">Nisa Al-Huda</p>
+            <p style="margin:8px 0 0;color:#fff;font-size:14px;opacity:0.92;">Your enrollment has been approved &#10084;</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 28px 8px;">
+            <h2 style="margin:0 0 8px;color:#1a1a1a;font-size:20px;">Assalamu 'alaikum${studentName ? `, ${studentName}` : ""}!</h2>
+            <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.7;">
+              Alhamdulillah &mdash; your enrollment in <strong>${offeringTitle}</strong>
+              has been approved. We're so happy to welcome you to the Nisa
+              Al-Huda family, and we can't wait for you to begin this beautiful
+              journey of seeking knowledge.
+            </p>
+            <p style="margin:0 0 16px;color:#555;font-size:15px;line-height:1.7;">
+              Your student account has been set up. Use the credentials below
+              to log in &mdash; you can change your password anytime from your
+              dashboard once you're signed in.
+            </p>
+
+            <table cellpadding="0" cellspacing="0" style="width:100%;background:#fdf6f0;border-radius:12px;border-left:4px solid #d4a574;margin:18px 0;">
+              <tr><td style="padding:16px 20px;">
+                <p style="margin:0 0 6px;color:#8c7e72;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Email</p>
+                <p style="margin:0 0 14px;color:#1a1a1a;font-size:15px;font-family:'Courier New',monospace;">${email}</p>
+                <p style="margin:0 0 6px;color:#8c7e72;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;">Password</p>
+                <p style="margin:0;color:#8b1a4a;font-size:18px;font-weight:700;letter-spacing:1.5px;font-family:'Courier New',monospace;">${password}</p>
+              </td></tr>
+            </table>
+
+            <table cellpadding="0" cellspacing="0" style="margin:24px 0;">
+              <tr><td style="background:#8b1a4a;border-radius:999px;padding:14px 32px;">
+                <a href="${loginUrl}" style="color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;display:inline-block;">Log In Now</a>
+              </td></tr>
+            </table>
+
+            <p style="margin:0 0 6px;color:#1a1a1a;font-size:14px;font-weight:600;">A few things to know:</p>
+            <ul style="margin:0 0 16px;padding-left:18px;color:#555;font-size:14px;line-height:1.7;">
+              <li>Your dashboard will show your enrolled course, live class link, and recordings.</li>
+              <li>You can change this password anytime from your dashboard after signing in.</li>
+              <li>Treat this email as confidential &mdash; don't forward it on.</li>
+            </ul>
+
+            <p style="margin:18px 0 0;color:#888;font-size:13px;line-height:1.6;">
+              Once logged in, head to
+              <a href="${dashboardUrl}" style="color:#8b1a4a;">your course page</a>
+              to see your class schedule and live sessions.
+            </p>
+
+            <p style="margin:18px 0 0;color:#888;font-size:13px;line-height:1.6;">
+              Trouble signing in? Reply to this email or message us on
+              WhatsApp and we'll help you get back in, in sha Allah.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 28px 24px;background:#fdf6f0;text-align:center;border-top:1px solid #f0e6dc;">
+            <p style="margin:0 0 6px;color:#8b1a4a;font-size:13px;font-weight:600;">May Allah bless your journey of seeking knowledge.</p>
+            <a href="${SITE_URL}" style="color:#d4a574;font-size:12px;text-decoration:none;">${APP_NAME}</a>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  // Like sendCredentialsEmail, this is a high-stakes transactional send —
+  // surface errors so the admin knows to follow up if delivery fails.
+  const resend = getResend();
+  if (!resend) {
+    return { ok: false as const, error: "Email service not configured (RESEND_API_KEY missing)." };
+  }
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Your ${APP_NAME} login — ${offeringTitle}`,
+    html,
+  });
+  if (error) {
+    console.error("[Email] Approval credentials email failed:", error);
+    return { ok: false as const, error: error.message || "Email send failed." };
+  }
+  return { ok: true as const };
+}
+
+/**
  * Generic sender: routes a template key to the right function.
  */
 export async function sendTemplateEmail(

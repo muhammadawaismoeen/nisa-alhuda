@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { approveEnrollmentWithCredentials, rejectEnrollment } from "./actions";
 
 interface PaymentActionsProps {
   enrollmentId: string;
@@ -74,22 +75,22 @@ export function PaymentActions({
   async function handleApprove() {
     setLoading("approve");
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { error } = await supabase
-        .from("enrollments")
-        .update({
-          status: "approved",
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", enrollmentId);
-
-      if (error) throw error;
-      toast.success("Payment approved!");
+      // Server action handles: ensure auth account → set shared password →
+      // link enrollment.student_id → mark approved → email credentials.
+      const result = await approveEnrollmentWithCredentials(enrollmentId);
+      if (!result.success) {
+        toast.error(result.error || "Failed to approve.");
+        return;
+      }
+      if (result.emailSent === false) {
+        // Status flipped + password set, but the email didn't make it out.
+        // Surface so the admin can hand-deliver credentials if needed.
+        toast.warning(
+          result.error || "Approved, but credentials email failed to send."
+        );
+      } else {
+        toast.success("Approved — credentials emailed to the student.");
+      }
       router.refresh();
     } catch {
       toast.error("Failed to approve.");
@@ -105,22 +106,11 @@ export function PaymentActions({
     }
     setLoading("reject");
     try {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const { error } = await supabase
-        .from("enrollments")
-        .update({
-          status: "rejected",
-          rejection_reason: rejectReason,
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
-        })
-        .eq("id", enrollmentId);
-
-      if (error) throw error;
+      const result = await rejectEnrollment(enrollmentId, rejectReason);
+      if (!result.success) {
+        toast.error(result.error || "Failed to reject.");
+        return;
+      }
       toast.success("Payment rejected.");
       setShowRejectDialog(false);
       router.refresh();
