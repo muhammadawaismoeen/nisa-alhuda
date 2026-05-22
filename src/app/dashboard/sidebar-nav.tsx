@@ -20,6 +20,7 @@ import {
   BarChart3,
   Mail,
   KeyRound,
+  Table2,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -35,6 +36,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   BarChart3,
   Mail,
   KeyRound,
+  Table2,
 };
 
 export interface NavSection {
