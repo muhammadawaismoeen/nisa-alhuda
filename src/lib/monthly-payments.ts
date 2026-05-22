@@ -17,7 +17,9 @@ export const CYCLE_START_DAY = 27;
  * pre-launch enrollments simply don't owe retroactive renewals. If you need
  * to shift the launch date, change this constant and backfill existing rows.
  */
-export const FIRST_BILLABLE_CYCLE = "2026-05-27";
+// PREVIEW BRANCH — temporarily set to current cycle so Phase-1 UI activates
+// before the real launch date. Do NOT merge to main; revert before merging.
+export const FIRST_BILLABLE_CYCLE = "2026-04-27";
 
 /**
  * Returns the cycle-start date (27th) of the cycle that contains `date`.
