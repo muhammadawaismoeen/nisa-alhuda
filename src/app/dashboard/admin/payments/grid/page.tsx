@@ -21,6 +21,7 @@ import { ClipboardList } from "lucide-react";
 import {
   firstOfMonth,
   monthlyAmountForEnrollment,
+  FIRST_BILLABLE_CYCLE,
 } from "@/lib/monthly-payments";
 import type {
   Enrollment,
@@ -253,11 +254,13 @@ export default async function BillingGridPage() {
       }
 
       // Monthly + no row.
-      // Cycles strictly between enrollment and current: implicitly "owed"
-      // (sister should have been billed but no row yet — either pre-Phase-1
-      // or pre-FIRST_BILLABLE_CYCLE). Mark as owed so the treasurer sees it.
-      // The current cycle without a row is also "owed".
-      if (col.key <= currentCycleKey) {
+      // Only mark as "owed" if (a) cycle is at or past the platform's
+      // billing-start date, and (b) it's not in the future. Cycles between
+      // an old enrollment and FIRST_BILLABLE_CYCLE are "na" — the system
+      // wasn't billing then so showing "owed" would be misleading.
+      const isBillable =
+        col.key >= FIRST_BILLABLE_CYCLE && col.key <= currentCycleKey;
+      if (isBillable) {
         cells[col.key] = {
           kind: "owed",
           expectedAmount: expectedMonthly,
@@ -267,7 +270,6 @@ export default async function BillingGridPage() {
         };
         totalOwed += expectedMonthly;
       } else {
-        // Future cycle (shouldn't appear given our column range, defensive).
         cells[col.key] = { kind: "na" };
       }
     }
