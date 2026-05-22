@@ -124,6 +124,11 @@ function getNavSections(role: string): NavSection[] {
             iconName: "ClipboardList",
           },
           {
+            href: "/dashboard/admin/payments/grid",
+            label: "Billing Grid",
+            iconName: "Table2",
+          },
+          {
             href: "/dashboard/admin/users",
             label: "Users",
             iconName: "Users",
@@ -204,6 +209,11 @@ function getNavSections(role: string): NavSection[] {
             href: "/dashboard/admin/payments",
             label: "Payments",
             iconName: "ClipboardList",
+          },
+          {
+            href: "/dashboard/admin/payments/grid",
+            label: "Billing Grid",
+            iconName: "Table2",
           },
         ],
       },

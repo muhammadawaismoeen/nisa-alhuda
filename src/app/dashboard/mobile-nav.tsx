@@ -24,6 +24,7 @@ import {
   BarChart3,
   Mail,
   KeyRound,
+  Table2,
 } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { createClient } from "@/lib/supabase/client";
@@ -42,6 +43,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   BarChart3,
   Mail,
   KeyRound,
+  Table2,
 };
 
 interface SerializedNavItem {
