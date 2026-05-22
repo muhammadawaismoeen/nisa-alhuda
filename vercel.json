@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/roll-published-window",
       "schedule": "0 3 * * 1"
+    },
+    {
+      "path": "/api/cron/roll-monthly-cycles",
+      "schedule": "0 3 * * *"
     }
   ]
 }

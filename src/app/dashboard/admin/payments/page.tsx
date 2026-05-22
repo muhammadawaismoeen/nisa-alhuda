@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Globe,
   ClipboardList,
+  Hourglass,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PaymentActions } from "./payment-actions";
@@ -65,6 +66,22 @@ export default async function PaymentLedgerPage() {
 
   const monthlyPayments = (monthlyPaymentsRaw || []) as any[];
   const monthlyPending = monthlyPayments.filter((p) => p.status === "pending");
+  // Hoisted once for the 'Awaiting Submission' day-counter (avoids
+  // calling Date.now() inside the per-row JSX, which the
+  // react-hooks/purity lint flags as impure-during-render).
+  const nowMs = new Date().getTime();
+
+  // Cron-created placeholders awaiting a receipt upload. We surface only
+  // rows past a small grace window so the worklist stays actionable —
+  // on cycle-start day every approved monthly sister has an 'owed' row,
+  // but most pay within a few days. Per the Phase-1 plan: chase at T+5.
+  const OWED_FOLLOWUP_DAYS_THRESHOLD = 5;
+  const monthlyOwed = monthlyPayments.filter((p) => {
+    if (p.status !== "owed") return false;
+    const cycleStartMs = new Date(`${p.cycle_month}T00:00:00Z`).getTime();
+    const days = Math.floor((nowMs - cycleStartMs) / (1000 * 60 * 60 * 24));
+    return days >= OWED_FOLLOWUP_DAYS_THRESHOLD;
+  });
 
   // Revenue stats — split by country/currency so admin sees each market separately.
   // PKR → Pakistani students, INR → Indian students, USD → International students.
@@ -305,6 +322,85 @@ export default async function PaymentLedgerPage() {
         </section>
       )}
 
+      {/* Awaiting Submission — cron-created 'owed' rows where the sister
+          hasn't uploaded a receipt yet. Distinct from "Monthly Renewals
+          pending" (those have receipts to approve). This is a chase-list. */}
+      {monthlyOwed.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-heading font-semibold text-lg mb-4 flex items-center gap-2">
+            <Hourglass className="h-5 w-5 text-slate-500" />
+            Awaiting Submission
+            <Badge variant="outline" className="text-slate-600 border-slate-300">
+              {monthlyOwed.length}
+            </Badge>
+          </h2>
+
+          <p className="text-xs text-muted-foreground mb-3">
+            Monthly sisters whose current cycle started more than 5 days ago
+            without a receipt upload yet — chase-list for the treasurer.
+            Earlier in the cycle they&apos;re left alone.
+          </p>
+
+          <div className="space-y-3">
+            {monthlyOwed.map((payment: any) => {
+              // Days since the cycle started — quick at-a-glance signal for
+              // who to follow up first. Cycle key is YYYY-MM-DD UTC; nowMs
+              // is hoisted at the top of the page (purity lint).
+              const cycleStart = new Date(`${payment.cycle_month}T00:00:00Z`);
+              const daysSince = Math.max(
+                0,
+                Math.floor(
+                  (nowMs - cycleStart.getTime()) / (1000 * 60 * 60 * 24)
+                )
+              );
+              return (
+                <Card
+                  key={payment.id}
+                  className="border-slate-200 dark:border-slate-800"
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col md:flex-row md:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold truncate">
+                            {payment.student?.full_name || "Unknown"}
+                          </h3>
+                          <Badge
+                            variant="outline"
+                            className="text-slate-600 border-slate-300"
+                          >
+                            {formatCycleMonth(payment.cycle_month)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {payment.offering?.title}
+                        </p>
+                        <div className="flex flex-wrap gap-4 mt-2 text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            {formatMonthlyAmount(
+                              payment.amount,
+                              payment.currency
+                            )}
+                          </span>
+                          {payment.student?.phone && (
+                            <span>{payment.student.phone}</span>
+                          )}
+                          <span>
+                            {daysSince === 0
+                              ? "Cycle just started"
+                              : `${daysSince} day${daysSince === 1 ? "" : "s"} since cycle start`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Monthly Renewals — pending first, then history */}
       {monthlyPayments.length > 0 && (
         <section className="mb-8">
@@ -423,9 +519,9 @@ export default async function PaymentLedgerPage() {
                         variant={
                           payment.status === "approved"
                             ? "default"
-                            : payment.status === "pending"
-                              ? "outline"
-                              : "destructive"
+                            : payment.status === "rejected"
+                              ? "destructive"
+                              : "outline"
                         }
                       >
                         {payment.status}

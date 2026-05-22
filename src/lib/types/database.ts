@@ -232,7 +232,15 @@ export interface LiveSession {
   updated_at: string;
 }
 
-export type MonthlyPaymentStatus = "pending" | "approved" | "rejected";
+export type MonthlyPaymentStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  /**
+   * Cron-created placeholder — the cycle has started but the student
+   * hasn't uploaded a receipt yet. Flips to 'pending' when she submits.
+   */
+  | "owed";
 
 export interface MonthlyPayment {
   id: string;

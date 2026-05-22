@@ -112,7 +112,11 @@ export async function submitMonthlyPayment(
     .maybeSingle();
 
   if (existing) {
-    if (existing.status !== "pending") {
+    // Allow uploading against a cron-created 'owed' placeholder (Phase 1)
+    // as well as replacing an in-flight 'pending' receipt before review.
+    // Anything terminal (approved / rejected) still blocks — admin needs
+    // to weigh in before resubmission.
+    if (existing.status !== "pending" && existing.status !== "owed") {
       return {
         success: false,
         error:
@@ -128,6 +132,9 @@ export async function submitMonthlyPayment(
         receipt_url: receiptPath,
         amount,
         currency,
+        // Flip 'owed' → 'pending' so the admin queue picks this up. Re-
+        // setting 'pending' for an already-pending row is a no-op.
+        status: "pending",
       })
       .eq("id", existing.id);
 

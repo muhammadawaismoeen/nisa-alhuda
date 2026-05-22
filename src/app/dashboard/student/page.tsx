@@ -21,7 +21,13 @@ import {
   Flame,
   Sparkles,
 } from "lucide-react";
-import { firstOfMonth, cyclesBetween } from "@/lib/monthly-payments";
+import {
+  firstOfMonth,
+  cyclesBetween,
+  monthlyAmountForEnrollment,
+  formatMonthlyAmount,
+  formatCycleMonth,
+} from "@/lib/monthly-payments";
 import type {
   Offering,
   LiveSession,
@@ -157,6 +163,31 @@ export default async function StudentDashboardPage() {
         ? `${pending.length} enrollment${pending.length > 1 ? "s are" : " is"} awaiting review.`
         : "Browse the catalog to find your next course.";
 
+  // Approved monthly enrollments whose current cycle is unpaid — drives the
+  // top-of-page "fee due" banner. Mirrors the per-card `monthlyDue` check
+  // below so the banner and the card badge stay in sync.
+  const monthlyDueEnrollments = approved
+    .map((enrollment) => {
+      const offering = enrollment.offering as Offering;
+      if (!offering || offering.fee_type !== "monthly") return null;
+      const owedCycles = cyclesBetween(enrollment.created_at);
+      if (!owedCycles.includes(currentCycle)) return null;
+      const status = currentCycleByEnrollment[enrollment.id];
+      const due =
+        status === undefined ||
+        status === "rejected" ||
+        status === "owed";
+      if (!due) return null;
+      const { amount, currency } = monthlyAmountForEnrollment(
+        offering,
+        enrollment
+      );
+      return { enrollment, offering, amount, currency };
+    })
+    .filter(
+      (x): x is NonNullable<typeof x> => x !== null
+    );
+
   return (
     <div>
       <DashboardGreeting
@@ -269,6 +300,52 @@ export default async function StudentDashboardPage() {
         </div>
       )}
 
+      {/* Monthly fee due — prominent top-of-page nudge. One row per
+          unpaid monthly enrollment with a direct "Upload Receipt" link
+          to the offering page where the upload UI lives. Hidden when
+          nothing is owed. */}
+      {monthlyDueEnrollments.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-4 dark:border-amber-800 dark:from-amber-950/30 dark:to-orange-950/20">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              Payment due for {formatCycleMonth(currentCycle)}
+            </p>
+          </div>
+          <p className="ml-6 mb-3 text-xs text-amber-800 dark:text-amber-300">
+            {monthlyDueEnrollments.length} monthly fee
+            {monthlyDueEnrollments.length > 1 ? "s are" : " is"} awaiting your
+            receipt. Upload to keep your access active, in sha Allah.
+          </p>
+          <div className="ml-6 space-y-2">
+            {monthlyDueEnrollments.map(
+              ({ enrollment, offering, amount, currency }) => (
+                <div
+                  key={enrollment.id}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-white/70 dark:bg-amber-950/40 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100 truncate">
+                      {offering.title}
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      {formatMonthlyAmount(amount, currency)}
+                    </p>
+                  </div>
+                  <LinkButton
+                    size="sm"
+                    href={`/dashboard/student/offerings/${offering.id}`}
+                    className="shrink-0"
+                  >
+                    Upload Receipt
+                  </LinkButton>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Active Learning */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-heading text-lg font-semibold">
@@ -333,10 +410,17 @@ export default async function StudentDashboardPage() {
                 : [];
             const owesCurrentCycle = owedCycles.includes(currentCycle);
             const monthlyStatus = currentCycleByEnrollment[enrollment.id];
+            // 'owed' = cron-created placeholder for this cycle (no receipt yet).
+            // undefined = no row at all (cron hasn't run for this enrollment).
+            // 'rejected' = previous receipt was rejected, action needed.
+            // All three mean "show payment-due badge". 'pending' / 'approved'
+            // mean "leave the student alone".
             const monthlyDue =
               offering.fee_type === "monthly" &&
               owesCurrentCycle &&
-              (monthlyStatus === undefined || monthlyStatus === "rejected");
+              (monthlyStatus === undefined ||
+                monthlyStatus === "rejected" ||
+                monthlyStatus === "owed");
 
             return (
               <Card
