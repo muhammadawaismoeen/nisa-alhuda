@@ -34,7 +34,12 @@ interface Props {
   cycleLabel: string;
   amount: number;
   currency: "PKR" | "INR" | "USD";
-  region: Region;
+  /** Starting region — sister can toggle to view other regions' methods. */
+  defaultRegion: Region;
+  /** Whether the INTL toggle button should be shown (depends on offering). */
+  hasIntlPrice: boolean;
+  /** Whether the IN toggle button should be shown — currently always true. */
+  hasInrPrice: boolean;
   defaultSenderName: string;
   previousRejectionReason: string | null;
 }
@@ -56,7 +61,9 @@ export function MonthlyPaymentForm({
   cycleLabel,
   amount,
   currency,
-  region,
+  defaultRegion,
+  hasIntlPrice,
+  hasInrPrice,
   defaultSenderName,
   previousRejectionReason,
 }: Props) {
@@ -65,6 +72,11 @@ export function MonthlyPaymentForm({
   const [senderName, setSenderName] = useState(defaultSenderName || "");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Region is locally toggleable so the sister can browse other regions'
+  // payment methods (mirrors the enrollment view). The submitted amount +
+  // currency stay locked to the enrollment's stored values — the toggle
+  // just swaps which bank details are visible.
+  const [region, setRegion] = useState<Region>(defaultRegion);
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -167,9 +179,54 @@ export function MonthlyPaymentForm({
                 </p>
               </div>
 
-              {/* Region label (no toggle — locked to enrollment's currency) */}
-              <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium">
-                {PAYMENT_METHODS[region].flag} {PAYMENT_METHODS[region].label}
+              {/* Region toggle — mirrors the enrollment view so sisters
+                  can pick whichever payment method is easiest for them
+                  this cycle. The amount + currency we record stay locked
+                  to her enrollment, so the displayed PKR/INR/USD totals
+                  do NOT change when she toggles — only the bank/UPI/
+                  PayPal etc. account details below do. */}
+              <div
+                className={`grid gap-1 rounded-lg bg-secondary p-1 ${
+                  hasIntlPrice ? "grid-cols-3" : "grid-cols-2"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setRegion("pk")}
+                  className={`rounded-md py-2 text-sm font-medium transition-colors ${
+                    region === "pk"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {PAYMENT_METHODS.pk.flag} {PAYMENT_METHODS.pk.label}
+                </button>
+                {hasInrPrice && (
+                  <button
+                    type="button"
+                    onClick={() => setRegion("in")}
+                    className={`rounded-md py-2 text-sm font-medium transition-colors ${
+                      region === "in"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {PAYMENT_METHODS.in.flag} {PAYMENT_METHODS.in.label}
+                  </button>
+                )}
+                {hasIntlPrice && (
+                  <button
+                    type="button"
+                    onClick={() => setRegion("intl")}
+                    className={`rounded-md py-2 text-sm font-medium transition-colors ${
+                      region === "intl"
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {PAYMENT_METHODS.intl.flag} {PAYMENT_METHODS.intl.label}
+                  </button>
+                )}
               </div>
 
               {/* Payment methods — sourced from src/lib/payment-methods.ts
