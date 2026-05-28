@@ -111,7 +111,7 @@ export default async function BillingGridPage() {
     supabase
       .from("monthly_payments")
       .select(
-        "id, enrollment_id, cycle_month, amount, currency, status, receipt_url, reviewed_at"
+        "id, enrollment_id, cycle_month, amount, currency, status, receipt_url, reviewed_at, sender_name"
       ),
   ]);
 
@@ -136,6 +136,7 @@ export default async function BillingGridPage() {
     | "status"
     | "receipt_url"
     | "reviewed_at"
+    | "sender_name"
   >[];
 
   // Group monthly payments by enrollment + cycle for O(1) lookup.
@@ -238,6 +239,7 @@ export default async function BillingGridPage() {
           currency: row.currency || currency,
           receiptPath: row.receipt_url,
           paymentId: row.id,
+          senderName: row.sender_name,
         };
         if (row.status === "approved") {
           totalPaid += Number(row.amount) || 0;

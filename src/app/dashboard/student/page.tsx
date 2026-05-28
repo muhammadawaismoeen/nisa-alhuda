@@ -334,7 +334,7 @@ export default async function StudentDashboardPage() {
                   </div>
                   <LinkButton
                     size="sm"
-                    href={`/dashboard/student/offerings/${offering.id}`}
+                    href={`/dashboard/student/monthly-payment/${enrollment.id}`}
                     className="shrink-0"
                   >
                     Upload Receipt

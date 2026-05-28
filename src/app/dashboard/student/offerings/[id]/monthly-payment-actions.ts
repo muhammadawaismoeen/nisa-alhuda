@@ -16,6 +16,13 @@ export interface SubmitMonthlyPaymentInput {
   /** Base64-encoded receipt file. */
   receiptBase64: string;
   receiptFileName: string;
+  /**
+   * Optional — name used on the bank transfer. Pre-filled from
+   * profile.full_name by the new dedicated /monthly-payment page so
+   * admin can match the bank reference. Null is fine for the legacy
+   * inline uploader path.
+   */
+  senderName?: string;
 }
 
 export interface SubmitMonthlyPaymentResult {
@@ -126,16 +133,20 @@ export async function submitMonthlyPayment(
       };
     }
 
+    const updatePayload: Record<string, unknown> = {
+      receipt_url: receiptPath,
+      amount,
+      currency,
+      // Flip 'owed' → 'pending' so the admin queue picks this up. Re-
+      // setting 'pending' for an already-pending row is a no-op.
+      status: "pending",
+    };
+    if (input.senderName?.trim()) {
+      updatePayload.sender_name = input.senderName.trim();
+    }
     const { error: updateError } = await admin
       .from("monthly_payments")
-      .update({
-        receipt_url: receiptPath,
-        amount,
-        currency,
-        // Flip 'owed' → 'pending' so the admin queue picks this up. Re-
-        // setting 'pending' for an already-pending row is a no-op.
-        status: "pending",
-      })
+      .update(updatePayload)
       .eq("id", existing.id);
 
     if (updateError) {
@@ -158,6 +169,7 @@ export async function submitMonthlyPayment(
       payment_method: "bank_transfer",
       receipt_url: receiptPath,
       status: "pending",
+      sender_name: input.senderName?.trim() || null,
     })
     .select("id")
     .single();
