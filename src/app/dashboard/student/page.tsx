@@ -36,6 +36,7 @@ import type {
 import { DashboardGreeting } from "@/components/dashboard/greeting";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { PaymentDueModal } from "./payment-due-modal";
 
 export default async function StudentDashboardPage() {
   const supabase = await createClient();
@@ -300,50 +301,69 @@ export default async function StudentDashboardPage() {
         </div>
       )}
 
-      {/* Monthly fee due — prominent top-of-page nudge. One row per
-          unpaid monthly enrollment with a direct "Upload Receipt" link
-          to the offering page where the upload UI lives. Hidden when
-          nothing is owed. */}
+      {/* Monthly fee due — prominent top-of-page nudge + login modal.
+          The modal (client component) pops once per session on first
+          dashboard load. The banner stays for ongoing visibility. Both
+          render the same unpaid-cycle list with a "Pay / Upload" CTA. */}
       {monthlyDueEnrollments.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-4 dark:border-amber-800 dark:from-amber-950/30 dark:to-orange-950/20">
-          <div className="mb-2 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-amber-700 dark:text-amber-400" />
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-              Payment due for {formatCycleMonth(currentCycle)}
-            </p>
-          </div>
-          <p className="ml-6 mb-3 text-xs text-amber-800 dark:text-amber-300">
-            {monthlyDueEnrollments.length} monthly fee
-            {monthlyDueEnrollments.length > 1 ? "s are" : " is"} awaiting your
-            receipt. Upload to keep your access active, in sha Allah.
-          </p>
-          <div className="ml-6 space-y-2">
-            {monthlyDueEnrollments.map(
-              ({ enrollment, offering, amount, currency }) => (
-                <div
-                  key={enrollment.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-white/70 dark:bg-amber-950/40 px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100 truncate">
-                      {offering.title}
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      {formatMonthlyAmount(amount, currency)}
-                    </p>
-                  </div>
-                  <LinkButton
-                    size="sm"
-                    href={`/dashboard/student/monthly-payment/${enrollment.id}`}
-                    className="shrink-0"
-                  >
-                    Upload Receipt
-                  </LinkButton>
-                </div>
-              )
+        <>
+          <PaymentDueModal
+            cycleLabel={formatCycleMonth(currentCycle)}
+            entries={monthlyDueEnrollments.map(
+              ({ enrollment, offering, amount, currency }) => ({
+                enrollmentId: enrollment.id,
+                offeringTitle: offering.title,
+                amount,
+                currency,
+              })
             )}
+          />
+
+          <div className="mb-6 overflow-hidden rounded-2xl border-2 border-amber-400 bg-gradient-to-br from-amber-100 via-amber-50 to-orange-100 shadow-md dark:border-amber-700 dark:from-amber-950/50 dark:via-amber-900/30 dark:to-orange-950/30">
+            <div className="flex items-center gap-3 border-b border-amber-300 bg-amber-200/60 px-5 py-3 dark:border-amber-800 dark:bg-amber-900/40">
+              <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm">
+                <AlertCircle className="h-5 w-5" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-base font-bold text-amber-900 dark:text-amber-100">
+                  Payment due for {formatCycleMonth(currentCycle)}
+                </p>
+                <p className="text-xs text-amber-800/80 dark:text-amber-300">
+                  {monthlyDueEnrollments.length} monthly fee
+                  {monthlyDueEnrollments.length > 1 ? "s are" : " is"} awaiting
+                  your receipt. Upload to keep your access active, in sha Allah.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2 px-5 py-4">
+              {monthlyDueEnrollments.map(
+                ({ enrollment, offering, amount, currency }) => (
+                  <div
+                    key={enrollment.id}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-white/80 px-4 py-3 dark:bg-amber-950/30"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-amber-900 dark:text-amber-100">
+                        {offering.title}
+                      </p>
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                        {formatMonthlyAmount(amount, currency)}
+                      </p>
+                    </div>
+                    <LinkButton
+                      size="sm"
+                      href={`/dashboard/student/monthly-payment/${enrollment.id}`}
+                      className="press shrink-0 rounded-full"
+                    >
+                      Upload Receipt
+                    </LinkButton>
+                  </div>
+                )
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Active Learning */}
