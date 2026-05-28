@@ -32,6 +32,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatPriceWithFee, APP_NAME } from "@/lib/constants";
+import {
+  PAYMENT_METHODS,
+  PAYMENT_REFERENCE_NOTE,
+} from "@/lib/payment-methods";
 import { toast } from "sonner";
 import {
   checkEmail,
@@ -1095,81 +1099,43 @@ export function EnrollmentWizard({
                   )}
                 </div>
 
-                {paymentRegion === "pk" && (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Bank Name</p>
-                      <p className="font-medium">Bank Alfalah</p>
+                {/* Payment methods for the selected region — sourced from
+                    src/lib/payment-methods.ts so the monthly-payment page
+                    stays in lock-step. Add UPI / PayPal / etc by editing
+                    that file only — both views update automatically. */}
+                {PAYMENT_METHODS[paymentRegion].methods.map((method, idx) => (
+                  <div key={method.title}>
+                    {PAYMENT_METHODS[paymentRegion].methods.length > 1 && (
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {method.title}
+                      </p>
+                    )}
+                    <div className="space-y-3">
+                      {method.fields.map((field) => (
+                        <div key={field.label}>
+                          <p className="text-sm text-muted-foreground">{field.label}</p>
+                          <p
+                            className={`font-medium ${
+                              field.mono
+                                ? "font-mono text-xs sm:text-sm"
+                                : ""
+                            }`}
+                          >
+                            {field.value}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Account Name</p>
-                      <p className="font-medium">Sana Ahmed</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Account Number</p>
-                      <p className="font-medium font-mono">56185002604899</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">IBAN</p>
-                      <p className="font-medium font-mono text-xs sm:text-sm">PK81ALFH5618005002604899</p>
-                    </div>
+                    {idx <
+                      PAYMENT_METHODS[paymentRegion].methods.length - 1 && (
+                      <div className="my-3 border-t border-border/60" />
+                    )}
                   </div>
-                )}
-
-                {paymentRegion === "in" && (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Bank Name</p>
-                      <p className="font-medium">HDFC Bank</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Account Name</p>
-                      <p className="font-medium">Kareemunnisa Shaik</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Account Number</p>
-                      <p className="font-medium font-mono">50100433613784</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">IFSC Code</p>
-                      <p className="font-medium font-mono">HDFC0009377</p>
-                    </div>
-                  </div>
-                )}
-
-                {paymentRegion === "intl" && (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Bank Name</p>
-                      <p className="font-medium">Bank Alfalah</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Account Name</p>
-                      <p className="font-medium">Sana Ahmed</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Account Number</p>
-                      <p className="font-medium font-mono">56185002604899</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">IBAN</p>
-                      <p className="font-medium font-mono text-xs sm:text-sm">PK81ALFH5618005002604899</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">SWIFT / BIC</p>
-                      <p className="font-medium font-mono">ALFHPKKA</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Bank Address</p>
-                      <p className="font-medium text-xs sm:text-sm">Bank Alfalah Limited, Karachi, Pakistan</p>
-                    </div>
-                  </div>
-                )}
+                ))}
 
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
                   <p className="text-xs text-muted-foreground">
-                    <strong>Important:</strong> Please include your full name in
-                    the payment reference so we can match it to your application.
+                    <strong>Important:</strong> {PAYMENT_REFERENCE_NOTE}
                   </p>
                 </div>
               </div>

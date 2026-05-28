@@ -19,8 +19,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { submitMonthlyPayment } from "../../offerings/[id]/monthly-payment-actions";
+import {
+  PAYMENT_METHODS,
+  PAYMENT_REFERENCE_NOTE,
+  type PaymentRegion,
+} from "@/lib/payment-methods";
 
-export type Region = "pk" | "in" | "intl";
+export type Region = PaymentRegion;
 
 interface Props {
   enrollmentId: string;
@@ -164,67 +169,37 @@ export function MonthlyPaymentForm({
 
               {/* Region label (no toggle — locked to enrollment's currency) */}
               <div className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium">
-                {region === "pk" && <>🇵🇰 Pakistan</>}
-                {region === "in" && <>🇮🇳 India</>}
-                {region === "intl" && <>🌍 International</>}
+                {PAYMENT_METHODS[region].flag} {PAYMENT_METHODS[region].label}
               </div>
 
-              {region === "pk" && (
-                <div className="space-y-3">
-                  <Field label="Bank Name" value="Bank Alfalah" />
-                  <Field label="Account Name" value="Sana Ahmed" />
-                  <Field
-                    label="Account Number"
-                    value="56185002604899"
-                    mono
-                  />
-                  <Field
-                    label="IBAN"
-                    value="PK81ALFH5618005002604899"
-                    mono
-                  />
+              {/* Payment methods — sourced from src/lib/payment-methods.ts
+                  so this view + the enrollment wizard stay in lock-step. */}
+              {PAYMENT_METHODS[region].methods.map((method, idx) => (
+                <div key={method.title}>
+                  {PAYMENT_METHODS[region].methods.length > 1 && (
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {method.title}
+                    </p>
+                  )}
+                  <div className="space-y-3">
+                    {method.fields.map((field) => (
+                      <Field
+                        key={field.label}
+                        label={field.label}
+                        value={field.value}
+                        mono={field.mono}
+                      />
+                    ))}
+                  </div>
+                  {idx < PAYMENT_METHODS[region].methods.length - 1 && (
+                    <div className="my-3 border-t border-border/60" />
+                  )}
                 </div>
-              )}
-
-              {region === "in" && (
-                <div className="space-y-3">
-                  <Field label="Bank Name" value="HDFC Bank" />
-                  <Field label="Account Name" value="Kareemunnisa Shaik" />
-                  <Field
-                    label="Account Number"
-                    value="50100433613784"
-                    mono
-                  />
-                  <Field label="IFSC Code" value="HDFC0009377" mono />
-                </div>
-              )}
-
-              {region === "intl" && (
-                <div className="space-y-3">
-                  <Field label="Bank Name" value="Bank Alfalah" />
-                  <Field label="Account Name" value="Sana Ahmed" />
-                  <Field
-                    label="Account Number"
-                    value="56185002604899"
-                    mono
-                  />
-                  <Field
-                    label="IBAN"
-                    value="PK81ALFH5618005002604899"
-                    mono
-                  />
-                  <Field label="SWIFT / BIC" value="ALFHPKKA" mono />
-                  <Field
-                    label="Bank Address"
-                    value="Bank Alfalah Limited, Karachi, Pakistan"
-                  />
-                </div>
-              )}
+              ))}
 
               <div className="rounded-lg border border-primary/10 bg-primary/5 p-3">
                 <p className="text-xs text-muted-foreground">
-                  <strong>Important:</strong> Please include your full name in
-                  the payment reference so we can match it to your account.
+                  <strong>Important:</strong> {PAYMENT_REFERENCE_NOTE}
                 </p>
               </div>
             </div>
