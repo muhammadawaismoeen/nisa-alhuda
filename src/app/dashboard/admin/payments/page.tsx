@@ -446,6 +446,14 @@ export default async function PaymentLedgerPage() {
                               payment.currency
                             )}
                           </span>
+                          {payment.sender_name && (
+                            <span>
+                              <span className="opacity-70">Sent by:</span>{" "}
+                              <span className="font-medium text-foreground">
+                                {payment.sender_name}
+                              </span>
+                            </span>
+                          )}
                           {payment.student?.phone && (
                             <span>{payment.student.phone}</span>
                           )}

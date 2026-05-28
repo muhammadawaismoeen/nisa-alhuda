@@ -48,6 +48,7 @@ export type Cell =
       currency: string;
       receiptPath: string | null;
       paymentId: string;
+      senderName: string | null;
     }
   | {
       kind: "owed";
@@ -606,6 +607,15 @@ function CellDialog({ cell, row, cycleLabel, onClose, onUpdated }: DialogProps) 
                   <p className="font-medium capitalize">{cell.status}</p>
                 </div>
               </div>
+
+              {cell.kind === "monthly" && cell.senderName && (
+                <div className="rounded-lg bg-muted/40 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    Sender name (on bank transfer)
+                  </p>
+                  <p className="font-medium">{cell.senderName}</p>
+                </div>
+              )}
 
               {cell.receiptPath ? (
                 receiptUrl ? (

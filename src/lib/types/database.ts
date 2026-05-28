@@ -253,6 +253,13 @@ export interface MonthlyPayment {
   currency: string;
   payment_method: string;
   receipt_url: string | null;
+  /**
+   * Name used on the bank transfer — captured on the monthly payment
+   * upload page so admin can match the bank reference even when the
+   * sister sent via a relative's account. Pre-filled from
+   * profile.full_name on the form.
+   */
+  sender_name: string | null;
   status: MonthlyPaymentStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;
