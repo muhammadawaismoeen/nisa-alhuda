@@ -162,7 +162,9 @@ export default async function MonthlyPaymentPage({ params }: PageProps) {
         cycleLabel={formatCycleMonth(currentCycle)}
         amount={amount}
         currency={currency}
-        region={region}
+        defaultRegion={region}
+        hasIntlPrice={enrollment.offering.price_usd != null}
+        hasInrPrice={enrollment.offering.price_inr != null}
         defaultSenderName={profile?.full_name || ""}
         previousRejectionReason={
           existing?.status === "rejected" ? existing.rejection_reason : null
