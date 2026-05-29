@@ -43,11 +43,32 @@ export function firstOfMonth(date = new Date()): string {
   return `${year}-${mm}-${dd}`;
 }
 
-/** Human label for a cycle key — "May 2026" (month the cycle starts in). */
+/**
+ * Human label for a cycle key.
+ *
+ * A cycle keyed as YYYY-MM-27 actually runs from MM/27 to (MM+1)/26 —
+ * roughly 5 days in the start-month and 26 days in the following month.
+ * Sisters naturally think of "the June fee" as the one they pay in late
+ * May (for June classes), so we label cycles by the month most of the
+ * cycle falls in — i.e. the month AFTER the cycle-start key.
+ *
+ * Examples:
+ *   "2026-04-27" (Apr 27 → May 26) → "May 2026"
+ *   "2026-05-27" (May 27 → June 26) → "June 2026"
+ *   "2026-12-27" (Dec 27 → Jan 26)  → "January 2027"
+ */
 export function formatCycleMonth(cycleMonth: string): string {
-  // Parse as UTC so the label doesn't flip across timezones
   const [y, m] = cycleMonth.split("-").map(Number);
-  const d = new Date(Date.UTC(y, (m || 1) - 1, 1));
+  // Add 1 month to the cycle-start month for the display label.
+  // m is 1-indexed in the cycle key.
+  let labelYear = y;
+  let labelMonth = (m || 1) + 1; // → next month (still 1-indexed)
+  if (labelMonth > 12) {
+    labelMonth = 1;
+    labelYear += 1;
+  }
+  // Parse as UTC so the label doesn't flip across timezones.
+  const d = new Date(Date.UTC(labelYear, labelMonth - 1, 1));
   return d.toLocaleDateString("en-US", {
     month: "long",
     year: "numeric",
