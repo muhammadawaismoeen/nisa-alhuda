@@ -68,7 +68,7 @@ export default async function MonthlyPaymentPage({ params }: PageProps) {
   const { data: enrollment } = await supabase
     .from("enrollments")
     .select(
-      "id, student_id, offering_id, status, payment_currency, fa_approved_amount, created_at, offering:offerings!enrollments_offering_id_fkey(id, title, fee_type, price, price_inr, price_usd)"
+      "id, student_id, offering_id, status, payment_method, payment_currency, fa_approved_amount, created_at, offering:offerings!enrollments_offering_id_fkey(id, title, fee_type, price, price_inr, price_usd)"
     )
     .eq("id", enrollmentId)
     .single<EnrollmentRow>();
@@ -92,6 +92,28 @@ export default async function MonthlyPaymentPage({ params }: PageProps) {
         icon={<CheckCircle className="h-5 w-5 text-emerald-600" />}
         title="This course is not on a monthly plan"
         body="No recurring payment is required — you're set."
+      />
+    );
+  }
+
+  // Non-billable enrollments (rescue rows, full waivers, promo comps,
+  // FA-fully-waived) don't owe a monthly fee. Bounce with a friendly
+  // notice instead of showing a "PKR 0" form.
+  const NON_BILLABLE_METHODS = new Set([
+    "manual_approval",
+    "waiver",
+    "free",
+  ]);
+  if (
+    (enrollment.payment_method &&
+      NON_BILLABLE_METHODS.has(enrollment.payment_method)) ||
+    enrollment.fa_approved_amount === 0
+  ) {
+    return (
+      <NoticeCard
+        icon={<CheckCircle className="h-5 w-5 text-emerald-600" />}
+        title="No monthly fee on this enrollment"
+        body="Your access is on a free / waiver / admin-granted basis — no payment is required. Jazakillahu khairan!"
       />
     );
   }
