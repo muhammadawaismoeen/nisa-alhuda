@@ -167,10 +167,27 @@ export default async function StudentDashboardPage() {
   // Approved monthly enrollments whose current cycle is unpaid — drives the
   // top-of-page "fee due" banner. Mirrors the per-card `monthlyDue` check
   // below so the banner and the card badge stay in sync.
+  //
+  // Non-billable enrollments are excluded — these match the same set the
+  // cron skips: rescue rows (manual_approval), full waivers, and promo
+  // comps (free). Plus FA full-waiver (fa_approved_amount === 0).
+  const NON_BILLABLE_METHODS = new Set([
+    "manual_approval",
+    "waiver",
+    "free",
+  ]);
   const monthlyDueEnrollments = approved
     .map((enrollment) => {
       const offering = enrollment.offering as Offering;
       if (!offering || offering.fee_type !== "monthly") return null;
+      // Skip non-billable enrollments — they don't owe a monthly fee.
+      if (
+        enrollment.payment_method &&
+        NON_BILLABLE_METHODS.has(enrollment.payment_method)
+      )
+        return null;
+      if (enrollment.fa_approved_amount === 0) return null;
+
       const owedCycles = cyclesBetween(enrollment.created_at);
       if (!owedCycles.includes(currentCycle)) return null;
       const status = currentCycleByEnrollment[enrollment.id];
