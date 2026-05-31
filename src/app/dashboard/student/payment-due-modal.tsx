@@ -100,7 +100,7 @@ export function PaymentDueModal({ cycleLabel, entries }: Props) {
                   {formatMonthlyAmount(e.amount, e.currency)} for {cycleLabel}
                   {e.isFaReduced && (
                     <span className="ml-2 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                      FA rate
+                      Concession
                     </span>
                   )}
                 </p>

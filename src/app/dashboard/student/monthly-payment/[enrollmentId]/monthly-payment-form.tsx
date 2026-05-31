@@ -182,7 +182,7 @@ export function MonthlyPaymentForm({
                   </p>
                   {isFaReduced && (
                     <span className="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                      Financial Assistance rate
+                      Fee Concession
                     </span>
                   )}
                 </div>
@@ -192,7 +192,7 @@ export function MonthlyPaymentForm({
                 {isFaReduced && fullPrice && fullPrice > amount && (
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     Full fee: {formatAmount(fullPrice, currency)} · your
-                    approved rate after FA review
+                    approved concession amount
                   </p>
                 )}
                 <p className="mt-1 text-xs text-muted-foreground">
