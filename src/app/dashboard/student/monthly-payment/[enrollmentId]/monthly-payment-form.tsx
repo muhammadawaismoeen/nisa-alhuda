@@ -34,6 +34,12 @@ interface Props {
   cycleLabel: string;
   amount: number;
   currency: "PKR" | "INR" | "USD";
+  /** True when `amount` is the sister's FA-approved reduced rate. */
+  isFaReduced: boolean;
+  /** The offering's full (non-FA) price in the sister's currency, for
+   *  "instead of PKR 3,000" copy. Null if the offering has no price set
+   *  in that currency (rare). */
+  fullPrice: number | null;
   /** Starting region — sister can toggle to view other regions' methods. */
   defaultRegion: Region;
   /** Whether the INTL toggle button should be shown (depends on offering). */
@@ -61,6 +67,8 @@ export function MonthlyPaymentForm({
   cycleLabel,
   amount,
   currency,
+  isFaReduced,
+  fullPrice,
   defaultRegion,
   hasIntlPrice,
   hasInrPrice,
@@ -168,12 +176,25 @@ export function MonthlyPaymentForm({
 
             <div className="space-y-4">
               <div className="rounded-xl bg-secondary/60 p-4">
-                <p className="mb-1 text-sm text-muted-foreground">
-                  Amount for {cycleLabel}
-                </p>
+                <div className="mb-1 flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">
+                    Amount for {cycleLabel}
+                  </p>
+                  {isFaReduced && (
+                    <span className="inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      Financial Assistance rate
+                    </span>
+                  )}
+                </div>
                 <p className="text-2xl font-bold text-primary">
                   {formatAmount(amount, currency)}
                 </p>
+                {isFaReduced && fullPrice && fullPrice > amount && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Full fee: {formatAmount(fullPrice, currency)} · your
+                    approved rate after FA review
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-muted-foreground">
                   {offeringTitle}
                 </p>
