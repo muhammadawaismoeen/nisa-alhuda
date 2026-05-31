@@ -200,7 +200,13 @@ export default async function StudentDashboardPage() {
         offering,
         enrollment
       );
-      return { enrollment, offering, amount, currency };
+      // Flag FA-partial enrollments so the UI can show "Financial Assistance
+      // rate" alongside the reduced amount. (FA full waivers are filtered
+      // out above with fa_approved_amount === 0.)
+      const isFaReduced =
+        enrollment.fa_approved_amount != null &&
+        enrollment.fa_approved_amount > 0;
+      return { enrollment, offering, amount, currency, isFaReduced };
     })
     .filter(
       (x): x is NonNullable<typeof x> => x !== null
@@ -327,11 +333,12 @@ export default async function StudentDashboardPage() {
           <PaymentDueModal
             cycleLabel={formatCycleMonth(currentCycle)}
             entries={monthlyDueEnrollments.map(
-              ({ enrollment, offering, amount, currency }) => ({
+              ({ enrollment, offering, amount, currency, isFaReduced }) => ({
                 enrollmentId: enrollment.id,
                 offeringTitle: offering.title,
                 amount,
                 currency,
+                isFaReduced,
               })
             )}
           />
@@ -355,7 +362,7 @@ export default async function StudentDashboardPage() {
             </div>
             <div className="space-y-2 px-5 py-4">
               {monthlyDueEnrollments.map(
-                ({ enrollment, offering, amount, currency }) => (
+                ({ enrollment, offering, amount, currency, isFaReduced }) => (
                   <div
                     key={enrollment.id}
                     className="flex items-center justify-between gap-3 rounded-xl bg-white/80 px-4 py-3 dark:bg-amber-950/30"
@@ -366,6 +373,11 @@ export default async function StudentDashboardPage() {
                       </p>
                       <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
                         {formatMonthlyAmount(amount, currency)}
+                        {isFaReduced && (
+                          <span className="ml-2 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                            FA rate
+                          </span>
+                        )}
                       </p>
                     </div>
                     <LinkButton

@@ -168,6 +168,16 @@ export default async function MonthlyPaymentPage({ params }: PageProps) {
     enrollment
   );
   const region = regionFromCurrency(currency);
+  // FA-partial: surface the reduced rate badge + the offering's full price
+  // so the sister can see "you're paying PKR 1,000 instead of PKR 3,000".
+  const isFaReduced =
+    enrollment.fa_approved_amount != null &&
+    enrollment.fa_approved_amount > 0;
+  const fullPrice = (() => {
+    if (currency === "USD") return enrollment.offering.price_usd ?? null;
+    if (currency === "INR") return enrollment.offering.price_inr ?? null;
+    return enrollment.offering.price ?? null;
+  })();
 
   return (
     <div>
@@ -184,6 +194,8 @@ export default async function MonthlyPaymentPage({ params }: PageProps) {
         cycleLabel={formatCycleMonth(currentCycle)}
         amount={amount}
         currency={currency}
+        isFaReduced={isFaReduced}
+        fullPrice={fullPrice}
         defaultRegion={region}
         hasIntlPrice={enrollment.offering.price_usd != null}
         hasInrPrice={enrollment.offering.price_inr != null}
