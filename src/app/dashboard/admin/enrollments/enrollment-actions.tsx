@@ -39,6 +39,13 @@ interface EnrollmentActionsProps {
    * Useful next to FaActions, which owns its own approve/reject flow.
    */
   mode?: "full" | "delete-only";
+  /**
+   * When true (passed in the instructor viewing context), hide payment
+   * receipt + approve/reject buttons — those tasks are admin/treasurer
+   * scope. Instructor keeps Delete because removing a stray enrollment
+   * isn't a financial decision.
+   */
+  hideFinance?: boolean;
 }
 
 export function EnrollmentActions({
@@ -46,6 +53,7 @@ export function EnrollmentActions({
   status,
   receiptPath,
   mode = "full",
+  hideFinance = false,
 }: EnrollmentActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState<"approve" | "reject" | "delete" | null>(null);
@@ -157,7 +165,7 @@ export function EnrollmentActions({
   return (
     <div className="flex items-center gap-2">
       {/* View Receipt — only show if receipt exists */}
-      {fullMode && receiptPath && (
+      {fullMode && !hideFinance && receiptPath && (
       <Dialog>
         <DialogTrigger
           className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border bg-background hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 text-[0.8rem] font-medium transition-all"
@@ -203,7 +211,7 @@ export function EnrollmentActions({
       )}
 
       {/* Approve / Reject — only show for pending */}
-      {fullMode && status === "pending" && (
+      {fullMode && !hideFinance && status === "pending" && (
         <>
           <Button
             size="sm"

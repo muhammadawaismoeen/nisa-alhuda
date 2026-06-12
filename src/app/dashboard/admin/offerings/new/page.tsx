@@ -9,6 +9,20 @@ import { OfferingForm } from "../offering-form";
 export default async function NewOfferingPage() {
   const supabase = await createClient();
 
+  // Viewer role drives the hideFinance flag passed into OfferingForm.
+  // Instructors create offerings without setting price/fee_type.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+    : { data: null };
+  const hideFinance = profile?.role === "instructor";
+
   // Fetch instructors for the subject assignment dropdown
   const { data: instructors } = await supabase
     .from("profiles")
@@ -25,7 +39,7 @@ export default async function NewOfferingPage() {
         subtitle="Add a new program, course, or workshop to your catalog."
       />
 
-      <OfferingForm instructors={instructors || []} />
+      <OfferingForm instructors={instructors || []} hideFinance={hideFinance} />
     </div>
   );
 }

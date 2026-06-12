@@ -53,13 +53,15 @@ export default async function AdminEnrollmentsPage() {
     .eq("id", user?.id)
     .single();
 
-  if (profile?.role !== "admin") {
+  if (profile?.role !== "admin" && profile?.role !== "instructor") {
     return (
       <div className="text-center py-20">
         <p className="text-destructive font-medium">Access denied.</p>
       </div>
     );
   }
+  const role = profile.role as "admin" | "instructor";
+  const hideFinance = role === "instructor";
 
   // Fetch all enrollments
   const { data: enrollments } = await supabase
@@ -105,7 +107,7 @@ export default async function AdminEnrollmentsPage() {
         subtitle="Manage enrollments. Manually add or remove students."
         actions={
           <>
-            {pendingFaCount > 0 && (
+            {!hideFinance && pendingFaCount > 0 && (
               <Badge
                 variant="outline"
                 className="border-amber-400 text-amber-700 dark:text-amber-400"
@@ -119,21 +121,23 @@ export default async function AdminEnrollmentsPage() {
                 {pendingCount} pending
               </Badge>
             )}
-            <ManualEnrollment
-              students={(students || []).map((s: any) => ({
-                id: s.id,
-                full_name: s.full_name,
-              }))}
-              offerings={(offerings || []).map((o: any) => ({
-                id: o.id,
-                title: o.title,
-                price: o.price,
-              }))}
-              existingEnrollments={(enrollments || []).map((e: any) => ({
-                studentId: e.student_id,
-                offeringId: e.offering_id,
-              }))}
-            />
+            {!hideFinance && (
+              <ManualEnrollment
+                students={(students || []).map((s: any) => ({
+                  id: s.id,
+                  full_name: s.full_name,
+                }))}
+                offerings={(offerings || []).map((o: any) => ({
+                  id: o.id,
+                  title: o.title,
+                  price: o.price,
+                }))}
+                existingEnrollments={(enrollments || []).map((e: any) => ({
+                  studentId: e.student_id,
+                  offeringId: e.offering_id,
+                }))}
+              />
+            )}
           </>
         }
       />
@@ -148,7 +152,9 @@ export default async function AdminEnrollmentsPage() {
       ) : (
         <div className="space-y-6">
           {/* ─── Financial Assistance Pending Section ─── */}
-          {pendingFaEnrollments.length > 0 && (
+          {/* Hidden from instructors — FA decisions involve setting an */}
+          {/* approved-amount, which is a financial action reserved for admin. */}
+          {!hideFinance && pendingFaEnrollments.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-3">
                 <HeartHandshake className="h-5 w-5 text-amber-600" />
@@ -291,7 +297,7 @@ export default async function AdminEnrollmentsPage() {
                                 {applicantName}
                               </h3>
                               <Badge variant={config.variant}>{config.label}</Badge>
-                              {isFaApproved && (
+                              {!hideFinance && isFaApproved && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-400">
                                   <HeartHandshake className="h-2.5 w-2.5 mr-0.5" />
                                   FA {enrollment.fa_approved_amount === 0 ? "Waived" : "Approved"}
@@ -311,7 +317,7 @@ export default async function AdminEnrollmentsPage() {
                                 <Mail className="h-3 w-3" />
                                 {enrollment.applicant_email}
                               </span>
-                              {enrollment.payment_amount > 0 && (
+                              {!hideFinance && enrollment.payment_amount > 0 && (
                                 <span>
                                   {formatPaidAmount(
                                     enrollment.payment_amount,
@@ -319,13 +325,15 @@ export default async function AdminEnrollmentsPage() {
                                   )}
                                 </span>
                               )}
-                              {enrollment.payment_amount === 0 &&
+                              {!hideFinance &&
+                                enrollment.payment_amount === 0 &&
                                 enrollment.payment_method === "manual_approval" && (
                                   <span className="text-muted-foreground font-medium">
                                     Manual
                                   </span>
                                 )}
-                              {enrollment.payment_amount === 0 &&
+                              {!hideFinance &&
+                                enrollment.payment_amount === 0 &&
                                 enrollment.payment_method !== "manual_approval" && (
                                   <span className="text-green-600 font-medium">
                                     {isFaApproved ? "Fully Waived" : "Free"}
@@ -350,6 +358,7 @@ export default async function AdminEnrollmentsPage() {
                               enrollmentId={enrollment.id}
                               status={enrollment.status}
                               receiptPath={enrollment.payment_receipt_url}
+                              hideFinance={hideFinance}
                             />
                           </div>
                         </div>

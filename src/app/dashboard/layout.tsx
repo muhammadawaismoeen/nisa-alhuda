@@ -1,7 +1,14 @@
 /**
  * Dashboard layout — shared wrapper for all authenticated dashboard pages.
  * Premium sidebar (grouped, active indicator) + polished mobile header.
+ *
+ * Also enforces the payment-block gate for students: if a sister is past
+ * the 5-day grace period for an unpaid current-cycle fee, every dashboard
+ * route except `/dashboard/student/monthly-payment/[id]` (where she can
+ * still submit a receipt) and a clean logout is replaced with the
+ * BlockedScreen. See `src/lib/payment-block.ts` for the policy.
  */
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Logo } from "@/components/layout/logo";
@@ -10,6 +17,8 @@ import { DashboardLogout } from "./logout-button";
 import { NotificationBell } from "./notification-bell";
 import { MobileNav } from "./mobile-nav";
 import { SidebarNav, type NavSection } from "./sidebar-nav";
+import { getBlockingDebt } from "@/lib/payment-block";
+import { BlockedScreen } from "./blocked-screen";
 
 export default async function DashboardLayout({
   children,
@@ -31,6 +40,22 @@ export default async function DashboardLayout({
     .single<Profile>();
 
   if (!profile) redirect("/login");
+
+  // Payment-block gate (students only). Runs before every dashboard render
+  // so a blocked sister can't sneak in via cached navigation. The block
+  // screen is the only thing she sees outside of the monthly-payment page.
+  if (profile.role === "student") {
+    const pathname = (await headers()).get("x-pathname") || "";
+    const onPaymentPage = pathname.startsWith(
+      "/dashboard/student/monthly-payment/"
+    );
+    if (!onPaymentPage) {
+      const debt = await getBlockingDebt(supabase, profile.id);
+      if (debt) {
+        return <BlockedScreen debt={debt} fullName={profile.full_name} />;
+      }
+    }
+  }
 
   const sections = getNavSections(profile.role);
 
@@ -231,14 +256,34 @@ function getNavSections(role: string): NavSection[] {
   }
 
   if (role === "instructor") {
+    // Instructors mirror the admin nav — same management screens,
+    // same teaching toolset — EXCEPT for the two billing routes
+    // (Payments + Billing Grid) and the User Directory. The user
+    // directory hosts role-editing + password resets, so leaving it in
+    // would let instructors elevate themselves to admin.
     return [
       home,
+      {
+        label: "Manage",
+        items: [
+          {
+            href: "/dashboard/admin/offerings",
+            label: "Courses",
+            iconName: "BookOpen",
+          },
+          {
+            href: "/dashboard/admin/enrollments",
+            label: "Enrollments",
+            iconName: "GraduationCap",
+          },
+        ],
+      },
       {
         label: "Teaching",
         items: [
           {
             href: "/dashboard/instructor",
-            label: "My Subjects",
+            label: "Subjects",
             iconName: "BookOpen",
           },
           {
@@ -259,12 +304,22 @@ function getNavSections(role: string): NavSection[] {
         ],
       },
       {
-        label: "Community",
+        label: "Communication",
         items: [
           {
             href: "/dashboard/announcements",
             label: "Announcements",
             iconName: "Megaphone",
+          },
+          {
+            href: "/dashboard/admin/emails",
+            label: "Emails",
+            iconName: "Mail",
+          },
+          {
+            href: "/dashboard/admin/credentials",
+            label: "Credentials",
+            iconName: "KeyRound",
           },
         ],
       },

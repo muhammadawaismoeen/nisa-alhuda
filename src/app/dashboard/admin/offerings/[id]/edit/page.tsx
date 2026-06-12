@@ -25,6 +25,19 @@ export default async function EditOfferingPage({
 
   if (!offering) notFound();
 
+  // Viewer role drives the hideFinance flag passed into OfferingForm.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+    : { data: null };
+  const hideFinance = profile?.role === "instructor";
+
   // Fetch subjects if it's a program
   let subjects: Subject[] = [];
   if (offering.type === "program") {
@@ -57,6 +70,7 @@ export default async function EditOfferingPage({
         offering={offering}
         existingSubjects={subjects}
         instructors={instructors || []}
+        hideFinance={hideFinance}
       />
     </div>
   );

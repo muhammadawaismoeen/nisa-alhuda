@@ -31,7 +31,7 @@ interface EnrollResult {
   emailSent?: boolean;
 }
 
-async function requireAdmin() {
+async function requireAdminOrInstructor() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -43,7 +43,10 @@ async function requireAdmin() {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (profile?.role !== "admin") {
+  // Instructors get roster-management access alongside admins. Price /
+  // fee_type for the resulting enrollment is pulled from the offering
+  // itself, so no financial input is exposed to the instructor UI.
+  if (!["admin", "instructor"].includes(profile?.role || "")) {
     return { ok: false as const, error: "Not authorized." };
   }
   return { ok: true as const, user };
@@ -62,7 +65,7 @@ export async function enrollByEmail(
    */
   presetPassword?: string
 ): Promise<EnrollResult> {
-  const auth = await requireAdmin();
+  const auth = await requireAdminOrInstructor();
   if (!auth.ok) return { success: false, error: auth.error };
 
   const email = (rawEmail || "").toLowerCase().trim();

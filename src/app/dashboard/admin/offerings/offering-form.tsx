@@ -56,6 +56,12 @@ interface OfferingFormProps {
   offering?: Offering;
   existingSubjects?: Subject[];
   instructors?: InstructorOption[];
+  /**
+   * Instructor-viewing flag. When true, hide Price and Fee Type — those
+   * sit with admin/treasurer. Existing values on the offering are kept
+   * verbatim on save (the inputs render but stay at their initial state).
+   */
+  hideFinance?: boolean;
 }
 
 function generateSlug(title: string): string {
@@ -67,7 +73,12 @@ function generateSlug(title: string): string {
     .trim();
 }
 
-export function OfferingForm({ offering, existingSubjects = [], instructors = [] }: OfferingFormProps) {
+export function OfferingForm({
+  offering,
+  existingSubjects = [],
+  instructors = [],
+  hideFinance = false,
+}: OfferingFormProps) {
   const router = useRouter();
   const isEditing = !!offering;
 
@@ -598,36 +609,40 @@ export function OfferingForm({ offering, existingSubjects = [], instructors = []
       <Card>
         <CardContent className="p-6 space-y-5">
           <h2 className="font-heading font-semibold text-lg">
-            Pricing & Schedule
+            {hideFinance ? "Schedule" : "Pricing & Schedule"}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Price */}
-            <div className="space-y-2">
-              <Label htmlFor="price">Price (PKR)</Label>
-              <Input
-                id="price"
-                type="number"
-                min="0"
-                placeholder="0 for free"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-              />
-            </div>
+            {!hideFinance && (
+              <>
+                {/* Price */}
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price (PKR)</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min="0"
+                    placeholder="0 for free"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                  />
+                </div>
 
-            {/* Fee Type */}
-            <div className="space-y-2">
-              <Label htmlFor="feeType">Fee Type</Label>
-              <select
-                id="feeType"
-                className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
-                value={feeType}
-                onChange={(e) => setFeeType(e.target.value as FeeType)}
-              >
-                <option value="one_time">One-time</option>
-                <option value="monthly">Per Month</option>
-              </select>
-            </div>
+                {/* Fee Type */}
+                <div className="space-y-2">
+                  <Label htmlFor="feeType">Fee Type</Label>
+                  <select
+                    id="feeType"
+                    className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm text-foreground transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 outline-none"
+                    value={feeType}
+                    onChange={(e) => setFeeType(e.target.value as FeeType)}
+                  >
+                    <option value="one_time">One-time</option>
+                    <option value="monthly">Per Month</option>
+                  </select>
+                </div>
+              </>
+            )}
 
             {/* Start Date */}
             <div className="space-y-2">

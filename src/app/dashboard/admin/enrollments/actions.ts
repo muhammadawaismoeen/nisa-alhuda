@@ -270,7 +270,9 @@ export async function removeEnrollment(
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
 
-  // Verify caller is admin
+  // Verify caller is admin or instructor — removing a stray enrollment
+  // isn't a financial decision, so the teaching role can clean these up
+  // alongside the admin.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -281,7 +283,7 @@ export async function removeEnrollment(
     .select("role")
     .eq("id", user.id)
     .single();
-  if (profile?.role !== "admin")
+  if (!["admin", "instructor"].includes(profile?.role || ""))
     return { success: false, error: "Not authorized." };
 
   const admin = createAdminClient();
@@ -316,7 +318,9 @@ export async function deleteEnrollment(
     .select("role")
     .eq("id", user.id)
     .single();
-  if (profile?.role !== "admin") {
+  // Removing a stray enrollment is a roster-management action (not a
+  // financial decision) — instructors can do this alongside admins.
+  if (!["admin", "instructor"].includes(profile?.role || "")) {
     return { success: false, error: "Not authorized." };
   }
 

@@ -1,9 +1,15 @@
 /**
- * Admin layout guard — ensures only admin users can access /dashboard/admin/* pages.
+ * Admin layout guard — admits admins (full access), instructors
+ * (admin powers minus billing), and treasurers (payment ledger only).
  *
- * Treasurers are a special case: they need access to /dashboard/admin/payments
- * only, so they can process the payment queue. The page itself does its own
- * role check — this layout just has to not block them.
+ * Path-aware routing keeps each role on the screens they're allowed
+ * to see:
+ *   • admin       → everything under /dashboard/admin/*
+ *   • instructor  → everything EXCEPT /dashboard/admin/payments/*
+ *   • treasurer   → ONLY /dashboard/admin/payments/*
+ *
+ * The middleware forwards `x-pathname`, so we can branch on the
+ * current path before deciding to render or redirect.
  */
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
@@ -28,20 +34,31 @@ export default async function AdminLayout({
     .eq("id", user.id)
     .single();
 
-  // Admins get full access; treasurers only for /dashboard/admin/payments.
-  if (profile?.role === "admin") {
+  const role = profile?.role;
+  const pathname =
+    (await headers()).get("x-pathname") ||
+    (await headers()).get("x-invoke-path") ||
+    "";
+  const onBillingRoute = pathname.startsWith("/dashboard/admin/payments");
+  // /dashboard/admin/users hosts role-editing, password-set/reset, and
+  // suspend/unsuspend. Letting an instructor in would let them grant
+  // themselves the admin role, so this stays admin-only too.
+  const onUsersRoute = pathname.startsWith("/dashboard/admin/users");
+
+  // Admins have full access.
+  if (role === "admin") return <>{children}</>;
+
+  // Instructors get every admin page EXCEPT billing and the user
+  // directory (privilege-escalation surface).
+  if (role === "instructor") {
+    if (onBillingRoute || onUsersRoute) redirect("/dashboard");
     return <>{children}</>;
   }
 
-  if (profile?.role === "treasurer") {
-    // Read the current path from middleware-forwarded headers (x-pathname)
-    // with fallback to referrer. If the treasurer is on payments, let them
-    // through; otherwise bounce to the payments page (their only admin area).
-    const h = await headers();
-    const pathname = h.get("x-pathname") || h.get("x-invoke-path") || "";
-    if (pathname.startsWith("/dashboard/admin/payments")) {
-      return <>{children}</>;
-    }
+  // Treasurers are payments-only. Bounce them onto the ledger from
+  // anywhere else under /dashboard/admin/.
+  if (role === "treasurer") {
+    if (onBillingRoute) return <>{children}</>;
     redirect("/dashboard/admin/payments");
   }
 

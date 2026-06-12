@@ -29,6 +29,21 @@ const typeLabels = {
 export default async function AdminOfferingsPage() {
   const supabase = await createClient();
 
+  // Instructor-vs-admin viewing context. Admin layout already gates
+  // unauthorised roles; here we just need the role to decide whether
+  // to render the price column (hidden from instructors per spec).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = user
+    ? await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single()
+    : { data: null };
+  const hideFinance = profile?.role === "instructor";
+
   const { data: offerings, error } = await supabase
     .from("offerings")
     .select("*")
@@ -167,7 +182,9 @@ export default async function AdminOfferingsPage() {
                         {offering.short_description || offering.description}
                       </p>
                       <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                        <span>{formatPriceWithFee(offering.price, offering.fee_type)}</span>
+                        {!hideFinance && (
+                          <span>{formatPriceWithFee(offering.price, offering.fee_type)}</span>
+                        )}
                         <span className="flex items-center gap-1">
                           <Users className="h-3 w-3" />
                           {countByOffering[offering.id] || 0} enrolled
