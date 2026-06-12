@@ -347,3 +347,153 @@ export async function rejectEnrollment(
 
   return { success: true };
 }
+
+/**
+ * Manually approve a monthly cycle for a sister WITHOUT requiring her to
+ * upload a receipt. Used when a sister pays cash, JazzCash, or any other
+ * offline channel — admin records the amount + note and the cycle flips
+ * to `approved` immediately.
+ *
+ * One-time override only: this clears THIS cycle. The cron continues to
+ * roll new 'owed' rows every cycle as before; admin will re-approve each
+ * month she pays offline. (Contrast with `manual_approval` which marks
+ * her permanently off the billing cycle.)
+ *
+ * Conflict rule: if a pending receipt already exists for this cycle, the
+ * action refuses — admin must review/reject the receipt first to keep
+ * the audit trail clean.
+ *
+ * Two entry shapes:
+ *   - by monthlyPaymentId: when an 'owed' placeholder already exists
+ *     (cron created it). We UPDATE the row in place.
+ *   - by enrollmentId + cycleMonth: when no row exists yet (cycle is
+ *     billable but cron hasn't run / pre-launch enrollment). We INSERT
+ *     a fresh row.
+ */
+export async function approveMonthlyPaymentManually(args: {
+  monthlyPaymentId?: string;
+  enrollmentId?: string;
+  cycleMonth?: string;
+  amount: number;
+  note: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireAuth(["admin", "treasurer"]);
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  if (!Number.isFinite(args.amount) || args.amount < 0) {
+    return { success: false, error: "Amount must be a non-negative number." };
+  }
+
+  const admin = createAdminClient();
+  const nowIso = new Date().toISOString();
+  const trimmedNote = (args.note || "").trim() || null;
+
+  // ── Path A: update an existing 'owed' (or 'rejected') placeholder ──
+  if (args.monthlyPaymentId) {
+    const { data: existing, error: fetchErr } = await admin
+      .from("monthly_payments")
+      .select("id, status")
+      .eq("id", args.monthlyPaymentId)
+      .single();
+    if (fetchErr || !existing) {
+      return { success: false, error: "Cycle row not found." };
+    }
+    if (existing.status === "pending") {
+      return {
+        success: false,
+        error:
+          "A receipt is pending review for this cycle. Approve or reject the receipt first.",
+      };
+    }
+    if (existing.status === "approved") {
+      return { success: false, error: "This cycle is already approved." };
+    }
+
+    const { error: updErr } = await admin
+      .from("monthly_payments")
+      .update({
+        status: "approved",
+        amount: args.amount,
+        payment_method: "admin_recorded",
+        receipt_url: null,
+        manual_note: trimmedNote,
+        reviewed_by: auth.userId,
+        reviewed_at: nowIso,
+        rejection_reason: null,
+      })
+      .eq("id", args.monthlyPaymentId);
+    if (updErr) return { success: false, error: updErr.message };
+    return { success: true };
+  }
+
+  // ── Path B: insert a fresh row for a cycle that doesn't have one ──
+  if (!args.enrollmentId || !args.cycleMonth) {
+    return {
+      success: false,
+      error: "Either monthlyPaymentId or (enrollmentId + cycleMonth) is required.",
+    };
+  }
+
+  // Defense in depth: make sure no row already exists for this cycle.
+  // (Path A handles updates; Path B is INSERT-only.)
+  const { data: dupe } = await admin
+    .from("monthly_payments")
+    .select("id, status")
+    .eq("enrollment_id", args.enrollmentId)
+    .eq("cycle_month", args.cycleMonth)
+    .maybeSingle();
+  if (dupe) {
+    if (dupe.status === "pending") {
+      return {
+        success: false,
+        error:
+          "A receipt is pending review for this cycle. Approve or reject the receipt first.",
+      };
+    }
+    if (dupe.status === "approved") {
+      return { success: false, error: "This cycle is already approved." };
+    }
+    // 'owed' / 'rejected' → fall through to UPDATE path for safety.
+    return approveMonthlyPaymentManually({
+      monthlyPaymentId: dupe.id,
+      amount: args.amount,
+      note: args.note,
+    });
+  }
+
+  // Look up the enrollment to derive student_id, offering_id, currency.
+  const { data: enrollment, error: enrErr } = await admin
+    .from("enrollments")
+    .select("id, student_id, offering_id, payment_currency")
+    .eq("id", args.enrollmentId)
+    .single();
+  if (enrErr || !enrollment) {
+    return { success: false, error: "Enrollment not found." };
+  }
+  if (!enrollment.student_id) {
+    return {
+      success: false,
+      error:
+        "Enrollment isn't linked to an auth user yet — approve the initial enrollment first.",
+    };
+  }
+
+  const { error: insErr } = await admin.from("monthly_payments").insert({
+    enrollment_id: enrollment.id,
+    student_id: enrollment.student_id,
+    offering_id: enrollment.offering_id,
+    cycle_month: args.cycleMonth,
+    amount: args.amount,
+    currency: enrollment.payment_currency || "PKR",
+    payment_method: "admin_recorded",
+    receipt_url: null,
+    sender_name: null,
+    status: "approved",
+    manual_note: trimmedNote,
+    reviewed_by: auth.userId,
+    reviewed_at: nowIso,
+  });
+  if (insErr) return { success: false, error: insErr.message };
+
+  return { success: true };
+}

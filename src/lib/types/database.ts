@@ -264,6 +264,12 @@ export interface MonthlyPayment {
   reviewed_by: string | null;
   reviewed_at: string | null;
   rejection_reason: string | null;
+  /**
+   * Free-text note recorded when admin approved this cycle WITHOUT a
+   * receipt (payment_method='admin_recorded'). Audit trail only —
+   * never shown to the sister.
+   */
+  manual_note: string | null;
   created_at: string;
   updated_at: string;
 }

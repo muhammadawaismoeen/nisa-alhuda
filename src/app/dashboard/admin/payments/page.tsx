@@ -19,6 +19,7 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PaymentActions } from "./payment-actions";
 import { MonthlyPaymentActions } from "./monthly-payment-actions";
+import { ManualApproveButton } from "./manual-approve-button";
 import { formatCycleMonth, formatMonthlyAmount } from "@/lib/monthly-payments";
 
 export default async function PaymentLedgerPage() {
@@ -392,6 +393,13 @@ export default async function PaymentLedgerPage() {
                           </span>
                         </div>
                       </div>
+                      <ManualApproveButton
+                        monthlyPaymentId={payment.id}
+                        defaultAmount={Number(payment.amount) || 0}
+                        currency={payment.currency || "PKR"}
+                        studentName={payment.student?.full_name || "Sister"}
+                        cycleLabel={formatCycleMonth(payment.cycle_month)}
+                      />
                     </div>
                   </CardContent>
                 </Card>

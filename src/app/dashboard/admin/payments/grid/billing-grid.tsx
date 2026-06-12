@@ -27,6 +27,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatMonthlyAmount } from "@/lib/monthly-payments";
 import type { MonthlyPaymentStatus } from "@/lib/types/database";
 import { toast } from "sonner";
+import { ManualApproveButton } from "../manual-approve-button";
 
 export type CycleColumn = { key: string; label: string };
 
@@ -581,15 +582,27 @@ function CellDialog({ cell, row, cycleLabel, onClose, onUpdated }: DialogProps) 
           </div>
 
           {cell.kind === "owed" && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
-              <p className="text-xs uppercase tracking-wide">Owed</p>
-              <p className="font-medium">
-                {formatMonthlyAmount(cell.expectedAmount, cell.currency)}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                No receipt uploaded yet for this cycle. Nothing to approve until
-                the sister submits one.
-              </p>
+            <div className="space-y-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-800 dark:bg-slate-900/30 dark:text-slate-300">
+                <p className="text-xs uppercase tracking-wide">Owed</p>
+                <p className="font-medium">
+                  {formatMonthlyAmount(cell.expectedAmount, cell.currency)}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  No receipt uploaded yet. You can wait for the sister to
+                  submit, or approve manually if she paid offline.
+                </p>
+              </div>
+              <ManualApproveButton
+                enrollmentId={cell.enrollmentId}
+                cycleMonth={cell.cycle}
+                defaultAmount={cell.expectedAmount}
+                currency={cell.currency}
+                studentName={row.studentName}
+                cycleLabel={cycleLabel}
+                onApproved={onUpdated}
+                className="w-full"
+              />
             </div>
           )}
 
@@ -689,6 +702,23 @@ function CellDialog({ cell, row, cycleLabel, onClose, onUpdated }: DialogProps) 
                   </div>
                 </div>
               )}
+
+              {/* Monthly cycle that's owed or rejected (no pending receipt
+                  to review) — admin can record an offline payment. */}
+              {cell.kind === "monthly" &&
+                (cell.status === "owed" || cell.status === "rejected") && (
+                  <div className="space-y-2 border-t pt-3">
+                    <ManualApproveButton
+                      monthlyPaymentId={cell.paymentId}
+                      defaultAmount={cell.amount}
+                      currency={cell.currency}
+                      studentName={row.studentName}
+                      cycleLabel={cycleLabel}
+                      onApproved={onUpdated}
+                      className="w-full"
+                    />
+                  </div>
+                )}
             </>
           )}
         </div>
