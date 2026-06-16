@@ -9,10 +9,11 @@
  */
 import { AlertOctagon, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { LinkButton } from "@/components/ui/link-button";
+import { buttonVariants } from "@/components/ui/button";
 import { Logo } from "@/components/layout/logo";
 import { DashboardLogout } from "./logout-button";
 import { formatMonthlyAmount } from "@/lib/monthly-payments";
+import { cn } from "@/lib/utils";
 import type { BlockingDebt } from "@/lib/payment-block";
 
 interface Props {
@@ -84,14 +85,23 @@ export function BlockedScreen({ debt, fullName }: Props) {
                       </span>{" "}
                       for {entry.cycleLabel}.
                     </p>
-                    <LinkButton
-                      size="sm"
+                    {/* Plain <a> (not next/link) so the click does a full
+                        navigation. The dashboard layout returns BlockedScreen
+                        early without rendering {children}; a soft nav keeps
+                        the cached layout mounted and the URL changes but the
+                        content doesn't update. A hard nav re-runs the layout
+                        server-side, where x-pathname now points to the
+                        payment route and {children} renders. */}
+                    <a
                       href={`/dashboard/student/monthly-payment/${entry.enrollmentId}`}
-                      className="press w-full rounded-full"
+                      className={cn(
+                        buttonVariants({ size: "sm" }),
+                        "press w-full rounded-full"
+                      )}
                     >
                       <Wallet className="mr-1.5 h-3.5 w-3.5" />
                       Pay now — {entry.cycleLabel}
-                    </LinkButton>
+                    </a>
                   </div>
                 ))}
               </div>
