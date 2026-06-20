@@ -17,6 +17,7 @@ import { DashboardLogout } from "./logout-button";
 import { NotificationBell } from "./notification-bell";
 import { MobileNav } from "./mobile-nav";
 import { SidebarNav, type NavSection } from "./sidebar-nav";
+import { StudentBottomNav } from "./student-bottom-nav";
 import { getBlockingDebt } from "@/lib/payment-block";
 import { BlockedScreen } from "./blocked-screen";
 
@@ -124,9 +125,11 @@ export default async function DashboardLayout({
           <NotificationBell userId={profile.id} />
         </header>
 
-        <main className="flex-1 px-4 py-5 md:px-8 md:py-7">
+        <main className="flex-1 px-4 py-5 md:px-8 md:py-7 pb-24 md:pb-7">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
+
+        {profile.role === "student" && <StudentBottomNav />}
       </div>
     </div>
   );
@@ -358,6 +361,11 @@ function getNavSections(role: string): NavSection[] {
           href: "/dashboard/student",
           label: "My Learning",
           iconName: "GraduationCap",
+        },
+        {
+          href: "/dashboard/student/schedule",
+          label: "Schedule",
+          iconName: "CalendarDays",
         },
         {
           href: "/dashboard/student/live",

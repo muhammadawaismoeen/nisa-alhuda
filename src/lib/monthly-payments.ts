@@ -179,6 +179,38 @@ export function monthlyAmountForEnrollment(
 }
 
 /**
+ * Human-readable date range for a cycle — e.g. "May 27 – Jun 26, 2026".
+ * The cycle starts on the 27th of the given month and ends on the 26th of
+ * the following month. Year is included only in the end date, which handles
+ * the December→January wrap cleanly ("Dec 27 – Jan 26, 2027").
+ */
+export function formatCyclePeriod(cycleMonth: string): string {
+  const [y, m] = cycleMonth.split("-").map(Number);
+  const startDate = new Date(Date.UTC(y, (m || 1) - 1, CYCLE_START_DAY));
+
+  let endYear = y;
+  let endMonth = (m || 1) + 1;
+  if (endMonth > 12) {
+    endMonth = 1;
+    endYear += 1;
+  }
+  const endDate = new Date(Date.UTC(endYear, endMonth - 1, 26));
+
+  const startLabel = startDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  const endLabel = endDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return `${startLabel} – ${endLabel}`;
+}
+
+/**
  * Produces a display label for the amount — "PKR 3,000" / "₹1,500" / "$35".
  */
 export function formatMonthlyAmount(amount: number, currency: string): string {

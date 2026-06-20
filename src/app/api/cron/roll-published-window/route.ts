@@ -96,12 +96,21 @@ export async function GET(req: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
+  const now = new Date();
+
   const { data: offering, error: offErr } = await sb
     .from("offerings")
     .select("id,title")
     .eq("slug", OFFERING_SLUG)
     .single();
   if (offErr || !offering) {
+    try { await sb.from("cron_logs").insert({
+      job_name: "roll-published-window",
+      ran_at: now.toISOString(),
+      success: false,
+      records_processed: 0,
+      error_message: `Offering ${OFFERING_SLUG} not found: ${offErr?.message ?? ""}`,
+    }); } catch { /* ignore logging failures */ }
     return NextResponse.json(
       { error: `Offering ${OFFERING_SLUG} not found: ${offErr?.message ?? ""}` },
       { status: 500 }
@@ -116,7 +125,6 @@ export async function GET(req: Request) {
     .not("recurring_day_of_week", "is", null)
     .not("recurring_start_time", "is", null);
 
-  const now = new Date();
   const weekStart = startOfPktWeek(now);
   const weekEnd = endOfPktWeek(now);
 
@@ -181,7 +189,16 @@ export async function GET(req: Request) {
     .gte("scheduled_at", weekStart.toISOString())
     .lte("scheduled_at", weekEnd.toISOString())
     .eq("is_published", false);
-  if (pubErr) return NextResponse.json({ error: pubErr.message }, { status: 500 });
+  if (pubErr) {
+    try { await sb.from("cron_logs").insert({
+      job_name: "roll-published-window",
+      ran_at: now.toISOString(),
+      success: false,
+      records_processed: created.length,
+      error_message: `publish step: ${pubErr.message}`,
+    }); } catch { /* ignore logging failures */ }
+    return NextResponse.json({ error: pubErr.message }, { status: 500 });
+  }
 
   // ───── 3. HIDE everything past this week ─────
   const { count: hidden, error: hideErr } = await sb
@@ -190,7 +207,26 @@ export async function GET(req: Request) {
     .eq("offering_id", offering.id)
     .gt("scheduled_at", weekEnd.toISOString())
     .eq("is_published", true);
-  if (hideErr) return NextResponse.json({ error: hideErr.message }, { status: 500 });
+  if (hideErr) {
+    try { await sb.from("cron_logs").insert({
+      job_name: "roll-published-window",
+      ran_at: now.toISOString(),
+      success: false,
+      records_processed: created.length,
+      error_message: `hide step: ${hideErr.message}`,
+    }); } catch { /* ignore logging failures */ }
+    return NextResponse.json({ error: hideErr.message }, { status: 500 });
+  }
+
+  try {
+    await sb.from("cron_logs").insert({
+      job_name: "roll-published-window",
+      ran_at: now.toISOString(),
+      success: true,
+      records_processed: created.length,
+      error_message: null,
+    });
+  } catch { /* ignore logging failures */ }
 
   return NextResponse.json({
     ok: true,

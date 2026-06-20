@@ -25,6 +25,7 @@ import {
   Mail,
   KeyRound,
   Table2,
+  CalendarDays,
 } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { createClient } from "@/lib/supabase/client";
@@ -44,6 +45,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Mail,
   KeyRound,
   Table2,
+  CalendarDays,
 };
 
 interface SerializedNavItem {

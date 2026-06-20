@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge, type StatusKey } from "@/components/ui/status-badge";
 import { formatPaidAmount } from "@/lib/constants";
 import { ClipboardList, Mail, HeartHandshake, GraduationCap } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -12,12 +13,6 @@ import { EnrollmentActions } from "./enrollment-actions";
 import { ManualEnrollment } from "./manual-enrollment";
 import { FaActions } from "./fa-actions";
 import type { StudentDetails } from "@/lib/types/database";
-
-const statusConfig = {
-  pending: { label: "Pending", variant: "outline" as const },
-  approved: { label: "Approved", variant: "default" as const },
-  rejected: { label: "Rejected", variant: "destructive" as const },
-};
 
 /**
  * Returns the offering's full fee in the same currency the student enrolled
@@ -181,10 +176,7 @@ export default async function AdminEnrollmentsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <h3 className="font-semibold truncate">{applicantName}</h3>
-                              <Badge variant="outline" className="border-amber-400 text-amber-700 dark:text-amber-400">
-                                <HeartHandshake className="h-3 w-3 mr-1" />
-                                FA Pending
-                              </Badge>
+                              <StatusBadge status="fa-pending" />
                               {isGuest && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-400">
                                   Guest
@@ -270,8 +262,6 @@ export default async function AdminEnrollmentsPage() {
               )}
               <div className="space-y-3">
                 {regularEnrollments.map((enrollment: any) => {
-                  const config =
-                    statusConfig[enrollment.status as keyof typeof statusConfig];
                   const details = enrollment.student_details as StudentDetails | null;
                   const applicantName =
                     details?.first_name || details?.last_name
@@ -296,7 +286,7 @@ export default async function AdminEnrollmentsPage() {
                               <h3 className="font-semibold truncate">
                                 {applicantName}
                               </h3>
-                              <Badge variant={config.variant}>{config.label}</Badge>
+                              <StatusBadge status={enrollment.status as StatusKey} />
                               {!hideFinance && isFaApproved && (
                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-300 text-amber-700 dark:text-amber-400">
                                   <HeartHandshake className="h-2.5 w-2.5 mr-0.5" />

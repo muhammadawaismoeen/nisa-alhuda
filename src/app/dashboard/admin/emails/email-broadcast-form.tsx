@@ -122,7 +122,11 @@ export function EmailBroadcastForm({ offerings }: EmailBroadcastFormProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to send");
 
-      toast.success(`Emails sent to ${data.sent} recipient${data.sent !== 1 ? "s" : ""}!`);
+      if (data.failed > 0) {
+        toast.warning(`Sent to ${data.sent}, failed for ${data.failed} recipient${data.failed !== 1 ? "s" : ""}.`);
+      } else {
+        toast.success(`Emails sent to ${data.sent} recipient${data.sent !== 1 ? "s" : ""}!`);
+      }
       setShowConfirm(false);
       setSelected(null);
       setCustomMessage("");

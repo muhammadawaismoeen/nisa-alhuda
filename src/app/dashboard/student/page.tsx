@@ -37,6 +37,7 @@ import { DashboardGreeting } from "@/components/dashboard/greeting";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PaymentDueModal } from "./payment-due-modal";
+import { ProgressRing } from "@/components/ui/progress-ring";
 
 export default async function StudentDashboardPage() {
   const supabase = await createClient();
@@ -533,31 +534,20 @@ export default async function StudentDashboardPage() {
                   </div>
 
                   {count > 0 && (
-                    <div className="mb-4">
-                      <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          {completed} of {count} lessons
-                        </span>
-                        <span
-                          className={
-                            pct === 100
-                              ? "font-semibold text-emerald-600"
-                              : "tabular-nums"
-                          }
-                        >
-                          {pct}%
-                        </span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 ${
-                            pct === 100
-                              ? "bg-emerald-500"
-                              : "bg-gradient-to-r from-primary to-rose-400"
+                    <div className="mb-4 flex items-center gap-3">
+                      <ProgressRing pct={pct} size={52} strokeWidth={4} />
+                      <div>
+                        <p
+                          className={`text-sm font-semibold ${
+                            pct === 100 ? "text-emerald-600" : "text-foreground"
                           }`}
-                          style={{ width: `${pct}%` }}
-                        />
+                        >
+                          {pct === 100 ? "Complete!" : `${pct}% done`}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {completed} of {count}{" "}
+                          {count === 1 ? "lesson" : "lessons"} watched
+                        </p>
                       </div>
                     </div>
                   )}

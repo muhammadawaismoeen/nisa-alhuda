@@ -18,10 +18,27 @@ import {
   Clock,
   CheckCircle,
   UserPlus,
+  RefreshCw,
+  AlertCircle,
+  XCircle,
 } from "lucide-react";
+
+/** How long ago a timestamptz string was, in a compact human label. */
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
+
+  const now = new Date();
+  // Threshold for "stalled" enrollments: pending for more than 3 days.
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
   // Fetch all data in parallel
   const [
@@ -33,6 +50,10 @@ export default async function AdminDashboardPage() {
     lessonsRes,
     profilesRes,
     recentEnrollmentsRes,
+    cronLogsRes,
+    owedCyclesRes,
+    pendingFaRes,
+    stalledRes,
   ] = await Promise.all([
     supabase.from("offerings").select("*", { count: "exact", head: true }),
     supabase
@@ -60,6 +81,31 @@ export default async function AdminDashboardPage() {
       .select("*, student:profiles!enrollments_student_id_fkey(full_name), offering:offerings!enrollments_offering_id_fkey(title)")
       .order("created_at", { ascending: false })
       .limit(5),
+    // System Health: last 10 cron runs (most recent first per job)
+    supabase
+      .from("cron_logs")
+      .select("id, job_name, ran_at, success, records_processed, error_message")
+      .order("ran_at", { ascending: false })
+      .limit(10),
+    // Overdue monthly payment cycles (cron-created but student hasn't paid)
+    supabase
+      .from("monthly_payments")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "owed"),
+    // FA applications awaiting admin decision
+    supabase
+      .from("enrollments")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+      .eq("fa_requested", true)
+      .is("fa_approved_amount", null),
+    // Non-FA enrollments pending for more than 3 days (stalled)
+    supabase
+      .from("enrollments")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending")
+      .or("fa_requested.is.null,fa_requested.eq.false")
+      .lt("created_at", threeDaysAgo),
   ]);
 
   const totalStudents = studentsRes.count || 0;
@@ -67,6 +113,17 @@ export default async function AdminDashboardPage() {
   const pendingApprovals = pendingRes.count || 0;
   const totalOfferings = offeringsRes.count || 0;
   const totalUsers = profilesRes.count || 0;
+
+  // System Health derivations
+  const cronLogs = cronLogsRes.error ? [] : (cronLogsRes.data || []);
+  const lastRunByJob: Record<string, { ran_at: string; success: boolean; records_processed: number | null; error_message: string | null }> = {};
+  for (const log of cronLogs) {
+    if (!lastRunByJob[log.job_name]) lastRunByJob[log.job_name] = log;
+  }
+  const owedCyclesCount = owedCyclesRes.count || 0;
+  const pendingFaCount = pendingFaRes.count || 0;
+  const stalledCount = stalledRes.count || 0;
+  const hasActionItems = stalledCount > 0 || pendingFaCount > 0 || owedCyclesCount > 0;
 
   // Calculate total revenue — sum PKR + INR (shown together), track USD separately
   const totalRevenue = (revenueRes.data || [])
@@ -82,7 +139,6 @@ export default async function AdminDashboardPage() {
     .reduce((sum, e) => sum + (e.payment_amount || 0), 0);
 
   // Active live sessions: lessons scheduled within ±1 hour of now
-  const now = new Date();
   const activeSessions = (lessonsRes.data || []).filter((l: any) => {
     if (!l.scheduled_at) return false;
     const diff = Math.abs(
@@ -195,6 +251,130 @@ export default async function AdminDashboardPage() {
             <p className="text-xs text-muted-foreground mt-1">
               {(lessonsRes.data || []).filter((l: any) => l.is_published).length} published
             </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* System Health */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* Cron Jobs */}
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <RefreshCw className="h-4 w-4 text-muted-foreground" />
+              <h3 className="font-heading font-semibold text-sm">Cron Jobs</h3>
+            </div>
+            <div className="space-y-3">
+              {(["roll-monthly-cycles", "roll-published-window"] as const).map((jobName) => {
+                const last = lastRunByJob[jobName];
+                return (
+                  <div key={jobName} className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`h-2 w-2 rounded-full shrink-0 ${
+                          !last
+                            ? "bg-muted-foreground/30"
+                            : last.success
+                              ? "bg-green-500"
+                              : "bg-red-500"
+                        }`}
+                      />
+                      <span className="text-xs font-mono text-muted-foreground truncate">
+                        {jobName}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {last ? (
+                        <>
+                          <p className="text-xs font-medium">{timeAgo(last.ran_at)}</p>
+                          {last.records_processed != null && (
+                            <p className="text-xs text-muted-foreground">
+                              {last.records_processed} processed
+                            </p>
+                          )}
+                          {!last.success && last.error_message && (
+                            <p className="text-xs text-red-500 truncate max-w-[140px]">
+                              {last.error_message}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Never run</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Action Items */}
+        <Card className={hasActionItems ? "border-amber-300/60" : ""}>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle
+                className={`h-4 w-4 ${hasActionItems ? "text-amber-500" : "text-muted-foreground"}`}
+              />
+              <h3 className="font-heading font-semibold text-sm">Action Items</h3>
+            </div>
+            {!hasActionItems ? (
+              <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                All clear — nothing needs attention
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {stalledCount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-sm">
+                      <span className="h-2 w-2 rounded-full bg-amber-400" />
+                      Stalled enrollments (&gt;3 days)
+                    </span>
+                    <LinkButton
+                      variant="ghost"
+                      size="sm"
+                      href="/dashboard/admin/enrollments"
+                      className="h-auto py-0 font-bold text-amber-600"
+                    >
+                      {stalledCount} <ArrowRight className="h-3 w-3 ml-1" />
+                    </LinkButton>
+                  </div>
+                )}
+                {pendingFaCount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-sm">
+                      <span className="h-2 w-2 rounded-full bg-amber-400" />
+                      FA applications pending
+                    </span>
+                    <LinkButton
+                      variant="ghost"
+                      size="sm"
+                      href="/dashboard/admin/enrollments"
+                      className="h-auto py-0 font-bold text-amber-600"
+                    >
+                      {pendingFaCount} <ArrowRight className="h-3 w-3 ml-1" />
+                    </LinkButton>
+                  </div>
+                )}
+                {owedCyclesCount > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-sm">
+                      <span className="h-2 w-2 rounded-full bg-amber-400" />
+                      Overdue payment cycles
+                    </span>
+                    <LinkButton
+                      variant="ghost"
+                      size="sm"
+                      href="/dashboard/admin/payments"
+                      className="h-auto py-0 font-bold text-amber-600"
+                    >
+                      {owedCyclesCount} <ArrowRight className="h-3 w-3 ml-1" />
+                    </LinkButton>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

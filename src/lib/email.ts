@@ -1102,6 +1102,72 @@ export async function sendApprovalCredentialsEmail(
 }
 
 /**
+ * Payment reminder — sent once per owed cycle by the send-payment-reminders cron.
+ * Fire-and-forget: logs errors, never throws.
+ */
+export async function sendPaymentReminderEmail(
+  to: string,
+  studentName: string,
+  offeringTitle: string,
+  cycleLabel: string,
+  amount: number,
+  currency: "PKR" | "INR" | "USD",
+  enrollmentId: string
+): Promise<void> {
+  const resend = getResend();
+  if (!resend) return;
+
+  const currencySymbol = currency === "PKR" ? "Rs." : currency === "INR" ? "₹" : "$";
+  const formattedAmount = `${currencySymbol} ${amount.toLocaleString("en-PK")}`;
+  const uploadUrl = `${SITE_URL}/dashboard/student/monthly-payment/${enrollmentId}`;
+
+  const html = heartWrap(`
+    ${arabicVerse("يَرْفَعِ ٱللَّهُ ٱلَّذِينَ ءَامَنُوا۟ مِنكُمْ وَٱلَّذِينَ أُوتُوا۟ ٱلْعِلْمَ دَرَجَـٰتٍۢ")}
+
+    <p style="margin:0 0 20px;color:#1a1a1a;font-size:16px;line-height:1.7;">
+      As-salāmu ʿalaykum wa-raḥmatullāhi wa-barakātuh, <strong>${studentName}</strong>,
+    </p>
+
+    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.75;">
+      We hope this message finds you in the best of health and īmān. This is a
+      gentle reminder that your monthly fee for
+      <strong>${offeringTitle}</strong> is due for the <strong>${cycleLabel}</strong> cycle.
+    </p>
+
+    <div style="margin:24px 0;padding:20px 24px;background:linear-gradient(135deg,#fdf6f0 0%,#f5ebe0 100%);border-radius:12px;border-left:4px solid #8b1a4a;">
+      <p style="margin:0 0 6px;color:#8b1a4a;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Amount Due</p>
+      <p style="margin:0;color:#1a1a1a;font-size:26px;font-weight:700;">${formattedAmount}</p>
+      <p style="margin:4px 0 0;color:#666;font-size:13px;">${offeringTitle} · ${cycleLabel}</p>
+    </div>
+
+    <p style="margin:0 0 16px;color:#444;font-size:15px;line-height:1.75;">
+      To confirm your payment, please upload your receipt through your student dashboard.
+      Jazākallāhu khayran for your promptness — it helps us keep the classes running smoothly, in shā Allāh.
+    </p>
+
+    ${btn(uploadUrl, "Upload Your Receipt →")}
+
+    ${divider()}
+
+    <p style="margin:0;color:#666;font-size:13px;line-height:1.7;">
+      If you have already sent your receipt or have a question about your fee,
+      please reply to this email or reach out to us on WhatsApp.
+      We are always happy to help. 🤍
+    </p>
+  `);
+
+  const { error } = await resend.emails.send({
+    from: FROM,
+    to,
+    subject: `Payment reminder — ${offeringTitle} (${cycleLabel})`,
+    html,
+  });
+  if (error) {
+    console.error("[Email] Payment reminder failed:", to, error);
+  }
+}
+
+/**
  * Generic sender: routes a template key to the right function.
  */
 export async function sendTemplateEmail(
@@ -1109,7 +1175,7 @@ export async function sendTemplateEmail(
   to: string,
   studentName: string,
   customMessage?: string
-) {
+): Promise<{ ok: boolean; error?: string }> {
   const senders: Record<EmailTemplateKey, (to: string, name: string, msg?: string) => Promise<void>> = {
     welcome: sendWelcomeEmail,
     encouragement: sendEncouragementEmail,
@@ -1122,5 +1188,14 @@ export async function sendTemplateEmail(
   };
 
   const sender = senders[templateKey];
-  if (sender) await sender(to, studentName, customMessage);
+  if (!sender) return { ok: false, error: `Unknown template: ${templateKey}` };
+
+  try {
+    await sender(to, studentName, customMessage);
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[Email] sendTemplateEmail failed:", templateKey, to, msg);
+    return { ok: false, error: msg };
+  }
 }

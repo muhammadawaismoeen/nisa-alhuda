@@ -21,6 +21,7 @@ import {
   Mail,
   KeyRound,
   Table2,
+  CalendarDays,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -37,6 +38,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Mail,
   KeyRound,
   Table2,
+  CalendarDays,
 };
 
 export interface NavSection {

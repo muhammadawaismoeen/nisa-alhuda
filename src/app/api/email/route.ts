@@ -219,7 +219,18 @@ export async function POST(req: NextRequest) {
         recipientIds = profiles?.map((p) => p.id) || [];
       }
 
+      // Sanitize custom message to prevent XSS in HTML emails.
+      const safeMessage = customMessage
+        ? customMessage
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+        : undefined;
+
       let sent = 0;
+      const failed: string[] = [];
+
       for (const userId of recipientIds) {
         const { data: authUser } = await admin.auth.admin.getUserById(userId);
         const { data: prof } = await admin
@@ -229,17 +240,23 @@ export async function POST(req: NextRequest) {
           .single();
 
         if (authUser?.user?.email) {
-          await sendTemplateEmail(
+          const result = await sendTemplateEmail(
             templateKey as EmailTemplateKey,
             authUser.user.email,
             prof?.full_name || "",
-            customMessage || undefined
+            safeMessage
           );
-          sent++;
+          if (result.ok) {
+            sent++;
+          } else {
+            failed.push(authUser.user.email);
+          }
+          // Small delay to stay within Resend's rate limit.
+          await new Promise((r) => setTimeout(r, 80));
         }
       }
 
-      return NextResponse.json({ ok: true, sent });
+      return NextResponse.json({ ok: true, sent, failed: failed.length, failedEmails: failed });
     }
 
     return NextResponse.json({ error: "Unknown type" }, { status: 400 });

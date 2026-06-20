@@ -7,17 +7,17 @@
  * the Payment Ledger and the Enrollments page Approve buttons. It:
  *
  *   1. Ensures the applicant has a Supabase auth account (creates one if
- *      it's a guest enrollment, otherwise updates the existing user).
- *   2. Sets the auth password to a single shared default
- *      (APPROVAL_DEFAULT_PASSWORD) so the sister can log in immediately.
+ *      it's a guest enrollment, otherwise finds the existing user).
+ *   2. Generates a unique invite link (new users) or recovery link (existing
+ *      users) via Supabase Admin API — no shared passwords are set or sent.
  *   3. Links the enrollment row's student_id back to the auth user (for
  *      historical guest enrollments) and backfills profile.full_name.
  *   4. Flips the enrollment to status='approved'.
- *   5. Sends the sister a branded credentials email with her email +
- *      password + login link.
+ *   5. Sends the sister a branded credentials email with a one-time secure
+ *      link to set her own password.
  *
  * Why service_role: we need admin.auth.admin.{listUsers,createUser,
- * updateUserById} to mutate auth.users, which the user's session can't
+ * generateLink} to mutate auth.users, which the user's session can't
  * do directly through RLS.
  *
  * Auth: caller must be `admin` or `treasurer` (treasurer can approve
@@ -26,19 +26,7 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/db/auth";
-import { sendApprovalCredentialsEmail } from "@/lib/email";
-
-/**
- * Awais (2026-05-13): every approved sister gets this exact password.
- * Single shared value keeps the onboarding email simple — sisters can
- * change it themselves once logged in.
- *
- * Kept unexported because in a "use server" module every export must be
- * an async function — exporting a const literal trips a Next.js build
- * error. Other "use server" callers go through
- * `provisionCredentialsForEnrollment` and never need the raw value.
- */
-const APPROVAL_DEFAULT_PASSWORD = "nisaalhud@student#2026";
+import { sendCredentialsEmail } from "@/lib/email";
 
 
 /**
@@ -146,22 +134,21 @@ async function provisionCredentialsCore(
       "";
   }
 
-  // ── Provision (or reset) the auth account ──
+  // ── Provision (or find) the auth account ──
   let authUserId = enrollment.student_id || "";
   let mode: "created" | "updated" = "updated";
 
   if (!authUserId) {
-    // Guest enrollment — may or may not already have an auth user under
-    // this email (the sister might have signed up elsewhere on the site
-    // before paying).
     const existing = await findAuthUserByEmail(admin, recipientEmail);
     if (existing) {
       authUserId = existing.id;
     } else {
+      // New guest — create account without pre-setting a password.
+      // A unique invite link is generated below; clicking it is the
+      // student's one-time login and takes her to /reset-password.
       const { data: created, error: createErr } =
         await admin.auth.admin.createUser({
           email: recipientEmail,
-          password: APPROVAL_DEFAULT_PASSWORD,
           email_confirm: true,
           user_metadata: studentName ? { full_name: studentName } : undefined,
         });
@@ -175,23 +162,8 @@ async function provisionCredentialsCore(
       mode = "created";
     }
   }
-
-  // Reset password + confirm email for existing accounts. (Created
-  // accounts above already received the password at construction time;
-  // re-running for an existing user is the recovery path Awais asked
-  // for so every approved sister gets the same shared password.)
-  if (mode === "updated") {
-    const { error: updateErr } = await admin.auth.admin.updateUserById(
-      authUserId,
-      { password: APPROVAL_DEFAULT_PASSWORD, email_confirm: true }
-    );
-    if (updateErr) {
-      return {
-        success: false,
-        error: `Could not set password: ${updateErr.message}`,
-      };
-    }
-  }
+  // Existing users keep their current password — a unique recovery link
+  // is generated below so they can set/reset it if needed.
 
   // ── Link the enrollment row to the auth user (guest enrollments) ──
   if (!enrollment.student_id) {
@@ -220,14 +192,38 @@ async function provisionCredentialsCore(
     }
   }
 
-  // ── Send the credentials email ──
-  const emailRes = await sendApprovalCredentialsEmail(
+  // ── Generate a unique login link per student ──
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.nisaalhuda.org";
+  const redirectTo = `${siteUrl}/auth/callback?next=/reset-password`;
+  const linkOptions =
+    mode === "created" && studentName
+      ? { redirectTo, data: { full_name: studentName } }
+      : { redirectTo };
+
+  const { data: linkData, error: linkErr } =
+    await admin.auth.admin.generateLink({
+      type: mode === "created" ? "invite" : "recovery",
+      email: recipientEmail,
+      options: linkOptions,
+    });
+
+  if (linkErr || !linkData?.properties?.action_link) {
+    return {
+      success: true,
+      mode,
+      emailSent: false,
+      error: `Account ready, but login link failed: ${linkErr?.message || "unknown"}`,
+    };
+  }
+
+  // ── Send the credentials email with the unique link ──
+  const emailRes = await sendCredentialsEmail(
     recipientEmail,
     studentName,
-    recipientEmail,
-    APPROVAL_DEFAULT_PASSWORD,
-    offeringTitle,
-    enrollment.offering_id
+    linkData.properties.action_link,
+    mode === "created",
+    offeringTitle
   );
 
   return {
@@ -236,7 +232,7 @@ async function provisionCredentialsCore(
     emailSent: emailRes.ok,
     error: emailRes.ok
       ? undefined
-      : `Credentials set, but email failed: ${emailRes.error}`,
+      : `Account ready, but email failed: ${emailRes.error}`,
   };
 }
 

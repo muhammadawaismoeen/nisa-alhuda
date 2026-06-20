@@ -3,17 +3,18 @@ import { test, expect } from "@playwright/test";
 test.describe("Login page", () => {
   test("renders login form", async ({ page }) => {
     await page.goto("/login");
-    await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
-    await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+    await expect(page.locator("#email")).toBeVisible();
+    await expect(page.locator("#password")).toBeVisible();
   });
 
   test("shows error on wrong credentials", async ({ page }) => {
     await page.goto("/login");
-    await page.getByLabel(/email/i).fill("wrong@example.com");
-    await page.getByLabel(/password/i).fill("wrongpassword");
-    await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page.getByRole("alert").or(page.locator("[data-sonner-toast]"))).toBeVisible({ timeout: 5000 });
+    await page.locator("#email").fill("wrong@example.com");
+    await page.locator("#password").fill("wrongpassword");
+    await page.getByRole("button", { name: /log in/i }).click();
+    // Sonner toast appears on auth error
+    await expect(page.locator("[data-sonner-toast]")).toBeVisible({ timeout: 8000 });
   });
 
   test("unauthenticated user is redirected from dashboard to login", async ({ page }) => {

@@ -8,10 +8,9 @@
  */
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge, type StatusKey } from "@/components/ui/status-badge";
 import {
   CheckCircle,
-  Clock,
-  XCircle,
   CalendarDays,
   AlertCircle,
   HeartHandshake,
@@ -20,10 +19,20 @@ import {
   cyclesBetween,
   firstOfMonth,
   formatCycleMonth,
+  formatCyclePeriod,
   formatMonthlyAmount,
 } from "@/lib/monthly-payments";
+import { ReceiptLink } from "./receipt-link";
 import type { MonthlyPayment } from "@/lib/types/database";
 import { MonthlyPaymentUploader } from "./monthly-payment-uploader";
+
+function cycleStatusKey(payment?: MonthlyPayment): StatusKey {
+  if (!payment) return "unpaid";
+  if (payment.status === "approved") return "paid";
+  if (payment.status === "rejected") return "rejected";
+  if (payment.status === "owed") return "owed";
+  return "pending";
+}
 
 interface MonthlyPaymentCardProps {
   enrollmentId: string;
@@ -59,7 +68,9 @@ export function MonthlyPaymentCard({
 
   const currentPayment = byCycle[currentCycle];
   const needsUploadForCurrent =
-    !currentPayment || currentPayment.status === "rejected";
+    !currentPayment ||
+    currentPayment.status === "rejected" ||
+    currentPayment.status === "owed";
 
   // Count unpaid (missing or rejected) cycles
   const unpaidCount = cycles.filter((c) => {
@@ -104,7 +115,7 @@ export function MonthlyPaymentCard({
             <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide">
               Current Cycle · {formatCycleMonth(currentCycle)}
             </p>
-            <CycleStatusBadge payment={currentPayment} />
+            <StatusBadge status={cycleStatusKey(currentPayment)} />
           </div>
 
           {needsUploadForCurrent ? (
@@ -131,24 +142,52 @@ export function MonthlyPaymentCard({
           )}
         </div>
 
-        {/* Payment history */}
+        {/* Billing history — receipt-like statement cards */}
         {cycles.length > 1 && (
           <div>
             <p className="text-xs font-medium uppercase text-muted-foreground tracking-wide mb-2">
-              Payment History
+              Billing History
             </p>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {cycles.slice(1).map((cycle) => {
                 const payment = byCycle[cycle];
+                const displayAmount = payment
+                  ? formatMonthlyAmount(payment.amount, payment.currency)
+                  : formatMonthlyAmount(monthlyAmount, currency);
                 return (
                   <div
                     key={cycle}
-                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                    className="rounded-lg border bg-card p-3"
                   >
-                    <span className="font-medium">
-                      {formatCycleMonth(cycle)}
-                    </span>
-                    <CycleStatusBadge payment={payment} />
+                    {/* Month name + status */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-sm font-medium">
+                        {formatCycleMonth(cycle)}
+                      </p>
+                      <StatusBadge status={cycleStatusKey(payment)} />
+                    </div>
+                    {/* Period + amount + receipt */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          {formatCyclePeriod(cycle)}
+                        </p>
+                        <p className="text-sm font-semibold mt-0.5">
+                          {displayAmount}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {payment?.receipt_url && (
+                          <ReceiptLink storagePath={payment.receipt_url} />
+                        )}
+                        {!payment?.receipt_url &&
+                          payment?.payment_method === "admin_recorded" && (
+                            <span className="text-xs text-muted-foreground italic">
+                              Manually recorded
+                            </span>
+                          )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -198,35 +237,3 @@ function FullyWaivedCard() {
   );
 }
 
-function CycleStatusBadge({ payment }: { payment?: MonthlyPayment }) {
-  if (!payment) {
-    return (
-      <Badge variant="outline" className="text-amber-600 border-amber-300">
-        <AlertCircle className="h-3 w-3 mr-1" />
-        Unpaid
-      </Badge>
-    );
-  }
-  if (payment.status === "approved") {
-    return (
-      <Badge className="bg-green-600 hover:bg-green-600">
-        <CheckCircle className="h-3 w-3 mr-1" />
-        Paid
-      </Badge>
-    );
-  }
-  if (payment.status === "rejected") {
-    return (
-      <Badge variant="destructive">
-        <XCircle className="h-3 w-3 mr-1" />
-        Rejected
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-amber-600 border-amber-300">
-      <Clock className="h-3 w-3 mr-1" />
-      Pending review
-    </Badge>
-  );
-}

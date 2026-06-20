@@ -98,6 +98,13 @@ export async function GET(req: Request) {
   // Pre-launch guard — until the platform's first billable cycle starts,
   // do nothing. Lets the cron deploy + run safely from day 1.
   if (currentCycle < FIRST_BILLABLE_CYCLE) {
+    try { await sb.from("cron_logs").insert({
+      job_name: "roll-monthly-cycles",
+      ran_at: now.toISOString(),
+      success: true,
+      records_processed: 0,
+      error_message: "pre-launch skip",
+    }); } catch { /* ignore logging failures */ }
     return NextResponse.json({
       ok: true,
       skipped: "pre-launch",
@@ -119,6 +126,13 @@ export async function GET(req: Request) {
     .eq("offerings.fee_type", "monthly");
 
   if (enrErr) {
+    try { await sb.from("cron_logs").insert({
+      job_name: "roll-monthly-cycles",
+      ran_at: now.toISOString(),
+      success: false,
+      records_processed: 0,
+      error_message: enrErr.message,
+    }); } catch { /* ignore logging failures */ }
     return NextResponse.json({ error: enrErr.message }, { status: 500 });
   }
 
@@ -198,6 +212,16 @@ export async function GET(req: Request) {
     }
     created.push(`${e.id} (${currency} ${amount})`);
   }
+
+  try {
+    await sb.from("cron_logs").insert({
+      job_name: "roll-monthly-cycles",
+      ran_at: now.toISOString(),
+      success: failed.length === 0,
+      records_processed: created.length,
+      error_message: failed.length > 0 ? `${failed.length} insert(s) failed` : null,
+    });
+  } catch { /* ignore logging failures */ }
 
   return NextResponse.json({
     ok: true,

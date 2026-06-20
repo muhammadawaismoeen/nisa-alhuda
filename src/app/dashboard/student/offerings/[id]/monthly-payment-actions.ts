@@ -179,6 +179,24 @@ export async function submitMonthlyPayment(
   return { success: true, monthlyPaymentId: inserted?.id };
 }
 
+/** Generates a 5-minute signed URL for a stored monthly payment receipt. */
+export async function getMonthlyReceiptSignedUrl(
+  receiptPath: string
+): Promise<{ success: true; url: string } | { success: false; error: string }> {
+  const auth = await requireAuth();
+  if (!auth.ok) return { success: false, error: "Not authenticated" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage
+    .from("payment-receipts")
+    .createSignedUrl(receiptPath, 300);
+
+  if (error || !data?.signedUrl) {
+    return { success: false, error: "Failed to generate receipt link" };
+  }
+  return { success: true, url: data.signedUrl };
+}
+
 function mimeFor(ext: string): string {
   const map: Record<string, string> = {
     jpg: "image/jpeg",

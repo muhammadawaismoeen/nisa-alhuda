@@ -37,6 +37,7 @@ import { isYouTubeUrl } from "@/lib/video-helpers";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ProgressRing } from "@/components/ui/progress-ring";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { Subject, Lesson, Resource } from "@/lib/types/database";
@@ -219,16 +220,18 @@ export function SubjectAccordion({
                   )}
                 </div>
 
-                {/* Subject progress bar */}
-                {progress.total > 0 && (
-                  <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden max-w-xs">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-300"
-                      style={{ width: `${progress.pct}%` }}
-                    />
-                  </div>
-                )}
               </div>
+
+              {/* Circular progress ring — shows subject completion at a glance */}
+              {progress.total > 0 && (
+                <ProgressRing
+                  pct={progress.pct}
+                  size={38}
+                  strokeWidth={3}
+                  label={null}
+                  className="shrink-0"
+                />
+              )}
 
               <ChevronDown
                 className={`h-4 w-4 text-muted-foreground transition-transform duration-200 shrink-0 ${
@@ -379,7 +382,7 @@ function LessonCard({
       <button
         onClick={onToggleComplete}
         disabled={isLoading}
-        className="mt-0.5 shrink-0 transition-colors"
+        className="mt-0.5 shrink-0 transition-colors flex flex-col items-center gap-0.5"
         title={isCompleted ? "Mark as incomplete" : "Mark as complete"}
       >
         {isLoading ? (
@@ -388,6 +391,15 @@ function LessonCard({
           <CheckCircle className="h-6 w-6 text-green-600" />
         ) : (
           <Circle className="h-6 w-6 text-muted-foreground/40 hover:text-primary" />
+        )}
+        {!isLoading && (
+          <span
+            className={`text-[9px] font-medium leading-none ${
+              isCompleted ? "text-green-600" : "text-muted-foreground/60"
+            }`}
+          >
+            {isCompleted ? "Watched" : "Watch"}
+          </span>
         )}
       </button>
 

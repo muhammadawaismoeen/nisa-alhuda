@@ -6,44 +6,17 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/link-button";
+import { StatusBadge, STATUS_CONFIG, type StatusKey } from "@/components/ui/status-badge";
 import {
-  Clock,
-  CheckCircle,
-  XCircle,
   ClipboardList,
   ArrowRight,
   AlertTriangle,
-  HeartHandshake,
 } from "lucide-react";
 import type { Offering } from "@/lib/types/database";
 import { formatPaidAmount } from "@/lib/constants";
 import { FaReceiptUpload } from "./fa-receipt-upload";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyState } from "@/components/dashboard/empty-state";
-
-const statusConfig = {
-  pending: {
-    label: "Pending Review",
-    variant: "outline" as const,
-    icon: Clock,
-    color: "text-amber-600",
-    bg: "bg-amber-50 dark:bg-amber-950/20",
-  },
-  approved: {
-    label: "Approved",
-    variant: "default" as const,
-    icon: CheckCircle,
-    color: "text-green-600",
-    bg: "bg-green-50 dark:bg-green-950/20",
-  },
-  rejected: {
-    label: "Rejected",
-    variant: "destructive" as const,
-    icon: XCircle,
-    color: "text-red-600",
-    bg: "bg-red-50 dark:bg-red-950/20",
-  },
-};
 
 export default async function StudentEnrollmentsPage() {
   const supabase = await createClient();
@@ -105,39 +78,15 @@ export default async function StudentEnrollmentsPage() {
               enrollment.status === "pending" &&
               !!enrollment.payment_receipt_url;
 
-            // Derive display status: FA pending has its own look
-            let displayLabel: string;
-            let displayIcon = Clock;
-            let displayColor = "text-amber-600";
-            let displayBg = "bg-amber-50 dark:bg-amber-950/20";
-            let displayVariant: "default" | "outline" | "destructive" = "outline";
+            // Derive canonical status key for this enrollment
+            let statusKey: StatusKey;
+            if (faPendingReview) statusKey = "fa-pending";
+            else if (faAwaitingReceipt) statusKey = "fa-awaiting-receipt";
+            else if (faReceiptUnderReview) statusKey = "fa-receipt-review";
+            else if (faFullWaiver) statusKey = "fa-waived";
+            else statusKey = enrollment.status as StatusKey;
 
-            if (faPendingReview) {
-              displayLabel = "FA Under Review";
-              displayIcon = HeartHandshake;
-            } else if (faAwaitingReceipt) {
-              displayLabel = "FA Approved — Upload Receipt";
-              displayIcon = HeartHandshake;
-            } else if (faReceiptUnderReview) {
-              displayLabel = "Receipt Under Review";
-              displayIcon = Clock;
-            } else if (faFullWaiver) {
-              displayLabel = "FA Fully Waived";
-              displayIcon = CheckCircle;
-              displayColor = "text-green-600";
-              displayBg = "bg-green-50 dark:bg-green-950/20";
-              displayVariant = "default";
-            } else {
-              const config =
-                statusConfig[enrollment.status as keyof typeof statusConfig];
-              displayLabel = config.label;
-              displayIcon = config.icon;
-              displayColor = config.color;
-              displayBg = config.bg;
-              displayVariant = config.variant;
-            }
-
-            const StatusIcon = displayIcon;
+            const { icon: StatusIcon, bubbleBg, bubbleColor } = STATUS_CONFIG[statusKey];
 
             return (
               <Card
@@ -152,9 +101,9 @@ export default async function StudentEnrollmentsPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {/* Status icon */}
                     <div
-                      className={`h-12 w-12 rounded-xl ${displayBg} flex items-center justify-center shrink-0`}
+                      className={`h-12 w-12 rounded-xl ${bubbleBg} flex items-center justify-center shrink-0`}
                     >
-                      <StatusIcon className={`h-5 w-5 ${displayColor}`} />
+                      <StatusIcon className={`h-5 w-5 ${bubbleColor}`} />
                     </div>
 
                     {/* Info */}
@@ -163,7 +112,7 @@ export default async function StudentEnrollmentsPage() {
                         <h3 className="font-semibold truncate">
                           {offering?.title}
                         </h3>
-                        <Badge variant={displayVariant}>{displayLabel}</Badge>
+                        <StatusBadge status={statusKey} />
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
