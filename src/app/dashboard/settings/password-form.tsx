@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { clearMustChangePassword } from "./actions";
 
 export function PasswordForm() {
   const [newPassword, setNewPassword] = useState("");
@@ -36,6 +37,9 @@ export function PasswordForm() {
       });
 
       if (error) throw new Error(error.message);
+
+      // Clear the must_change_password gate so the redirect loop ends.
+      await clearMustChangePassword();
 
       toast.success("Password updated successfully!");
       setNewPassword("");
