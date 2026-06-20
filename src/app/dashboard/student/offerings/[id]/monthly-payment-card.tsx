@@ -14,7 +14,9 @@ import {
   CalendarDays,
   AlertCircle,
   HeartHandshake,
+  XCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   cyclesBetween,
   firstOfMonth,
@@ -151,32 +153,59 @@ export function MonthlyPaymentCard({
             <div className="space-y-2">
               {cycles.slice(1).map((cycle) => {
                 const payment = byCycle[cycle];
+                const sk = cycleStatusKey(payment);
                 const displayAmount = payment
                   ? formatMonthlyAmount(payment.amount, payment.currency)
                   : formatMonthlyAmount(monthlyAmount, currency);
+
+                const borderClass: Record<string, string> = {
+                  paid:    "border-green-200 dark:border-green-900",
+                  pending: "border-amber-200 dark:border-amber-900",
+                  rejected:"border-destructive/40",
+                  owed:    "border-slate-200 dark:border-slate-700",
+                  unpaid:  "border-slate-200 dark:border-slate-700",
+                };
+                const headerClass: Record<string, string> = {
+                  paid:    "bg-green-50/80 dark:bg-green-950/20 border-green-200 dark:border-green-900",
+                  pending: "bg-amber-50/80 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900",
+                  rejected:"bg-destructive/5 border-destructive/30",
+                  owed:    "bg-muted/40 border-slate-200 dark:border-slate-700",
+                  unpaid:  "bg-muted/40 border-slate-200 dark:border-slate-700",
+                };
+
                 return (
                   <div
                     key={cycle}
-                    className="rounded-lg border bg-card p-3"
+                    className={cn("rounded-lg border overflow-hidden", borderClass[sk])}
                   >
-                    {/* Month name + status */}
-                    <div className="flex items-center justify-between mb-1.5">
-                      <p className="text-sm font-medium">
+                    {/* Receipt header strip — status badge + cycle label */}
+                    <div className={cn("flex items-center justify-between px-3 py-1.5 border-b", headerClass[sk])}>
+                      <StatusBadge status={sk} />
+                      <span className="text-xs text-muted-foreground font-medium">
                         {formatCycleMonth(cycle)}
-                      </p>
-                      <StatusBadge status={cycleStatusKey(payment)} />
+                      </span>
                     </div>
-                    {/* Period + amount + receipt */}
-                    <div className="flex items-center justify-between gap-2">
+
+                    {/* Receipt body — period, amount, contextual note, receipt link */}
+                    <div className="p-3 flex items-end justify-between gap-2 bg-card">
                       <div>
                         <p className="text-xs text-muted-foreground">
                           {formatCyclePeriod(cycle)}
                         </p>
-                        <p className="text-sm font-semibold mt-0.5">
-                          {displayAmount}
-                        </p>
+                        <p className="text-lg font-bold mt-0.5">{displayAmount}</p>
+                        {payment?.status === "rejected" && payment.rejection_reason && (
+                          <p className="text-xs text-destructive mt-1.5 flex items-start gap-1">
+                            <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                            <span>{payment.rejection_reason}</span>
+                          </p>
+                        )}
+                        {!payment && (
+                          <p className="text-xs text-muted-foreground italic mt-1">
+                            No receipt on file
+                          </p>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
                         {payment?.receipt_url && (
                           <ReceiptLink storagePath={payment.receipt_url} />
                         )}
