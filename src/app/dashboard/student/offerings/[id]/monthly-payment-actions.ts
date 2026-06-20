@@ -4,6 +4,7 @@
  * Monthly payment server actions for enrolled students.
  * Students upload a receipt per calendar month; admins/treasurers approve.
  */
+import { requireAuth } from "@/lib/db/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { firstOfMonth, monthlyAmountForEnrollment } from "@/lib/monthly-payments";
@@ -34,17 +35,13 @@ export interface SubmitMonthlyPaymentResult {
 export async function submitMonthlyPayment(
   input: SubmitMonthlyPaymentInput
 ): Promise<SubmitMonthlyPaymentResult> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { success: false, error: "Not authenticated." };
+  const auth = await requireAuth();
+  if (!auth.ok) return { success: false, error: auth.error };
 
   // Pull the enrollment + offering so we can verify ownership, compute the
   // amount (including any FA-approved reduced fee), and ensure it's a
   // monthly-fee offering.
+  const supabase = await createClient();
   const { data: enrollment } = await supabase
     .from("enrollments")
     .select(
@@ -60,7 +57,7 @@ export async function submitMonthlyPayment(
       }
     >();
 
-  if (!enrollment || enrollment.student_id !== user.id) {
+  if (!enrollment || enrollment.student_id !== auth.userId) {
     return { success: false, error: "Enrollment not found." };
   }
   if (enrollment.status !== "approved") {
@@ -87,7 +84,7 @@ export async function submitMonthlyPayment(
   // Upload the receipt — reuse the payment-receipts bucket, namespace by
   // user + enrollment + cycle so it's easy to trace.
   const fileExt = input.receiptFileName.split(".").pop() || "jpg";
-  const receiptPath = `${user.id}/monthly/${enrollment.id}-${cycleMonth}-${Date.now()}.${fileExt}`;
+  const receiptPath = `${auth.userId}/monthly/${enrollment.id}-${cycleMonth}-${Date.now()}.${fileExt}`;
 
   const base64Data =
     input.receiptBase64.split(",").pop() || input.receiptBase64;
@@ -161,7 +158,7 @@ export async function submitMonthlyPayment(
     .from("monthly_payments")
     .insert({
       enrollment_id: enrollment.id,
-      student_id: user.id,
+      student_id: auth.userId,
       offering_id: enrollment.offering_id,
       cycle_month: cycleMonth,
       amount,

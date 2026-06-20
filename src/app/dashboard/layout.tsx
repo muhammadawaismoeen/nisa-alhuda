@@ -41,6 +41,18 @@ export default async function DashboardLayout({
 
   if (!profile) redirect("/login");
 
+  // Security gate: suspended accounts cannot access any dashboard route.
+  if (profile.is_suspended) redirect("/suspended");
+
+  // Security gate: force password change before accessing any dashboard page.
+  // /dashboard/settings is allowed through so the user can actually change it.
+  if (profile.must_change_password) {
+    const currentPath = (await headers()).get("x-pathname") ?? "";
+    if (!currentPath.startsWith("/dashboard/settings")) {
+      redirect("/dashboard/settings");
+    }
+  }
+
   // Payment-block gate (students only). Runs before every dashboard render
   // so a blocked sister can't sneak in via cached navigation. The block
   // screen is the only thing she sees outside of the monthly-payment page.

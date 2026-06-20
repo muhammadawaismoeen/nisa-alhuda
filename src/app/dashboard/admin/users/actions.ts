@@ -10,7 +10,7 @@
  *     works with the service_role key.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/db/auth";
 import { sendCredentialsEmail } from "@/lib/email";
 import type { UserRole } from "@/lib/types/database";
 
@@ -21,23 +21,6 @@ const ALL_ROLES: readonly UserRole[] = [
   "admin",
 ] as const;
 
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") {
-    return { ok: false as const, error: "Not authorized." };
-  }
-  return { ok: true as const, user };
-}
 
 function isValidRole(r: string): r is UserRole {
   return (ALL_ROLES as readonly string[]).includes(r);
@@ -59,11 +42,11 @@ export async function updateUserRoles(
   primaryRole: string,
   roles: string[]
 ): Promise<UpdateUserRolesResult> {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["admin"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   if (!targetUserId) return { success: false, error: "Missing user id." };
-  if (targetUserId === auth.user.id) {
+  if (targetUserId === auth.userId) {
     return {
       success: false,
       error: "You cannot change your own roles — ask another admin.",
@@ -117,7 +100,7 @@ export interface ResetUserPasswordResult {
 export async function resetUserPassword(
   targetUserId: string
 ): Promise<ResetUserPasswordResult> {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["admin"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   if (!targetUserId) return { success: false, error: "Missing user id." };
@@ -202,7 +185,7 @@ export async function setUserPassword(
   targetUserId: string,
   newPassword: string
 ): Promise<SetUserPasswordResult> {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["admin"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   if (!targetUserId) return { success: false, error: "Missing user id." };

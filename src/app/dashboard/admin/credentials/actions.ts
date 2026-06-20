@@ -9,7 +9,7 @@
  * it issues a "recovery" (password reset) link.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/db/auth";
 import { sendCredentialsEmail } from "@/lib/email";
 
 export interface StudentCredentialRow {
@@ -24,31 +24,13 @@ export interface StudentCredentialRow {
   enrollmentStatus: string;
 }
 
-async function requireAdminOrInstructor() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  // Credentials send is a teaching-adjacent admin action (reset link / set
-  // password for an enrolled student). Instructors get to use it too —
-  // they're the ones most often debugging access for their own students.
-  if (!["admin", "instructor"].includes(profile?.role || "")) {
-    return { ok: false as const, error: "Not authorized." };
-  }
-  return { ok: true as const, user };
-}
 
 export async function getStudentsForOffering(
   offeringId: string
 ): Promise<{ success: boolean; error?: string; students?: StudentCredentialRow[] }> {
-  const auth = await requireAdminOrInstructor();
+  // Credentials send is a teaching-adjacent admin action — instructors
+  // get to use it too (they debug access for their own students most often).
+  const auth = await requireRole(["admin", "instructor"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   const admin = createAdminClient();
@@ -137,7 +119,9 @@ export async function sendCredentials(
   offeringId: string,
   emails: string[]
 ): Promise<SendCredentialsResult> {
-  const auth = await requireAdminOrInstructor();
+  // Credentials send is a teaching-adjacent admin action — instructors
+  // get to use it too (they debug access for their own students most often).
+  const auth = await requireRole(["admin", "instructor"]);
   if (!auth.ok) {
     return { success: false, error: auth.error, sent: 0, failed: [] };
   }

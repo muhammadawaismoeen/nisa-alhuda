@@ -19,7 +19,7 @@
  * that lands on `/reset-password`.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/db/auth";
 import { sendCredentialsEmail, sendEnrollmentApprovedEmail } from "@/lib/email";
 
 interface EnrollResult {
@@ -31,26 +31,6 @@ interface EnrollResult {
   emailSent?: boolean;
 }
 
-async function requireAdminOrInstructor() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false as const, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  // Instructors get roster-management access alongside admins. Price /
-  // fee_type for the resulting enrollment is pulled from the offering
-  // itself, so no financial input is exposed to the instructor UI.
-  if (!["admin", "instructor"].includes(profile?.role || "")) {
-    return { ok: false as const, error: "Not authorized." };
-  }
-  return { ok: true as const, user };
-}
 
 export async function enrollByEmail(
   offeringId: string,
@@ -65,7 +45,8 @@ export async function enrollByEmail(
    */
   presetPassword?: string
 ): Promise<EnrollResult> {
-  const auth = await requireAdminOrInstructor();
+  // Instructors get roster-management access alongside admins.
+  const auth = await requireRole(["admin", "instructor"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   const email = (rawEmail || "").toLowerCase().trim();
@@ -140,7 +121,7 @@ export async function enrollByEmail(
           message: "",
         }
       : null,
-    reviewed_by: auth.user.id,
+    reviewed_by: auth.userId,
     reviewed_at: new Date().toISOString(),
   };
 

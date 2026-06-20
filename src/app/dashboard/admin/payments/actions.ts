@@ -25,7 +25,7 @@
  * as /dashboard/admin/payments).
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/db/auth";
 import { sendApprovalCredentialsEmail } from "@/lib/email";
 
 /**
@@ -40,30 +40,6 @@ import { sendApprovalCredentialsEmail } from "@/lib/email";
  */
 const APPROVAL_DEFAULT_PASSWORD = "nisaalhud@student#2026";
 
-type AuthRole = "admin" | "treasurer";
-
-async function requireAuth(
-  allowed: AuthRole[]
-): Promise<
-  | { ok: true; userId: string }
-  | { ok: false; error: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!profile || !allowed.includes(profile.role as AuthRole)) {
-    return { ok: false, error: "Not authorized." };
-  }
-  return { ok: true, userId: user.id };
-}
 
 /**
  * Page through admin.auth.admin.listUsers looking for an existing user
@@ -272,7 +248,7 @@ async function provisionCredentialsCore(
 export async function approveEnrollmentWithCredentials(
   enrollmentId: string
 ): Promise<ProvisionResult> {
-  const auth = await requireAuth(["admin", "treasurer"]);
+  const auth = await requireRole(["admin", "treasurer"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   const admin = createAdminClient();
@@ -311,7 +287,7 @@ export async function approveEnrollmentWithCredentials(
 export async function provisionCredentialsForEnrollment(
   enrollmentId: string
 ): Promise<ProvisionResult> {
-  const auth = await requireAuth(["admin", "treasurer"]);
+  const auth = await requireRole(["admin", "treasurer"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   const admin = createAdminClient();
@@ -327,7 +303,7 @@ export async function rejectEnrollment(
   enrollmentId: string,
   reason: string
 ): Promise<{ success: boolean; error?: string }> {
-  const auth = await requireAuth(["admin", "treasurer"]);
+  const auth = await requireRole(["admin", "treasurer"]);
   if (!auth.ok) return { success: false, error: auth.error };
   if (!reason?.trim()) {
     return { success: false, error: "Please provide a rejection reason." };
@@ -377,7 +353,7 @@ export async function approveMonthlyPaymentManually(args: {
   amount: number;
   note: string;
 }): Promise<{ success: boolean; error?: string }> {
-  const auth = await requireAuth(["admin", "treasurer"]);
+  const auth = await requireRole(["admin", "treasurer"]);
   if (!auth.ok) return { success: false, error: auth.error };
 
   if (!Number.isFinite(args.amount) || args.amount < 0) {

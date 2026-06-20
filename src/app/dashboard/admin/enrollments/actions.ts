@@ -5,7 +5,7 @@
  * Uses service_role to handle manual enrollment (needs auth.users email lookup).
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/db/auth";
 import {
   sendEnrollmentApprovedEmail,
   sendFaApprovedEmail,
@@ -18,22 +18,10 @@ export async function manualEnroll(
   offeringId: string,
   price: number
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
+  const auth = await requireRole(["admin"]);
+  if (!auth.ok) return { success: false, error: auth.error };
+
   const admin = createAdminClient();
-
-  // Verify caller is admin
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin")
-    return { success: false, error: "Not authorized." };
 
   // Get student's email from auth.users
   const { data: authUser, error: authError } =
@@ -51,7 +39,7 @@ export async function manualEnroll(
     payment_receipt_url: null,
     payment_amount: price,
     payment_method: "manual",
-    reviewed_by: user.id,
+    reviewed_by: auth.userId,
     reviewed_at: new Date().toISOString(),
   });
 
@@ -96,22 +84,10 @@ export async function approveFinancialAssistance(
     return { success: false, error: "Invalid amount." };
   }
 
-  const supabase = await createClient();
+  const auth = await requireRole(["admin"]);
+  if (!auth.ok) return { success: false, error: auth.error };
+
   const admin = createAdminClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") {
-    return { success: false, error: "Not authorized." };
-  }
 
   // If full waiver (0), approve the enrollment outright.
   // Otherwise, reduce payment_amount to the approved amount and keep as pending
@@ -125,7 +101,7 @@ export async function approveFinancialAssistance(
 
   if (approvedAmount === 0) {
     updatePayload.status = "approved";
-    updatePayload.reviewed_by = user.id;
+    updatePayload.reviewed_by = auth.userId;
     updatePayload.reviewed_at = new Date().toISOString();
     updatePayload.payment_method = "waiver";
   }
@@ -197,22 +173,10 @@ export async function rejectFinancialAssistance(
     return { success: false, error: "Please provide a reason." };
   }
 
-  const supabase = await createClient();
+  const auth = await requireRole(["admin"]);
+  if (!auth.ok) return { success: false, error: auth.error };
+
   const admin = createAdminClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (profile?.role !== "admin") {
-    return { success: false, error: "Not authorized." };
-  }
 
   const { error } = await admin
     .from("enrollments")
@@ -221,7 +185,7 @@ export async function rejectFinancialAssistance(
       rejection_reason: reason.trim(),
       fa_decision_note: reason.trim(),
       fa_reviewed_at: new Date().toISOString(),
-      reviewed_by: user.id,
+      reviewed_by: auth.userId,
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", enrollmentId);
@@ -268,23 +232,8 @@ export async function removeEnrollment(
   studentId: string,
   offeringId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-
-  // Verify caller is admin or instructor — removing a stray enrollment
-  // isn't a financial decision, so the teaching role can clean these up
-  // alongside the admin.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-  if (!["admin", "instructor"].includes(profile?.role || ""))
-    return { success: false, error: "Not authorized." };
+  const auth = await requireRole(["admin", "instructor"]);
+  if (!auth.ok) return { success: false, error: auth.error };
 
   const admin = createAdminClient();
   const { error } = await admin
@@ -306,23 +255,10 @@ export async function removeEnrollment(
 export async function deleteEnrollment(
   enrollmentId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated." };
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
   // Removing a stray enrollment is a roster-management action (not a
   // financial decision) — instructors can do this alongside admins.
-  if (!["admin", "instructor"].includes(profile?.role || "")) {
-    return { success: false, error: "Not authorized." };
-  }
+  const auth = await requireRole(["admin", "instructor"]);
+  if (!auth.ok) return { success: false, error: auth.error };
 
   const admin = createAdminClient();
 

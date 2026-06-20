@@ -8,7 +8,7 @@
  *   in the admin pending queue.
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/lib/db/auth";
 
 export interface UploadFaReceiptInput {
   enrollmentId: string;
@@ -21,12 +21,8 @@ export interface UploadFaReceiptInput {
 export async function uploadFaReceipt(
   input: UploadFaReceiptInput
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { success: false, error: "Not authenticated." };
+  const auth = await requireAuth();
+  if (!auth.ok) return { success: false, error: auth.error };
 
   const admin = createAdminClient();
 
@@ -43,8 +39,8 @@ export async function uploadFaReceipt(
 
   // Must belong to this user (match student_id or applicant_email)
   const belongsToUser =
-    enrollment.student_id === user.id ||
-    enrollment.applicant_email?.toLowerCase() === user.email?.toLowerCase();
+    enrollment.student_id === auth.userId ||
+    enrollment.applicant_email?.toLowerCase() === auth.email?.toLowerCase();
   if (!belongsToUser) {
     return { success: false, error: "Not authorized." };
   }
@@ -67,7 +63,7 @@ export async function uploadFaReceipt(
   }
 
   const fileExt = input.receiptFileName.split(".").pop() || "jpg";
-  const folder = user.id;
+  const folder = auth.userId;
   const receiptPath = `${folder}/${enrollment.offering_id}-fa-${Date.now()}.${fileExt}`;
 
   const base64Data = input.receiptBase64.split(",").pop() || input.receiptBase64;
