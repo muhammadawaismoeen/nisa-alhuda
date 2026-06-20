@@ -5,7 +5,7 @@ describe("ok()", () => {
   it("returns success with no data", () => {
     const result = ok();
     expect(result.success).toBe(true);
-    expect(result.data).toBeUndefined();
+    if (result.success) expect(result.data).toBeUndefined();
   });
 
   it("returns success with string data", () => {
