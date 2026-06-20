@@ -17,6 +17,7 @@ import {
   Hourglass,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/dashboard/empty-state";
 import { PaymentActions } from "./payment-actions";
 import { MonthlyPaymentActions } from "./monthly-payment-actions";
 import { ManualApproveButton } from "./manual-approve-button";
@@ -565,14 +566,11 @@ export default async function PaymentLedgerPage() {
         </h2>
 
         {!enrollments || enrollments.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <DollarSign className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground text-lg">
-                No transactions yet
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={DollarSign}
+            title="No enrollment transactions yet"
+            description="One-time enrollment payments will appear here once sisters register and submit a receipt."
+          />
         ) : (
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
             <table className="w-full text-sm min-w-[640px]">

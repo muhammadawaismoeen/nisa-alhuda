@@ -316,7 +316,7 @@ export function SubjectAccordion({
                 {lessons.length === 0 ? (
                   <div className="ml-12 py-6 text-center">
                     <p className="text-sm text-muted-foreground">
-                      Classes coming soon for this subject.
+                      No classes have been added to this subject yet. Check back soon.
                     </p>
                   </div>
                 ) : (

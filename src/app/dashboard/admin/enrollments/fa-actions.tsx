@@ -57,7 +57,7 @@ export function FaActions({
     paymentCurrency === "USD" ? "$" : paymentCurrency === "INR" ? "₹" : "PKR";
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"main" | "reject">("main");
+  const [mode, setMode] = useState<"main" | "confirm" | "reject">("main");
   const [approvedAmount, setApprovedAmount] = useState<string>(
     faOfferedAmount?.toString() || ""
   );
@@ -314,10 +314,66 @@ export function FaActions({
                 <XCircle className="h-4 w-4 mr-1.5" />
                 Reject
               </Button>
+              <Button
+                onClick={() => {
+                  const amount = Number(approvedAmount);
+                  if (!Number.isFinite(amount) || amount < 0) {
+                    toast.error("Please enter a valid approved amount (0 or more).");
+                    return;
+                  }
+                  setMode("confirm");
+                }}
+                disabled={loading}
+              >
+                <CheckCircle className="h-4 w-4 mr-1.5" />
+                Approve &amp; Notify Student
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {mode === "confirm" && (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-secondary/50 p-4 space-y-3 text-center">
+              <div>
+                <p className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
+                  Approving FA for
+                </p>
+                <p className="font-semibold text-base">{applicantName}</p>
+              </div>
+              <div className="border-t pt-3">
+                {Number(approvedAmount) === 0 ? (
+                  <>
+                    <p className="text-xl font-bold text-green-600">Full Fee Waiver</p>
+                    <p className="text-xs text-muted-foreground mt-1">Student pays nothing</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xl font-bold">
+                      {formatPaidAmount(Number(approvedAmount), paymentCurrency)}
+                      <span className="text-sm font-normal text-muted-foreground"> / month</span>
+                    </p>
+                    {Number(approvedAmount) < originalPrice && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        {Math.round(((originalPrice - Number(approvedAmount)) / originalPrice) * 100)}% discount
+                        from original {formatPaidAmount(originalPrice, paymentCurrency)}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              The student will receive an email notification with their approved amount.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setMode("main")} disabled={loading}>
+                Back
+              </Button>
               <Button onClick={handleApprove} disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 <CheckCircle className="h-4 w-4 mr-1.5" />
-                Approve &amp; Notify Student
+                Confirm Approval
               </Button>
             </div>
           </div>
