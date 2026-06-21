@@ -22,7 +22,7 @@ function getResend(): Resend | null {
 const FROM =
   process.env.EMAIL_FROM || "Nisa Al-Huda <onboarding@resend.dev>";
 const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://nisa-alhuda.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.nisaalhuda.org";
 const APP_NAME = "Nisa Al-Huda";
 
 // ─── Shared HTML wrapper ────────────────────────────────

@@ -19,7 +19,15 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
-  const redirectTo = new URL(next, request.url);
+  // Railway serves Next.js on 0.0.0.0:8080 internally; request.url therefore
+  // carries that internal address, not the public hostname. Use the configured
+  // site URL so redirects land on www.nisaalhuda.org, not 0.0.0.0:8080.
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+    `${request.headers.get("x-forwarded-proto") ?? "https"}://${request.headers.get("x-forwarded-host") ?? request.headers.get("host")}` ||
+    new URL(request.url).origin;
+
+  const redirectTo = new URL(next, origin);
 
   const supabase = await createClient();
 
@@ -53,9 +61,9 @@ export async function GET(request: NextRequest) {
   // For the password recovery flow specifically, send users to the reset
   // page where the "missing session" branch already shows good guidance.
   if (type === "recovery" || next === "/reset-password") {
-    return NextResponse.redirect(new URL("/reset-password", request.url));
+    return NextResponse.redirect(new URL("/reset-password", origin));
   }
-  const errorUrl = new URL("/login", request.url);
+  const errorUrl = new URL("/login", origin);
   errorUrl.searchParams.set("error", "auth_callback_failed");
   return NextResponse.redirect(errorUrl);
 }
