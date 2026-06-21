@@ -1223,6 +1223,53 @@ export function EnrollmentWizard({
         </div>
         )}
 
+        {/* Application Summary — compact review before submitting */}
+        <Card className="glass border-primary/15">
+          <CardContent className="p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+              Application Summary
+            </p>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              <div>
+                <p className="text-xs text-muted-foreground">Name</p>
+                <p className="font-medium">
+                  {`${details.first_name} ${details.last_name}`.trim() || "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="font-medium truncate">{email || "—"}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-muted-foreground">Program</p>
+                <p className="font-medium">{offeringTitle}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {paymentMode === "fa" ? "Your Offered Amount" : "Amount"}
+                </p>
+                <p className="font-medium">
+                  {paymentMode === "fa"
+                    ? faOfferedAmount !== ""
+                      ? `${paymentRegion === "intl" ? "$" : paymentRegion === "in" && hasInrPrice ? "₹" : "PKR "}${faOfferedAmount}`
+                      : "—"
+                    : paymentRegion === "intl" && hasIntlPrice
+                      ? `$${(offeringPriceUsd ?? 0).toLocaleString("en-US")} USD`
+                      : paymentRegion === "in" && hasInrPrice
+                        ? `₹${(offeringPriceInr ?? 0).toLocaleString("en-IN")}`
+                        : formatPriceWithFee(offeringPrice, offeringFeeType)}
+                </p>
+              </div>
+              {paymentMode === "fa" && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Type</p>
+                  <p className="text-xs font-medium text-primary">Financial Assistance</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Navigation */}
         <div className="flex justify-between">
           <Button variant="outline" onClick={goBack} className="press">
@@ -1242,7 +1289,7 @@ export function EnrollmentWizard({
               </>
             ) : (
               <>
-                {paymentMode === "fa" ? "Submit Application" : "Submit Application"}
+                {paymentMode === "fa" ? "Submit FA Application" : "Confirm Enrollment"}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </>
             )}
