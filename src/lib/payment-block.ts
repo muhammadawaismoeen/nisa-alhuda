@@ -4,9 +4,16 @@
  *
  * Rules (from spec):
  *  • Block when the current cycle is owed and the cycle has been running
- *    for at least BLOCK_AFTER_DAYS (5) days. Matches the admin worklist
- *    cutoff so admins see the same sister on their "Awaiting Submission"
- *    list right around the time she's about to be locked.
+ *    for at least BLOCK_AFTER_DAYS (10) days — i.e. block first kicks in
+ *    on the 6th of the fee month (cycle starts on the 27th of the prior
+ *    month, so the 6th = day 10). Sisters keep portal access through
+ *    the 5th of the fee month even if the receipt isn't in yet.
+ *
+ *    The admin "Awaiting Submission" chase list (see
+ *    `src/app/dashboard/admin/payments/page.tsx`) uses its own T+5
+ *    threshold and is intentionally decoupled — admins see the sister
+ *    on their worklist ~5 days before the block hits, so there's a
+ *    window to reach out manually before automatic lockout.
  *  • Exemptions — these enrollments DON'T contribute to a block:
  *    - 100% Financial Assistance (fa_approved_amount === 0)
  *    - Non-billable methods (manual_approval / waiver / free)
@@ -32,8 +39,12 @@ import {
 } from "@/lib/monthly-payments";
 import type { Enrollment, Offering } from "@/lib/types/database";
 
-/** Days after cycle start before the lockout kicks in. Matches admin worklist. */
-export const BLOCK_AFTER_DAYS = 5;
+/**
+ * Days after cycle start (27th of prior month) before the lockout kicks in.
+ * 10 = block first fires on the 6th of the fee month; the 5th is still a
+ * safe day for the sister to upload her receipt.
+ */
+export const BLOCK_AFTER_DAYS = 10;
 
 /** Non-billable payment methods — sisters on these never owe a monthly fee. */
 const NON_BILLABLE_METHODS = new Set(["manual_approval", "waiver", "free"]);
